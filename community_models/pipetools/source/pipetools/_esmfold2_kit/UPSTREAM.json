@@ -1,0 +1,34 @@
+{
+  "repository": "https://github.com/anthropics/uplifting-biomolecular-modeling",
+  "revision": "f4f62fa6592ae4938d49b1757bea0cfeff9f468e",
+  "files": [
+    "FAST_NOTICE",
+    "LICENSE",
+    "NOTICE",
+    "THIRD_PARTY_NOTICES.md",
+    "XL_NOTICE",
+    "ef2_atom.py",
+    "ef2_dit.py",
+    "ef2_hoist.py",
+    "ef2_mk_sampler.py",
+    "ef2_nvjit.py",
+    "ef2_opt.py",
+    "ef2_pair_v2.py",
+    "ef2_srcguard.py",
+    "ef2_transition_cute.py",
+    "ef2_w4.py",
+    "ef2_xl.py",
+    "ef2_xln.py",
+    "ef2_xte.py",
+    "third_party_licenses/PyTorch.BSD-3-Clause.txt",
+    "third_party_licenses/esm.MIT.txt",
+    "third_party_licenses/transformers_fork.Apache-2.0.txt"
+  ],
+  "local_adaptations": {
+    "ef2_srcguard.py": "Runtime checks callable APIs only; source-byte validation moved to scripts/validate_esmfold2_upstream_sources.py.",
+    "ef2_xl.py": "Removed unused source-hash diagnostics; anchor checks preserved.",
+    "ef2_nvjit.py": "Unused build/ELF verification helper moved to scripts/vendor/esmfold2/ef2_nvjit.py; no production importer.",
+    "ef2_opt.py": "Excluded upstream feature and ESMC exact caches; graph, pair-bias, SWA, and sampler lifecycle paths remain."
+  },
+  "verification_manifest": "scripts/vendor/esmfold2/UPSTREAM_SOURCE_HASHES.json"
+}

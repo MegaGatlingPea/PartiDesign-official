@@ -1,0 +1,93 @@
+include README.md
+include pyproject.toml
+include setup.py
+recursive-include licenses *
+
+recursive-include partidesign *.py
+
+# The immutable runtime corpus copied into partidesign/_resources by setup.py.
+recursive-include configs *
+prune configs/customs
+
+# Vendored community source and licenses; setup.py applies the same path
+# filters while copying resources into the wheel.
+recursive-include community_models *
+
+include src/__init__.py
+recursive-include src/design *.py
+include src/design/utils/notebook_molstar.js
+include src/design/utils/notebook_command.js
+include src/design/utils/notebook_help.js
+include src/design/utils/notebook_preset_load.js
+include src/design/utils/notebook_action.js
+include src/design/utils/notebook_theme.css
+recursive-include src/validate *.py
+recursive-include src/scoring *.py
+recursive-include src/cluster *.py
+
+
+# No tests, generated caches, model weights, native environments, or notebooks.
+# AF3 CCD files are generated runtime assets (including .cif/.gz/.pickle) and
+# must stay outside source distributions even when the checkout has no Git
+# metadata.  Keep only an optional hand-authored README if present.
+prune community_models/af3/ccd
+include community_models/af3/ccd/README.md
+prune src/validate/tests
+prune partidesign.egg-info
+prune community_models/esmfold2/common
+prune community_models/esmfold2/source/dockq/build
+prune community_models/esmfold2/source/dockq/src/dockq.egg-info
+prune community_models/esmfold2/source/esm/build
+prune community_models/esmfold2/source/esm/esm.egg-info
+prune community_models/esmfold2/source/esm/tests
+prune community_models/esmfold2/source/transformers/build
+prune community_models/esmfold2/source/transformers/notebooks
+prune community_models/esmfold2/source/transformers/src/transformers.egg-info
+prune community_models/esmfold2/source/transformers/tests
+prune community_models/*/checkpoint
+prune community_models/*/checkpoints
+prune community_models/*/env
+prune community_models/*/cache
+prune community_models/*/tests
+prune community_models/*/notebooks
+prune community_models/*/notebook
+prune community_models/*/backup
+prune community_models/*/backups
+prune community_models/*/build
+prune community_models/*/dist
+prune community_models/*/egg-info
+global-exclude __pycache__/*
+global-exclude test_*.py
+global-exclude *.py[cod]
+global-exclude *.pt
+global-exclude *.pth
+global-exclude *.npz
+global-exclude *.safetensors
+global-exclude *.ckpt
+global-exclude *.bin
+global-exclude *.so
+global-exclude *.dll
+global-exclude *.dylib
+global-exclude *.o
+global-exclude *.a
+global-exclude */tests/*
+global-exclude */test_data/*
+global-exclude */notebooks/*
+global-exclude */notebook/*
+global-exclude */backups/*
+global-exclude */backup/*
+global-exclude */logs/*
+global-exclude */cache/*
+global-exclude */env/*
+global-exclude */checkpoint/*
+global-exclude */checkpoints/*
+exclude community_models/colabdesign/source/colabdesign/mpnn/weights/v_48_020.pkl
+global-exclude *.ipynb
+
+recursive-include src/common *.py
+
+include partidesign.yaml
+recursive-include docs *.md
+prune .cache
+prune .goal-task
+prune .pytest_cache

@@ -1,0 +1,28 @@
+# RNA/DNA monomers only; pass --task rna_monomer_benchmark --task dna_monomer_benchmark.
+methods:
+- af3
+sequence:
+  seed: 101
+  sources:
+  - source: gt
+    label: self
+    count: 1
+  - source: na_mpnn
+    label: mpnn
+    count: 8
+    settings:
+      temperature: 0.1
+criteria:
+- af3_na_monomer
+scorer:
+  enabled: false
+structure_stage: base
+af3:
+  samples: 1
+  recycles: 10
+  seed: 101
+  msa:
+    mode: auto
+    search_workers: 2
+    templates: true
+    max_template_date: "2021-09-30"

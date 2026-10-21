@@ -1,0 +1,77 @@
+# Additional protein-ligand examples, excluded from the current formal benchmark.
+# Run from the repository root; input assets remain in configs/benchmarks/inputs/ligand_binder/.
+# Existing task names, fixed ligand conditions and sampling settings are preserved.
+imidacloprid_nitroimine:
+  input: ./configs/benchmarks/inputs/ligand_binder/nitroimine.cif
+  sample_num: 5
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  design_length:
+    P: [100]
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: C1CN(/C(=N/[N+](=O)[O-])/N1)CC2=CN=C(C=C2)Cl
+imidacloprid_ring_imine:
+  input: ./configs/benchmarks/inputs/ligand_binder/ring_imine.cif
+  sample_num: 5
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  design_length:
+    P: [100]
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: C1CN(C(=N1)N[N+](=O)[O-])CC2=CN=C(C=C2)Cl
+
+# Fixed gas-phase ligand contexts; protein binder length 100 aa.
+ligand_binder_menthol_fixed:
+  input: ./configs/benchmarks/inputs/ligand_binder/menthol.cif
+  sample_num: 5
+  postprocess: false
+  score: false
+  design_chains:
+    - {P: protein}
+  design_length:
+    P: [100]
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: "CC1CCC(C(C1)O)C(C)C"
+
+ligand_binder_ethyl_maltol_fixed:
+  input: ./configs/benchmarks/inputs/ligand_binder/ethyl_maltol.cif
+  sample_num: 5
+  postprocess: false
+  score: false
+  design_chains:
+    - {P: protein}
+  design_length:
+    P: [100]
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: "CCC1=C(C(=O)C=CO1)O"
+
+ligand_binder_vanillin_fixed:
+  input: ./configs/benchmarks/inputs/ligand_binder/vanillin.cif
+  sample_num: 5
+  postprocess: false
+  score: false
+  design_chains:
+    - {P: protein}
+  design_length:
+    P: [100]
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: "COC1=C(C=CC(=C1)C=O)O"

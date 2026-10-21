@@ -1,0 +1,642 @@
+{
+  "benchmark": "PepDBench",
+  "cases": {
+    "dll3.pdb": {
+      "structure": "dll3.pdb",
+      "variants": [
+        {
+          "condition": null,
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A33/A35/A51/A55/A57/A60/A101/A114",
+          "task": "pepdbench_dll3_linear"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": 2
+                },
+                "atom2": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": -2
+                },
+                "order": "single"
+              }
+            ],
+            "sequence": {
+              "P": [
+                {
+                  "resid": 2,
+                  "residue": "C"
+                },
+                {
+                  "resid": -2,
+                  "residue": "C"
+                }
+              ]
+            }
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A33/A35/A51/A55/A57/A60/A101/A114",
+          "task": "pepdbench_dll3_disulfide"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "N",
+                  "chain": "P",
+                  "resid": 1
+                },
+                "atom2": {
+                  "atom": "C",
+                  "chain": "P",
+                  "resid": -1
+                },
+                "order": "single"
+              }
+            ]
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A33/A35/A51/A55/A57/A60/A101/A114",
+          "task": "pepdbench_dll3_cyclic"
+        }
+      ]
+    },
+    "gabarap.pdb": {
+      "structure": "gabarap.pdb",
+      "variants": [
+        {
+          "condition": null,
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A30/A48/A51-54/A65/A69",
+          "task": "pepdbench_gabarap_linear"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": 2
+                },
+                "atom2": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": -2
+                },
+                "order": "single"
+              }
+            ],
+            "sequence": {
+              "P": [
+                {
+                  "resid": 2,
+                  "residue": "C"
+                },
+                {
+                  "resid": -2,
+                  "residue": "C"
+                }
+              ]
+            }
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A30/A48/A51-54/A65/A69",
+          "task": "pepdbench_gabarap_disulfide"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "N",
+                  "chain": "P",
+                  "resid": 1
+                },
+                "atom2": {
+                  "atom": "C",
+                  "chain": "P",
+                  "resid": -1
+                },
+                "order": "single"
+              }
+            ]
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A30/A48/A51-54/A65/A69",
+          "task": "pepdbench_gabarap_cyclic"
+        }
+      ]
+    },
+    "keap1.pdb": {
+      "structure": "keap1.pdb",
+      "variants": [
+        {
+          "condition": null,
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A10/A56/A91/A201/A231-232/A248/A278",
+          "task": "pepdbench_keap1_linear"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": 2
+                },
+                "atom2": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": -2
+                },
+                "order": "single"
+              }
+            ],
+            "sequence": {
+              "P": [
+                {
+                  "resid": 2,
+                  "residue": "C"
+                },
+                {
+                  "resid": -2,
+                  "residue": "C"
+                }
+              ]
+            }
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A10/A56/A91/A201/A231-232/A248/A278",
+          "task": "pepdbench_keap1_disulfide"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "N",
+                  "chain": "P",
+                  "resid": 1
+                },
+                "atom2": {
+                  "atom": "C",
+                  "chain": "P",
+                  "resid": -1
+                },
+                "order": "single"
+              }
+            ]
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A10/A56/A91/A201/A231-232/A248/A278",
+          "task": "pepdbench_keap1_cyclic"
+        }
+      ]
+    },
+    "klk2.pdb": {
+      "structure": "klk2.pdb",
+      "variants": [
+        {
+          "condition": null,
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A124-125/A153/A155/A159/A177-179",
+          "task": "pepdbench_klk2_linear"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": 2
+                },
+                "atom2": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": -2
+                },
+                "order": "single"
+              }
+            ],
+            "sequence": {
+              "P": [
+                {
+                  "resid": 2,
+                  "residue": "C"
+                },
+                {
+                  "resid": -2,
+                  "residue": "C"
+                }
+              ]
+            }
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A124-125/A153/A155/A159/A177-179",
+          "task": "pepdbench_klk2_disulfide"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "N",
+                  "chain": "P",
+                  "resid": 1
+                },
+                "atom2": {
+                  "atom": "C",
+                  "chain": "P",
+                  "resid": -1
+                },
+                "order": "single"
+              }
+            ]
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A124-125/A153/A155/A159/A177-179",
+          "task": "pepdbench_klk2_cyclic"
+        }
+      ]
+    },
+    "mdm2.pdb": {
+      "structure": "mdm2.pdb",
+      "variants": [
+        {
+          "condition": null,
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A29/A33/A36-37/A42/A47/A68/A71",
+          "task": "pepdbench_mdm2_linear"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": 2
+                },
+                "atom2": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": -2
+                },
+                "order": "single"
+              }
+            ],
+            "sequence": {
+              "P": [
+                {
+                  "resid": 2,
+                  "residue": "C"
+                },
+                {
+                  "resid": -2,
+                  "residue": "C"
+                }
+              ]
+            }
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A29/A33/A36-37/A42/A47/A68/A71",
+          "task": "pepdbench_mdm2_disulfide"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "N",
+                  "chain": "P",
+                  "resid": 1
+                },
+                "atom2": {
+                  "atom": "C",
+                  "chain": "P",
+                  "resid": -1
+                },
+                "order": "single"
+              }
+            ]
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A29/A33/A36-37/A42/A47/A68/A71",
+          "task": "pepdbench_mdm2_cyclic"
+        }
+      ]
+    },
+    "xiap.pdb": {
+      "structure": "xiap.pdb",
+      "variants": [
+        {
+          "condition": null,
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A51-54/A59/A64/A68-69",
+          "task": "pepdbench_xiap_linear"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": 2
+                },
+                "atom2": {
+                  "atom": "SG",
+                  "chain": "P",
+                  "resid": -2
+                },
+                "order": "single"
+              }
+            ],
+            "sequence": {
+              "P": [
+                {
+                  "resid": 2,
+                  "residue": "C"
+                },
+                {
+                  "resid": -2,
+                  "residue": "C"
+                }
+              ]
+            }
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A51-54/A59/A64/A68-69",
+          "task": "pepdbench_xiap_disulfide"
+        },
+        {
+          "condition": {
+            "bond": [
+              {
+                "atom1": {
+                  "atom": "N",
+                  "chain": "P",
+                  "resid": 1
+                },
+                "atom2": {
+                  "atom": "C",
+                  "chain": "P",
+                  "resid": -1
+                },
+                "order": "single"
+              }
+            ]
+          },
+          "design_length": {
+            "P": [
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          "hotspot": "A51-54/A59/A64/A68-69",
+          "task": "pepdbench_xiap_cyclic"
+        }
+      ]
+    }
+  },
+  "target_count": 6
+}

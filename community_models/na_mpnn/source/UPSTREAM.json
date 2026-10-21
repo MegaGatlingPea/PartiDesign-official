@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/baker-laboratory/NA-MPNN.git",
+  "commit": "9fabc2482092b725e067969fba21297a806b6fda",
+  "scope": "inference-only design adapter",
+  "checkpoint": "../checkpoint/s_19137.pt",
+  "checkpoint_sha256": "5fb12951a0ad3ee44b91f33b7dd19114e755b49eb577d9eb1be71b24b7e49e4c"
+}

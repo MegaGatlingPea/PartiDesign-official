@@ -1,0 +1,410 @@
+{
+  "source": "https://github.com/NVIDIA-BioNeMo/Proteina-Complexa/tree/dev/assets/target_data/ligand_targets",
+  "benchmark": "Ligand-conditioned protein binder targets",
+  "structure_policy": "One ligand-only structure per target conditions fixed-ligand design. Joint SMILES design has no coordinate input. Generated complex CIF is the reference for refold self-consistency metrics.",
+  "targets": {
+    "7v11": {
+      "ccd": "OQO",
+      "source_pdb": "7v11_ligand_centered.pdb",
+      "structure": "7v11_oqo.pdb",
+      "smiles": "Fc1c(Cl)ccc(n2cnnn2)c1c1c[n+]([O-])c(cc1)C(CC1CC1)n1cc(cn1)c1ccc(N)nc1C",
+      "binder_length": 100
+    },
+    "5sdv": {
+      "ccd": "IAI",
+      "source_pdb": "5SDV_ligand_centered.pdb",
+      "structure": "5sdv_iai.pdb",
+      "smiles": "O=C(NCc1cocn1)c1cnn(C)c1C(=O)Nc1ccn2cc(nc2n1)c1ccccc1",
+      "binder_length": 100
+    },
+    "7bkc": {
+      "ccd": "FAD",
+      "source_pdb": "7BKC_ligand_centered.pdb",
+      "structure": "7bkc_fad.pdb",
+      "smiles": "O=C2C3=Nc1cc(c(cc1N(C3=NC(=O)N2)CC(O)C(O)C(O)COP(=O)(O)OP(=O)(O)OCC6OC(n5cnc4c(ncnc45)N)C(O)C6O)C)C",
+      "binder_length": 100
+    },
+    "7c7m": {
+      "ccd": "SAM",
+      "source_pdb": "7C7M_ligand_centered.pdb",
+      "structure": "7c7m_sam.pdb",
+      "smiles": "[O-]C(=O)C(N)CC[S+](C)CC3OC(n2cnc1c(ncnc12)N)C(O)C3O",
+      "binder_length": 100
+    },
+    "imidacloprid_nitroimine": {
+      "structure": "nitroimine.cif",
+      "smiles": "C1CN(/C(=N/[N+](=O)[O-])/N1)CC2=CN=C(C=C2)Cl",
+      "canonical_isomeric_smiles": "O=[N+]([O-])/N=C1\\NCCN1Cc1ccc(Cl)nc1",
+      "heavy_atom_count": 17,
+      "bond_count": 18,
+      "mmff_kcal_mol": -47.351320916593316,
+      "xtb_hartree": -51.613505629091,
+      "conformer_generation": {
+        "embed": "RDKit ETKDGv3, 128 requested, seed 20260924, prune RMSD 0.25 Angstrom",
+        "prefilter": "MMFF94s optimization, lowest-energy converged conformer per tautomer",
+        "optimization": "GFN2-xTB 6.7.1 gas phase, tight geometry convergence",
+        "scope_note": "Selected local minima are candidates from the embedded ensemble, not a proof of global conformational minimum or of a bioactive bound pose."
+      }
+    },
+    "imidacloprid_ring_imine": {
+      "structure": "ring_imine.cif",
+      "smiles": "C1CN(C(=N1)N[N+](=O)[O-])CC2=CN=C(C=C2)Cl",
+      "canonical_isomeric_smiles": "O=[N+]([O-])NC1=NCCN1Cc1ccc(Cl)nc1",
+      "heavy_atom_count": 17,
+      "bond_count": 18,
+      "mmff_kcal_mol": -75.49788717620997,
+      "xtb_hartree": -51.581872251976,
+      "conformer_generation": {
+        "embed": "RDKit ETKDGv3, 128 requested, seed 20260924, prune RMSD 0.25 Angstrom",
+        "prefilter": "MMFF94s optimization, lowest-energy converged conformer per tautomer",
+        "optimization": "GFN2-xTB 6.7.1 gas phase, tight geometry convergence",
+        "scope_note": "Selected local minima are candidates from the embedded ensemble, not a proof of global conformational minimum or of a bioactive bound pose."
+      }
+    },
+    "ethyl_maltol": {
+      "cas": "4940-11-8",
+      "chain_id": "L",
+      "component_id_in_cif": "LIG01",
+      "converged_finite_conformers": 4,
+      "embedded_conformers": 4,
+      "formal_charges": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "formula": "C7H8O3",
+      "heavy_atom_count": 10,
+      "mmff94s_energy_kcal_mol": 21.273490817894753,
+      "neutral": true,
+      "optimized_conformers": 4,
+      "readback": {
+        "all_mol_type_ligand": true,
+        "atom_count": 10,
+        "atom_names_equivalent": true,
+        "bond_count": 10,
+        "bond_graph_equivalent": true,
+        "chain_ids": [
+          "L"
+        ],
+        "elements_equivalent": true,
+        "finite_coordinates": true,
+        "heavy_atom_count": 10,
+        "ok": true,
+        "source": "GFN2-xTB 6.7.1 xtbopt.xyz heavy rows"
+      },
+      "selected_conformer_id": 1,
+      "smiles": "CCC1=C(C(=O)C=CO1)O",
+      "source_url": "https://pubchem.ncbi.nlm.nih.gov/compound/4940-11-8",
+      "task_name": "ligand_binder_ethyl_maltol_fixed",
+      "xtb": {
+        "binary": "/home/megagatlingpea/workdir/PartiDesign/.cache/tools/xtb-dist/bin/xtb",
+        "charge": 0,
+        "command_flags": [
+          "--gfn",
+          "2",
+          "--opt",
+          "tight",
+          "--chrg",
+          "0",
+          "--uhf",
+          "0"
+        ],
+        "comment": " energy: -31.254699769357 gnorm: 0.000073739240 xtb: 6.7.1 (edcfbbe)",
+        "geometry_converged": true,
+        "gradient_norm_eh_per_angstrom": 7.373924e-05,
+        "input_xyz": "/tmp/flavor_ligands_20261001/ethyl_maltol_mmff94s_with_h.xyz",
+        "iterations": 19,
+        "method": "GFN2-xTB",
+        "output_xyz": "/tmp/flavor_ligands_20261001/xtb_runs/ethyl_maltol/xtbopt.xyz",
+        "threads": 2,
+        "total_energy_eh": -31.254699769357,
+        "uhf": 0,
+        "version": "6.7.1"
+      },
+      "xtb_energy_eh": -31.254699769357,
+      "structure": "ethyl_maltol.cif",
+      "conformer_generation": {
+        "embedder": "ETKDGv3",
+        "force_field": "MMFF94s",
+        "force_field_max_iterations": 500,
+        "prune_rms_threshold_angstrom": 0.25,
+        "random_seed": 20260924,
+        "rdkit_version": "2026.03.4",
+        "requested_conformers": 128,
+        "selection": "lowest finite energy among converged MMFF94s conformers",
+        "xtb": {
+          "available": true,
+          "command_flags": [
+            "--gfn",
+            "2",
+            "--opt",
+            "tight",
+            "--chrg",
+            "0",
+            "--uhf",
+            "0"
+          ],
+          "requested": "GFN2-xTB 6.7.1 gasphase tight optimization",
+          "status": "completed_all_cases",
+          "threads": 2,
+          "version": "6.7.1"
+        }
+      }
+    },
+    "menthol": {
+      "cas": "89-78-1",
+      "chain_id": "L",
+      "component_id_in_cif": "LIG01",
+      "converged_finite_conformers": 91,
+      "embedded_conformers": 91,
+      "formal_charges": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "formula": "C10H20O",
+      "heavy_atom_count": 11,
+      "mmff94s_energy_kcal_mol": 17.774243438744584,
+      "neutral": true,
+      "optimized_conformers": 91,
+      "readback": {
+        "all_mol_type_ligand": true,
+        "atom_count": 11,
+        "atom_names_equivalent": true,
+        "bond_count": 11,
+        "bond_graph_equivalent": true,
+        "chain_ids": [
+          "L"
+        ],
+        "elements_equivalent": true,
+        "finite_coordinates": true,
+        "heavy_atom_count": 11,
+        "ok": true,
+        "source": "GFN2-xTB 6.7.1 xtbopt.xyz heavy rows"
+      },
+      "selected_conformer_id": 35,
+      "smiles": "CC1CCC(C(C1)O)C(C)C",
+      "source_url": "https://pubchem.ncbi.nlm.nih.gov/compound/89-78-1",
+      "task_name": "ligand_binder_menthol_fixed",
+      "xtb": {
+        "binary": "/home/megagatlingpea/workdir/PartiDesign/.cache/tools/xtb-dist/bin/xtb",
+        "charge": 0,
+        "command_flags": [
+          "--gfn",
+          "2",
+          "--opt",
+          "tight",
+          "--chrg",
+          "0",
+          "--uhf",
+          "0"
+        ],
+        "comment": " energy: -35.709129401745 gnorm: 0.000116849011 xtb: 6.7.1 (edcfbbe)",
+        "geometry_converged": true,
+        "gradient_norm_eh_per_angstrom": 0.000116849011,
+        "input_xyz": "/tmp/flavor_ligands_20261001/menthol_mmff94s_with_h.xyz",
+        "iterations": 22,
+        "method": "GFN2-xTB",
+        "output_xyz": "/tmp/flavor_ligands_20261001/xtb_runs/menthol/xtbopt.xyz",
+        "threads": 2,
+        "total_energy_eh": -35.709129401745,
+        "uhf": 0,
+        "version": "6.7.1"
+      },
+      "xtb_energy_eh": -35.709129401745,
+      "structure": "menthol.cif",
+      "conformer_generation": {
+        "embedder": "ETKDGv3",
+        "force_field": "MMFF94s",
+        "force_field_max_iterations": 500,
+        "prune_rms_threshold_angstrom": 0.25,
+        "random_seed": 20260924,
+        "rdkit_version": "2026.03.4",
+        "requested_conformers": 128,
+        "selection": "lowest finite energy among converged MMFF94s conformers",
+        "xtb": {
+          "available": true,
+          "command_flags": [
+            "--gfn",
+            "2",
+            "--opt",
+            "tight",
+            "--chrg",
+            "0",
+            "--uhf",
+            "0"
+          ],
+          "requested": "GFN2-xTB 6.7.1 gasphase tight optimization",
+          "status": "completed_all_cases",
+          "threads": 2,
+          "version": "6.7.1"
+        }
+      }
+    },
+    "vanillin": {
+      "cas": "121-33-5",
+      "chain_id": "L",
+      "component_id_in_cif": "LIG01",
+      "converged_finite_conformers": 2,
+      "embedded_conformers": 2,
+      "formal_charges": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "formula": "C8H8O3",
+      "heavy_atom_count": 11,
+      "mmff94s_energy_kcal_mol": 27.93015337228111,
+      "neutral": true,
+      "optimized_conformers": 2,
+      "readback": {
+        "all_mol_type_ligand": true,
+        "atom_count": 11,
+        "atom_names_equivalent": true,
+        "bond_count": 11,
+        "bond_graph_equivalent": true,
+        "chain_ids": [
+          "L"
+        ],
+        "elements_equivalent": true,
+        "finite_coordinates": true,
+        "heavy_atom_count": 11,
+        "ok": true,
+        "source": "GFN2-xTB 6.7.1 xtbopt.xyz heavy rows"
+      },
+      "selected_conformer_id": 0,
+      "smiles": "COC1=C(C=CC(=C1)C=O)O",
+      "source_url": "https://pubchem.ncbi.nlm.nih.gov/compound/121-33-5",
+      "task_name": "ligand_binder_vanillin_fixed",
+      "xtb": {
+        "binary": "/home/megagatlingpea/workdir/PartiDesign/.cache/tools/xtb-dist/bin/xtb",
+        "charge": 0,
+        "command_flags": [
+          "--gfn",
+          "2",
+          "--opt",
+          "tight",
+          "--chrg",
+          "0",
+          "--uhf",
+          "0"
+        ],
+        "comment": " energy: -33.382190474089 gnorm: 0.000258228788 xtb: 6.7.1 (edcfbbe)",
+        "geometry_converged": true,
+        "gradient_norm_eh_per_angstrom": 0.000258228788,
+        "input_xyz": "/tmp/flavor_ligands_20261001/vanillin_mmff94s_with_h.xyz",
+        "iterations": 6,
+        "method": "GFN2-xTB",
+        "output_xyz": "/tmp/flavor_ligands_20261001/xtb_runs/vanillin/xtbopt.xyz",
+        "threads": 2,
+        "total_energy_eh": -33.382190474089,
+        "uhf": 0,
+        "version": "6.7.1"
+      },
+      "xtb_energy_eh": -33.382190474089,
+      "structure": "vanillin.cif",
+      "conformer_generation": {
+        "embedder": "ETKDGv3",
+        "force_field": "MMFF94s",
+        "force_field_max_iterations": 500,
+        "prune_rms_threshold_angstrom": 0.25,
+        "random_seed": 20260924,
+        "rdkit_version": "2026.03.4",
+        "requested_conformers": 128,
+        "selection": "lowest finite energy among converged MMFF94s conformers",
+        "xtb": {
+          "available": true,
+          "command_flags": [
+            "--gfn",
+            "2",
+            "--opt",
+            "tight",
+            "--chrg",
+            "0",
+            "--uhf",
+            "0"
+          ],
+          "requested": "GFN2-xTB 6.7.1 gasphase tight optimization",
+          "status": "completed_all_cases",
+          "threads": 2,
+          "version": "6.7.1"
+        }
+      }
+    }
+  },
+  "target_groups": {
+    "complexa": [
+      "7v11",
+      "5sdv",
+      "7bkc",
+      "7c7m"
+    ],
+    "imidacloprid": [
+      "imidacloprid_nitroimine",
+      "imidacloprid_ring_imine"
+    ],
+    "flavor_ligands": [
+      "ethyl_maltol",
+      "menthol",
+      "vanillin"
+    ]
+  },
+  "checkpoint_scan": {
+    "total_samples": 200,
+    "fixed_protein_samples": 160,
+    "joint_samples": 40,
+    "additional_molecule_samples_each": 24,
+    "additional_protein_lengths": [
+      151,
+      153,
+      155,
+      157,
+      160,
+      162,
+      164,
+      166,
+      168,
+      170,
+      172,
+      174,
+      177,
+      179,
+      181,
+      183,
+      185,
+      187,
+      189,
+      191,
+      194,
+      196,
+      198,
+      200
+    ],
+    "nucleic_binder_tasks": "configs/tasks/nuc_ligand_binder_benchmark.yaml",
+    "nucleic_binder_structure_policy": "Reuse the existing prepared nitroimine, menthol, ethyl_maltol and vanillin CIFs; ligand context is fixed, design RNA/DNA.",
+    "nucleic_binder_samples_total": 80
+  }
+}

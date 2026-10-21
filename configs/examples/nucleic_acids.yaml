@@ -1,0 +1,190 @@
+rna_fixture:
+  input: ./configs/examples/structures/nuc_design/nuc_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 20
+  hotspot: E64/E88/E96
+  score: false
+  postprocess: false
+dna_fixture:
+  input: ./configs/examples/structures/nuc_design/nuc_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 20
+  hotspot: E64/E88/E96
+  score: false
+  postprocess: false
+rna_monomer:
+  input: null
+  sample_num: 1
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 15
+    - 24
+    - 32
+    - 48
+    - 60
+dna_monomer:
+  input: null
+  sample_num: 1
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 12
+    - 24
+    - 32
+    - 48
+    - 60
+rna_monomer_folding:
+  input: null
+  sample_num: 5
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: GGCUCUCACUGGCC
+dna_monomer_folding:
+  input: null
+  sample_num: 5
+  design_chains:
+  - D: dna
+  condition:
+    sequence:
+      D: CGCGAATTCGCG
+rna_ss_guided:
+  input: null
+  sample_num: 5
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 15
+  condition:
+    secondary_structure:
+      coarse:
+        R: paired
+      token:
+        R:
+          paired: 1-5,11-15
+          unpaired: 6-10
+      pair:
+        paired:
+        - - R1
+          - R15
+        - - R2
+          - R14
+        - - R3
+          - R13
+        - - R4
+          - R12
+        - - R5
+          - R11
+        unpaired:
+        - - R6
+          - R10
+dna_ss_guided:
+  input: null
+  sample_num: 5
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 12
+  condition:
+    secondary_structure:
+      coarse:
+        D: paired
+      token:
+        D:
+          paired: 1-4,9-12
+          unpaired: 5-8
+      pair:
+        paired:
+        - - D1
+          - D12
+        - - D2
+          - D11
+        - - D3
+          - D10
+        - - D4
+          - D9
+        unpaired:
+        - - D5
+          - D8
+rna_invfold:
+  input: ./configs/examples/structures/nuc_design/rna_backbone_motif.pdb
+  sample_num: 5
+  design_chains:
+  - A: rna
+  condition:
+    backbone:
+    - A
+dna_invfold:
+  input: ./configs/examples/structures/nuc_design/dna_backbone.pdb
+  sample_num: 5
+  design_chains:
+  - A: dna
+  condition:
+    backbone:
+    - A
+rna_motif_all_atom:
+  input: ./configs/examples/structures/nuc_design/rna_backbone_motif.pdb
+  sample_num: 5
+  design_chains:
+  - A: rna
+  condition:
+    contig:
+      A:
+        token: 4-8/A5-11/4-8
+        motif_min_length: 19
+        motif_max_length: 23
+        polymer_atom: null
+rna_motif_base_atoms:
+  input: ./configs/examples/structures/nuc_design/rna_backbone_motif.pdb
+  sample_num: 5
+  design_chains:
+  - A: rna
+  condition:
+    contig:
+      A:
+        token: 4-8/A5-11/4-8
+        motif_min_length: 19
+        motif_max_length: 23
+        polymer_atom:
+          A5:
+          - N1
+          - C2
+          - N3
+          A8:
+          - N9
+          - C8
+          - N7
+          A11:
+          - N1
+          - C2
+          - N3
+rna_bind_ligand:
+  input: ./configs/examples/structures/nuc_design/nuc_bind_ligand.cif
+  sample_num: 5
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 24
+dna_bind_ligand:
+  input: ./configs/examples/structures/nuc_design/nuc_bind_ligand.cif
+  sample_num: 5
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 24

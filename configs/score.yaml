@@ -1,0 +1,11 @@
+# Standalone PartiScore command configuration.
+# input_dirs is overridden by the score CLI; paths are local and never fetched.
+input_dirs: []
+overwrite: false
+scorer:
+  checkpoint: ./ckpts/partiscore.ckpt
+  weights: raw
+  device: auto
+  batch_size: 32
+  max_pair_elements: 2097152
+  num_workers: 16

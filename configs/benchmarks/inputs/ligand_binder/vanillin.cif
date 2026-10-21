@@ -1,0 +1,57 @@
+data_vanillin
+#
+loop_
+_atom_site.group_PDB 
+_atom_site.id 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.pdbx_PDB_model_num 
+HETATM 1  C C1 . LIG01 L 1 . . -2.249158 -1.546198 -0.878421 1
+HETATM 2  O O1 . LIG01 L 1 . . -1.920703 -0.176887 -0.859064 1
+HETATM 3  C C2 . LIG01 L 1 . . -0.702761 0.182811  -0.337898 1
+HETATM 4  C C3 . LIG01 L 1 . . -0.448059 1.571322  -0.354003 1
+HETATM 5  C C4 . LIG01 L 1 . . 0.750834  2.060455  0.146146  1
+HETATM 6  C C5 . LIG01 L 1 . . 1.695441  1.194048  0.659449  1
+HETATM 7  C C6 . LIG01 L 1 . . 1.451022  -0.176168 0.678498  1
+HETATM 8  C C7 . LIG01 L 1 . . 0.242941  -0.676058 0.175186  1
+HETATM 9  C C8 . LIG01 L 1 . . 2.436227  -1.110555 1.216777  1
+HETATM 10 O O2 . LIG01 L 1 . . 2.306993  -2.309732 1.272083  1
+HETATM 11 O O3 . LIG01 L 1 . . -1.367093 2.422862  -0.854227 1
+#
+_entity.id     1
+_entity.type   non-polymer
+#
+_struct_asym.id          L
+_struct_asym.entity_id   1
+#
+_chem_comp.id              LIG01
+_chem_comp.type            non-polymer
+_chem_comp.mon_nstd_flag   no
+#
+loop_
+_chem_comp_bond.comp_id 
+_chem_comp_bond.atom_id_1 
+_chem_comp_bond.atom_id_2 
+_chem_comp_bond.value_order 
+_chem_comp_bond.pdbx_aromatic_flag 
+LIG01 C1 O1 sing ?
+LIG01 C2 O1 sing ?
+LIG01 C2 C3 arom Y
+LIG01 C2 C7 arom Y
+LIG01 C3 C4 arom Y
+LIG01 C3 O3 sing ?
+LIG01 C4 C5 arom Y
+LIG01 C5 C6 arom Y
+LIG01 C6 C7 arom Y
+LIG01 C6 C8 sing ?
+LIG01 C8 O2 doub ?
+#

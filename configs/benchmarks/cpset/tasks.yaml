@@ -1,0 +1,1241 @@
+# Docking benchmark: 40 samples per case; OpenMM postprocess and PartiScore enabled.
+# CPSet 56 fixed-sequence docking cases; native peptide is chain P in each complex and its coordinates are masked for design.
+cpset_1g9i_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1g9i_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: EPCCDSCRCTKSIPPQCHCANI
+    bond:
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 7
+        atom: SG
+      order: single
+    - atom1:
+        chain: P
+        resid: 4
+        atom: SG
+      atom2:
+        chain: P
+        resid: 19
+        atom: SG
+      order: single
+    - atom1:
+        chain: P
+        resid: 9
+        atom: SG
+      atom2:
+        chain: P
+        resid: 17
+        atom: SG
+      order: single
+cpset_1sfi_head_tail_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1sfi_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GRCTKSIPPICFPD
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 14
+        atom: C
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 11
+        atom: SG
+      order: single
+  cyclic_offset: true
+cpset_1sld_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1sld_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CHPQFC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 6
+        atom: SG
+      order: single
+cpset_1sle_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1sle_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CHPQGPPC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 8
+        atom: SG
+      order: single
+cpset_1smf_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1smf_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CTKSIPPEC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 9
+        atom: SG
+      order: single
+cpset_1vwe_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1vwe_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CHPQFC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 6
+        atom: SG
+      order: single
+cpset_1vwm_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1vwm_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CHPQFC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 6
+        atom: SG
+      order: single
+cpset_1vwn_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1vwn_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CHPQFC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 6
+        atom: SG
+      order: single
+cpset_1vwo_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1vwo_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CHPQGPPC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 8
+        atom: SG
+      order: single
+cpset_1vwp_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1vwp_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CHPQGPPC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 8
+        atom: SG
+      order: single
+cpset_1yf4_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/1yf4_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CYFQNCPRG
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 6
+        atom: SG
+      order: single
+cpset_2br8_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/2br8_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GCCSLPPCALNNPKYC
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: 8
+        atom: SG
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 16
+        atom: SG
+      order: single
+cpset_2c9t_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/2c9t_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GCCSDPRCAWRC
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: 8
+        atom: SG
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 12
+        atom: SG
+      order: single
+cpset_2nwn_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/2nwn_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CSWRGLENHRMC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 12
+        atom: SG
+      order: single
+cpset_2yja_mk8_staple:
+  input: ./configs/benchmarks/inputs/cpset/2yja_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: HK[MK8]LHQ[MK8]LQDS
+    bond:
+    - atom1:
+        chain: P
+        resid: 3
+        atom: CE
+      atom2:
+        chain: P
+        resid: 7
+        atom: CE
+      order: single
+cpset_2yq6_mk8_staple:
+  input: ./configs/benchmarks/inputs/cpset/2yq6_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: AIAQELR[MK8]IGD[MK8]FNAYYA
+    bond:
+    - atom1:
+        chain: P
+        resid: 8
+        atom: CE
+      atom2:
+        chain: P
+        resid: 12
+        atom: CE
+      order: single
+cpset_3avb_head_tail:
+  input: ./configs/benchmarks/inputs/cpset/3avb_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: SLKIDNLD
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 8
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_3avi_head_tail:
+  input: ./configs/benchmarks/inputs/cpset/3avi_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: SLKIDNMD
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 8
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_3g5v_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/3g5v_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CGADSYEMEEDGVRKC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 16
+        atom: SG
+      order: single
+cpset_3g5y_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/3g5y_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CGADSYEMEEDGVRKC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 16
+        atom: SG
+      order: single
+cpset_3oy5_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/3oy5_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: DGACSWRGLENHAMC
+    bond:
+    - atom1:
+        chain: P
+        resid: 4
+        atom: SG
+      atom2:
+        chain: P
+        resid: 15
+        atom: SG
+      order: single
+cpset_3p8f_head_tail_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/3p8f_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GRCTKSIPPICFPD
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 14
+        atom: C
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 11
+        atom: SG
+      order: single
+  cyclic_offset: true
+cpset_4k1e_head_tail_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/4k1e_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GFCQRSIPPICFPD
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 14
+        atom: C
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 11
+        atom: SG
+      order: single
+  cyclic_offset: true
+cpset_4mzk_nle_staple:
+  input: ./configs/benchmarks/inputs/cpset/4mzk_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: KNIPSLLR[NLE]QAH[NLE]RKKMV
+    bond:
+    - atom1:
+        chain: P
+        resid: 9
+        atom: CE
+      atom2:
+        chain: P
+        resid: 13
+        atom: CE
+      order: double
+cpset_4x1q_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/4x1q_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CPAYSRYLDC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 10
+        atom: SG
+      order: single
+cpset_4z0d_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/4z0d_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CWTTRMSPPQQIC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 13
+        atom: SG
+      order: single
+cpset_4zhl_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/4zhl_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CPAYSRYIGC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 10
+        atom: SG
+      order: single
+cpset_5c3f_nle_staple:
+  input: ./configs/benchmarks/inputs/cpset/5c3f_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: EDIIRNIARHLA[NLE]VGD[NLE][NLE]DRSI
+    bond:
+    - atom1:
+        chain: P
+        resid: 13
+        atom: CE
+      atom2:
+        chain: P
+        resid: 17
+        atom: CE
+      order: double
+cpset_5dxe_mk8_staple:
+  input: ./configs/benchmarks/inputs/cpset/5dxe_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: HK[MK8]LHR[MK8]LQDS
+    bond:
+    - atom1:
+        chain: P
+        resid: 3
+        atom: CE
+      atom2:
+        chain: P
+        resid: 7
+        atom: CE
+      order: single
+cpset_5n99_head_tail_passive_dpr:
+  input: ./configs/benchmarks/inputs/cpset/5n99_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: NQ[DPR]WQ
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 5
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_5w89_mk8_staple:
+  input: ./configs/benchmarks/inputs/cpset/5w89_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: IW[NLE][MK8]QEL[MK8]RLGDEINARYAR
+    bond:
+    - atom1:
+        chain: P
+        resid: 4
+        atom: CE
+      atom2:
+        chain: P
+        resid: 8
+        atom: CE
+      order: single
+cpset_5zjz_mk8_staple:
+  input: ./configs/benchmarks/inputs/cpset/5zjz_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: KKRYSR[MK8]QLL[MK8]FW
+    bond:
+    - atom1:
+        chain: P
+        resid: 7
+        atom: CE
+      atom2:
+        chain: P
+        resid: 11
+        atom: CE
+      order: single
+cpset_5zk5_mk8_staple:
+  input: ./configs/benchmarks/inputs/cpset/5zk5_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: KRYSREQLL[MK8]FQR[MK8]
+    bond:
+    - atom1:
+        chain: P
+        resid: 10
+        atom: CE
+      atom2:
+        chain: P
+        resid: 14
+        atom: CE
+      order: single
+cpset_5zk9_mk8_staple:
+  input: ./configs/benchmarks/inputs/cpset/5zk9_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: RIIYSR[MK8]QLL[MK8]LK
+    bond:
+    - atom1:
+        chain: P
+        resid: 7
+        atom: CE
+      atom2:
+        chain: P
+        resid: 11
+        atom: CE
+      order: single
+cpset_5zml_mk8_staple:
+  input: ./configs/benchmarks/inputs/cpset/5zml_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: KKRYSR[MK8]QLL[MK8]FRR
+    bond:
+    - atom1:
+        chain: P
+        resid: 7
+        atom: CE
+      atom2:
+        chain: P
+        resid: 11
+        atom: CE
+      order: single
+cpset_6a8n_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/6a8n_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: CPAYSRYIGC
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: SG
+      atom2:
+        chain: P
+        resid: 10
+        atom: SG
+      order: single
+cpset_6bvh_head_tail_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/6bvh_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GTCTRSIPPICNPN
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 14
+        atom: C
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 11
+        atom: SG
+      order: single
+  cyclic_offset: true
+cpset_6d3y_head_tail_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/6d3y_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GRCTKSRPPICFPD
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 14
+        atom: C
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 11
+        atom: SG
+      order: single
+  cyclic_offset: true
+cpset_6d3z_head_tail_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/6d3z_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GRCYKSRPPICFPN
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 14
+        atom: C
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 11
+        atom: SG
+      order: single
+  cyclic_offset: true
+cpset_6d40_head_tail_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/6d40_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GRCYKSIPPICFPD
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 14
+        atom: C
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 11
+        atom: SG
+      order: single
+  cyclic_offset: true
+cpset_6dn5_head_tail_passive_bal:
+  input: ./configs/benchmarks/inputs/cpset/6dn5_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: WDINNN[BAL]
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 7
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_7k2e_head_tail:
+  input: ./configs/benchmarks/inputs/cpset/7k2e_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GDEETGE
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 7
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_7k2f_head_tail:
+  input: ./configs/benchmarks/inputs/cpset/7k2f_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GAEETGE
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 7
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_7k2g_head_tail:
+  input: ./configs/benchmarks/inputs/cpset/7k2g_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GDEEAGE
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 7
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_7k2h_head_tail:
+  input: ./configs/benchmarks/inputs/cpset/7k2h_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GDPETGE
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 7
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_7k2i_head_tail:
+  input: ./configs/benchmarks/inputs/cpset/7k2i_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GAPETGE
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 7
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_7k2k_head_tail_passive_bal:
+  input: ./configs/benchmarks/inputs/cpset/7k2k_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: '[BAL]DEETGE'
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 7
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_7k2l_head_tail_passive_bal:
+  input: ./configs/benchmarks/inputs/cpset/7k2l_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: '[BAL]NPETGE'
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 7
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_7k2m_head_tail:
+  input: ./configs/benchmarks/inputs/cpset/7k2m_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GEPETGE
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 7
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_7k2n_head_tail_passive_bal:
+  input: ./configs/benchmarks/inputs/cpset/7k2n_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: '[BAL]DPETGE'
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 7
+        atom: C
+      order: single
+  cyclic_offset: true
+cpset_7v1a_mk8_staple:
+  input: ./configs/benchmarks/inputs/cpset/7v1a_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: DIDQMFSTLLGE[MK8]DLL[MK8]QS
+    bond:
+    - atom1:
+        chain: P
+        resid: 13
+        atom: CE
+      atom2:
+        chain: P
+        resid: 17
+        atom: CE
+      order: single
+cpset_7w36_mk8_staple:
+  input: ./configs/benchmarks/inputs/cpset/7w36_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: WKRHISEQLR[MK8]RDR[MK8]QRQAF
+    bond:
+    - atom1:
+        chain: P
+        resid: 11
+        atom: CE
+      atom2:
+        chain: P
+        resid: 15
+        atom: CE
+      order: single
+cpset_9fl8_mk8_staple_passive_nle:
+  input: ./configs/benchmarks/inputs/cpset/9fl8_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: LD[MK8]NFK[MK8][NLE]EEHLAL[NLE]VE
+    bond:
+    - atom1:
+        chain: P
+        resid: 3
+        atom: CE
+      atom2:
+        chain: P
+        resid: 7
+        atom: CE
+      order: single
+cpset_9o14_mk8_staple_passive_nle:
+  input: ./configs/benchmarks/inputs/cpset/9o14_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: W[MK8]AQR[MK8]GRELRR[NLE]SDEFVDSF
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: CE
+      atom2:
+        chain: P
+        resid: 6
+        atom: CE
+      order: single
+cpset_9o15_mk8_staple_passive_nle:
+  input: ./configs/benchmarks/inputs/cpset/9o15_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: W[MK8]AQR[MK8]GRELRR[NLE]SDEFVDSFK
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: CE
+      atom2:
+        chain: P
+        resid: 6
+        atom: CE
+      order: single
+cpset_9o16_mk8_staple_passive_nle:
+  input: ./configs/benchmarks/inputs/cpset/9o16_complex.pdb
+  sample_num: 40
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: W[MK8]AQR[MK8]GRELRR[NLE]SDEFVDSF
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: CE
+      atom2:
+        chain: P
+        resid: 6
+        atom: CE
+      order: single

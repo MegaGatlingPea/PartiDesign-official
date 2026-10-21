@@ -1,0 +1,61 @@
+{
+  "benchmark": "Monomer free generation",
+  "input_structure": null,
+  "reason": "Unconditional generation has no native reference structure or fixed context.",
+  "tasks": {
+    "dna_monomer_benchmark": {
+      "design_chains": [
+        {
+          "D": "dna"
+        }
+      ],
+      "design_length": {
+        "D": [
+          12,
+          24,
+          32,
+          48,
+          60
+        ]
+      },
+      "input": null,
+      "sample_num": 1
+    },
+    "protein_monomer_benchmark": {
+      "design_chains": [
+        {
+          "P": "protein"
+        }
+      ],
+      "design_length": {
+        "P": [
+          100,
+          200,
+          300,
+          400,
+          500
+        ]
+      },
+      "input": null,
+      "sample_num": 1
+    },
+    "rna_monomer_benchmark": {
+      "design_chains": [
+        {
+          "R": "rna"
+        }
+      ],
+      "design_length": {
+        "R": [
+          15,
+          24,
+          32,
+          48,
+          60
+        ]
+      },
+      "input": null,
+      "sample_num": 1
+    }
+  }
+}

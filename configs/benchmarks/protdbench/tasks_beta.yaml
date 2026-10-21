@@ -1,0 +1,144 @@
+# ProtDBench official generation budget: 4 backbones per integer binder length, 2840 total.
+# Length ranges, target crops, and hotspots follow the benchmark paper Appendix A.1.
+# Source: https://arxiv.org/html/2605.04118v1#S4.SS1 ; downstream 8 MPNN sequences do not multiply this backbone budget.
+# Design benchmark: OpenMM postprocess and PartiScore disabled.
+protdbench_bhrf1:
+  input: ./configs/benchmarks/inputs/protdbench/BHRF1_2wh6_crop.pdb
+  sample_num: 4
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z: {min: 80, max: 120, step: 1}
+  condition:
+    secondary_structure:
+      coarse:
+        Z: beta
+  hotspot: A65/A74/A77/A82/A85/A93
+protdbench_sc2rbd:
+  input: ./configs/benchmarks/inputs/protdbench/SC2RBD_6m0j_crop.pdb
+  sample_num: 4
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z: {min: 80, max: 120, step: 1}
+  condition:
+    secondary_structure:
+      coarse:
+        Z: beta
+  hotspot: E485/E489/E494/E500/E505
+protdbench_il7ra:
+  input: ./configs/benchmarks/inputs/protdbench/IL7RA_3di3_crop.pdb
+  sample_num: 4
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z: {min: 50, max: 120, step: 1}
+  condition:
+    secondary_structure:
+      coarse:
+        Z: beta
+  hotspot: B58/B80/B139
+protdbench_pdl1:
+  input: ./configs/benchmarks/inputs/protdbench/PDL1_5o45_crop.pdb
+  sample_num: 4
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z: {min: 50, max: 120, step: 1}
+  condition:
+    secondary_structure:
+      coarse:
+        Z: beta
+  hotspot: A56/A115/A123
+protdbench_trka:
+  input: ./configs/benchmarks/inputs/protdbench/TrkA_1www_crop.pdb
+  sample_num: 4
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z: {min: 50, max: 120, step: 1}
+  condition:
+    secondary_structure:
+      coarse:
+        Z: beta
+  hotspot: X294/X296/X333
+protdbench_insulin_receptor:
+  input: ./configs/benchmarks/inputs/protdbench/Insulin_4zxb_crop.pdb
+  sample_num: 4
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z: {min: 40, max: 120, step: 1}
+  condition:
+    secondary_structure:
+      coarse:
+        Z: beta
+  hotspot: E64/E88/E96
+protdbench_h1:
+  input: ./configs/benchmarks/inputs/protdbench/H1_5vli_crop.pdb
+  sample_num: 4
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z: {min: 40, max: 120, step: 1}
+  condition:
+    secondary_structure:
+      coarse:
+        Z: beta
+  hotspot: B21/B45/B52
+protdbench_vegfa:
+  input: ./configs/benchmarks/inputs/protdbench/VEGFA_1bj1_crop.pdb
+  sample_num: 4
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z: {min: 50, max: 140, step: 1}
+  condition:
+    secondary_structure:
+      coarse:
+        Z: beta
+  hotspot: W81/W83/W91
+protdbench_il17a:
+  input: ./configs/benchmarks/inputs/protdbench/IL17A_4hsa_crop.pdb
+  sample_num: 4
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z: {min: 50, max: 140, step: 1}
+  condition:
+    secondary_structure:
+      coarse:
+        Z: beta
+  hotspot: A94/A116/B67
+protdbench_tnfa:
+  input: ./configs/benchmarks/inputs/protdbench/TNFa_1tnf_crop.pdb
+  sample_num: 4
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z: {min: 50, max: 120, step: 1}
+  condition:
+    secondary_structure:
+      coarse:
+        Z: beta
+  hotspot: A113/C73

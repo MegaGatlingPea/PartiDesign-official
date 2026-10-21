@@ -1,0 +1,23 @@
+Complexa optimization algorithm reference
+Copyright 2026 Anthropic, PBC
+
+Source: https://github.com/anthropics/uplifting-biomolecular-modeling
+Revision: f4f62fa6592ae4938d49b1757bea0cfeff9f468e
+Relevant source: complexa/opt/complexa_opt/levers.py
+Original optimization code is distributed under Apache-2.0; see LICENSE here.
+The source's upstream Proteina-Complexa distribution has separate notices.
+No upstream model weights, target data, stock archive, or install hooks are
+redistributed by this PartiDesign adaptation.
+
+PartiDesign adaptation changes, September 2026:
+- Integrate explicit inference options into the existing native model/runtime.
+- Preserve dynamic FM geometry/time and recompute raw features each step.
+- Recompute folded weights per forward; bound pair-bias row/layer temporaries.
+- Keep solver failure/RNG behavior and checkpoint/state-dict keys unchanged.
+- Replace source rewriting and process-wide patches with direct module calls.
+- Add capability and validation gates plus native four-arm benchmark evidence.
+
+Pair-time conditioning broadcast, runtime dispatch, benchmark instrumentation
+and acceptance tooling are PartiDesign-specific implementation work. This
+notice attributes the reference algorithms; it does not imply endorsement or
+transfer third-party model/data rights.

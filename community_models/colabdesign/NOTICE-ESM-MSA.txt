@@ -1,0 +1,30 @@
+Embedded ESM-MSA source notices
+===============================
+
+The following notices are preserved from the vendored source headers.
+
+source/colabdesign/esm_msa/data.py
+source/colabdesign/esm_msa/model.py
+source/colabdesign/esm_msa/modules.py
+source/colabdesign/esm_msa/constants.py
+
+    Copyright (c) Facebook, Inc. and its affiliates.
+    This source code is licensed under the MIT license found in the
+    LICENSE file in the root directory of this source tree.
+
+source/colabdesign/esm_msa/__init__.py
+source/colabdesign/esm_msa/axial_attention.py
+
+    Copyright (c) Levinthal, Inc. and its affiliates.
+    This source code is licensed under the MIT license found in the
+    LICENSE file in the root directory of this source tree.
+
+source/colabdesign/esm_msa/config.py
+
+    Copyright 2021 Levinthal Limited
+    Licensed under the Apache License, Version 2.0.
+
+LICENSE-ESM-Facebook-MIT.txt is the exact local ESM license for the
+Facebook-authored files. LICENSE-AlphaFold-Code-Apache-2.0.txt contains the
+full Apache License 2.0 text. The vendored snapshot contains no separate
+Levinthal root-license file; this notice therefore does not invent one.

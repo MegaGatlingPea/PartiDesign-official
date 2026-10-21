@@ -1,0 +1,452 @@
+peptide_fixture:
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - P: peptide
+  cyclic_offset: true
+  design_length:
+    P:
+    - 13
+  condition:
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: -1
+        atom: C
+      order: single
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  score: false
+  postprocess: false
+peptide_bind_protein_disulfide:
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 15
+  condition:
+    sequence:
+      P:
+      - resid: 2
+        residue: C
+      - resid: -2
+        residue: C
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: -2
+        atom: SG
+      order: single
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+peptide_bind_protein_betahairpin:
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 15
+  condition:
+    sequence:
+      P:
+      - resid: 2
+        residue: C
+      - resid: 14
+        residue: C
+    secondary_structure:
+      token:
+        P:
+          sheet: 1-6,10-15
+      pair:
+        adjacent:
+        - - P1-6
+          - P10-15
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: 14
+        atom: SG
+      order: single
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+peptide_bind_protein_double_disulfide:
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 15
+  condition:
+    sequence:
+      P:
+      - resid: 2
+        residue: C
+      - resid: 3
+        residue: C
+      - resid: 8
+        residue: C
+      - resid: 10
+        residue: C
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: 10
+        atom: SG
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 8
+        atom: SG
+      order: single
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+peptide_bind_protein_cyclotide:
+  cyclic_offset: true
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 34
+  condition:
+    sequence:
+      P:
+      - resid: 4
+        residue: C
+      - resid: 13
+        residue: C
+      - resid: 20
+        residue: C
+      - resid: 26
+        residue: C
+      - resid: 30
+        residue: C
+      - resid: 32
+        residue: C
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: -1
+        atom: C
+      order: single
+    - atom1:
+        chain: P
+        resid: 4
+        atom: SG
+      atom2:
+        chain: P
+        resid: 26
+        atom: SG
+      order: single
+    - atom1:
+        chain: P
+        resid: 13
+        atom: SG
+      atom2:
+        chain: P
+        resid: 30
+        atom: SG
+      order: single
+    - atom1:
+        chain: P
+        resid: 20
+        atom: SG
+      atom2:
+        chain: P
+        resid: 32
+        atom: SG
+      order: single
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+peptide_bind_protein_isopeptide:
+  cyclic_offset: false
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 15
+  condition:
+    sequence:
+      P:
+      - resid: 4
+        residue: '[LYS]'
+      - resid: 8
+        residue: '[ASP]'
+    secondary_structure:
+      coarse:
+        P: alpha
+    bond:
+    - atom1:
+        chain: P
+        resid: 4
+        atom: NZ
+      atom2:
+        chain: P
+        resid: 8
+        atom: CG
+      order: single
+      omit_atoms:
+      - chain: P
+        resid: 8
+        atom: OD2
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  postprocess: true
+peptide_bind_protein_lactam:
+  cyclic_offset: false
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+    - P: peptide
+  design_length:
+    P: [15]
+  condition:
+    sequence:
+      P:
+        - resid: 9
+          residue: '[GLU]'
+    bond:
+      - atom1:
+          chain: P
+          resid: 1
+          atom: N
+        atom2:
+          chain: P
+          resid: 9
+          atom: CD
+        order: single
+        omit_atoms:
+          - chain: P
+            resid: 9
+            atom: OE2
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  postprocess: true
+peptide_bind_protein_hydrocarbon_staple:
+  cyclic_offset: false
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 15
+  condition:
+    sequence:
+      P:
+      - resid: 4
+        residue: '[MK8]'
+      - resid: 8
+        residue: '[MK8]'
+    secondary_structure:
+      coarse:
+        P: alpha
+    bond:
+    - atom1:
+        chain: P
+        resid: 4
+        atom: CE
+      atom2:
+        chain: P
+        resid: 8
+        atom: CE
+      order: double
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  postprocess: true
+peptide_bind_protein_whl_staple:
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - P: peptide
+  - W: ligand
+  design_length:
+    joint:
+    - P: 15
+  condition:
+    sequence:
+      P:
+      - resid: 4
+        residue: C
+      - resid: 11
+        residue: C
+    ligand:
+      W:
+        mode: ccd
+        ccd: WHL
+    bond:
+    - atom1:
+        chain: P
+        resid: 4
+        atom: SG
+      atom2:
+        chain: W
+        atom: CK
+      order: single
+    - atom1:
+        chain: P
+        resid: 11
+        atom: SG
+      atom2:
+        chain: W
+        atom: CH
+      order: single
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  postprocess: true
+peptide_dock_protein:
+  cyclic_offset: false
+  input: ./configs/examples/structures/peptide_design/pep_dock_prot.cif
+  sample_num: 5
+  design_chains:
+  - B: peptide
+  - C: peptide
+  condition:
+    sequence:
+      B: YKKTEV
+      C: '[BAL]'
+    bond:
+    - atom1:
+        chain: B
+        resid: 3
+        atom: NZ
+      atom2:
+        chain: C
+        resid: 1
+        atom: C
+      order: single
+    - atom1:
+        chain: B
+        resid: 5
+        atom: CD
+      atom2:
+        chain: C
+        resid: 1
+        atom: N
+      order: single
+      omit_atoms:
+      - chain: B
+        resid: 5
+        atom: OE2
+  postprocess: true
+  score: true
+
+# Additional covalent peptide products; see docs/tasks/peptide.md.
+peptide_bind_protein_tbmb_bicyclic:
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - P: peptide
+  - T: ligand
+  design_length:
+    joint:
+    - P: 18
+  condition:
+    sequence:
+      P:
+      - resid: 3
+        residue: C
+      - resid: 9
+        residue: C
+      - resid: 15
+        residue: C
+    ligand:
+      T:
+        mode: ccd
+        ccd: SEZ
+    bond:
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: T
+        atom: C1
+      order: single
+    - atom1:
+        chain: P
+        resid: 9
+        atom: SG
+      atom2:
+        chain: T
+        atom: C2
+      order: single
+    - atom1:
+        chain: P
+        resid: 15
+        atom: SG
+      atom2:
+        chain: T
+        atom: CD
+      order: single
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  postprocess: true
+  cyclic_offset: false
+  score: false
+peptide_bind_protein_double_hydrocarbon_staple:
+  input: ./configs/examples/structures/peptide_design/pep_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 18
+  condition:
+    sequence:
+      P:
+      - resid: 3
+        residue: '[MK8]'
+      - resid: 7
+        residue: '[MK8]'
+      - resid: 11
+        residue: '[MK8]'
+      - resid: 15
+        residue: '[MK8]'
+    secondary_structure:
+      coarse:
+        P: alpha
+    bond:
+    - atom1:
+        chain: P
+        resid: 3
+        atom: CE
+      atom2:
+        chain: P
+        resid: 7
+        atom: CE
+      order: double
+    - atom1:
+        chain: P
+        resid: 11
+        atom: CE
+      atom2:
+        chain: P
+        resid: 15
+        atom: CE
+      order: double
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  postprocess: true
+  cyclic_offset: false
+  score: false

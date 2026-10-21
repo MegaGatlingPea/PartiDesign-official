@@ -1,0 +1,111 @@
+# Coarse-paired RNA/DNA variant of tasks.yaml; all original sampling settings are retained.
+# This adds no token-level or explicit base-pair endpoint constraints.
+# Reuse validate.yaml; keep outputs separate from the baseline run.
+rna_bind_protein_8x0n:
+  input: ./configs/benchmarks/inputs/rna_bind_protein/8X0N_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include:
+    - A
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 12
+  hotspot: A17/A92/A59/A55
+  condition:
+    secondary_structure:
+      coarse:
+        R: paired
+rna_bind_protein_8swc:
+  input: ./configs/benchmarks/inputs/rna_bind_protein/8SWC_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include:
+    - A
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 20
+  hotspot: A210/A182/A148/A151
+  condition:
+    secondary_structure:
+      coarse:
+        R: paired
+rna_bind_protein_9rvp:
+  input: ./configs/benchmarks/inputs/rna_bind_protein/9RVP_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include:
+    - A
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 34
+  hotspot: A85/A89/A87/A7
+  condition:
+    secondary_structure:
+      coarse:
+        R: paired
+rna_bind_protein_9xzr:
+  input: ./configs/benchmarks/inputs/rna_bind_protein/9XZR_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include:
+    - B
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 71
+  hotspot: B210/B155/B121/B154
+  condition:
+    secondary_structure:
+      coarse:
+        R: paired
+rna_bind_protein_9ny9:
+  input: ./configs/benchmarks/inputs/rna_bind_protein/9NY9_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include:
+    - A
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 19
+  hotspot: A30/A157/A247/A203
+  condition:
+    secondary_structure:
+      coarse:
+        R: paired
+rna_bind_protein_8swb:
+  input: ./configs/benchmarks/inputs/rna_bind_protein/8SWB_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include:
+    - A
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 20
+  hotspot: A149/A210/A151/A153
+  condition:
+    secondary_structure:
+      coarse:
+        R: paired

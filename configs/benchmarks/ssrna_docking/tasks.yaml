@@ -1,0 +1,129 @@
+# Docking benchmark: 40 samples per case; OpenMM postprocess and PartiScore enabled.
+ssrna_dock_7uu4_b0_4_9:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_7uu4_b0_4_9.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: UAAUUU
+ssrna_dock_8edj_b0_4_9:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_8edj_b0_4_9.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: UGAUUU
+ssrna_dock_7f3i_b0_1_5:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_7f3i_b0_1_5.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: GU[5MC]U[5MC]
+    bond:
+    - atom1:
+        chain: R
+        resid: 2
+        atom: O3'
+      atom2:
+        chain: R
+        resid: 3
+        atom: P
+      order: single
+    - atom1:
+        chain: R
+        resid: 3
+        atom: O3'
+      atom2:
+        chain: R
+        resid: 4
+        atom: P
+      order: single
+    - atom1:
+        chain: R
+        resid: 4
+        atom: O3'
+      atom2:
+        chain: R
+        resid: 5
+        atom: P
+      order: single
+ssrna_dock_7f3j_b0_1_5:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_7f3j_b0_1_5.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: UCAU[5MC]
+    bond:
+    - atom1:
+        chain: R
+        resid: 4
+        atom: O3'
+      atom2:
+        chain: R
+        resid: 5
+        atom: P
+      order: single
+ssrna_dock_7v2z_b0_1_5:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_7v2z_b0_1_5.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: AGAUC
+ssrna_dock_7sos_b0_1_4:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_7sos_b0_1_4.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: AAAA
+ssrna_dock_7sov_b0_8_11:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_7sov_b0_8_11.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: AAAA
+ssrna_dock_7xs4_b0_1_4:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_7xs4_b0_1_4.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: AAAU
+ssrna_dock_7tuv_b0_1_4:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_7tuv_b0_1_4.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: GGUU

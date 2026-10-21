@@ -1,0 +1,21 @@
+methods:
+- vina_dock
+sequence:
+  sources:
+  - source: gt
+    label: self
+    count: 1
+criteria:
+- odesign_denovo_ligand
+scorer:
+  enabled: false
+structure_stage: postprocessed
+vina:
+  cpu: 1
+  seed: 101
+  exhaustiveness: 8
+  n_poses: 20
+  box_margin: 5.0
+  box_min_size: 20.0
+  box_max_size: 40.0
+  structure_stage: postprocessed

@@ -1,0 +1,1437 @@
+# AME official Complexa benchmark budget: 100 backbones per case, 41 cases, 4100 total.
+# Source: https://research.nvidia.com/labs/genair/proteina-complexa/ (Figure 9).
+# Design benchmark: OpenMM postprocess and PartiScore disabled.
+M0024_1nzy:
+  input: ./configs/benchmarks/inputs/ame/M0024_1nzy.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - B: protein
+  condition:
+    contig:
+      B:
+        token: 63/B64/21/B86/3/B90/23/B114/22/B137/7/B145/35
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          B64:
+          - O
+          - C
+          B86:
+          - CB
+          - CA
+          - N
+          - C
+          B90:
+          - CE1
+          - ND1
+          - NE2
+          - CG
+          - CD2
+          B114:
+          - N
+          - CA
+          B137:
+          - NE1
+          - CD1
+          - CE2
+          - CG
+          - CD2
+          - CZ2
+          B145:
+          - OD2
+          - CG
+          - CB
+          - OD1
+    secondary_structure:
+      coarse:
+        B: beta
+  hotspot: null
+M0040_13pk:
+  input: ./configs/benchmarks/inputs/ame/M0040_13pk.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 26/A376/128/A39/6/A399/2/A219/14
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A39:
+          - NH1
+          - CZ
+          - NE
+          - NH2
+          A219:
+          - NZ
+          - CE
+          - CD
+          A376:
+          - N
+          - CA
+          - C
+          A399:
+          - N
+          - CA
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0050_1dbt:
+  input: ./configs/benchmarks/inputs/ame/M0050_1dbt.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 9/A60/A33/46/A215/22/A65/1/A62/5/A123/91
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A33:
+          - NZ
+          - CE
+          A60:
+          - OD2
+          - CG
+          - CB
+          - OD1
+          A62:
+          - NZ
+          - CE
+          A123:
+          - OG1
+          - CB
+          - CA
+          - CG2
+          A215:
+          - N
+          - CA
+          - C
+          - CB
+          A65:
+          - OD2
+          - CG
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0054_1qfe:
+  input: ./configs/benchmarks/inputs/ame/M0054_1qfe.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 85/A86/56/A143/26/A170/10
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A86:
+          - O
+          - C
+          - CA
+          A143:
+          - NE2
+          - CD2
+          - CE1
+          - CG
+          - ND1
+          A170:
+          - NZ
+          - CE
+          - CD
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0058_1cju:
+  input: ./configs/benchmarks/inputs/ame/M0058_1cju.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 39/A396/A397/42/A440/20/A1029/35/A1065/39
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A396:
+          - OD2
+          - CG
+          A397:
+          - O
+          - C
+          - CA
+          A440:
+          - OD2
+          - CG
+          A1029:
+          - NH1
+          - CZ
+          - NE
+          - NH2
+          A1065:
+          - NZ
+          - CE
+          - CD
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0078_1al6:
+  input: ./configs/benchmarks/inputs/ame/M0078_1al6.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 24/A244/29/A274/45/A320/8/A329/45/A375/24
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A244:
+          - OG
+          - CB
+          A274:
+          - ND1
+          - CG
+          - CE1
+          - CB
+          - CD2
+          - NE2
+          A320:
+          - NE2
+          - CD2
+          - CE1
+          A329:
+          - NH2
+          - CZ
+          - NE
+          - NH1
+          A375:
+          - OD2
+          - CG
+          - CB
+          - OD1
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0092_1dli:
+  input: ./configs/benchmarks/inputs/ame/M0092_1dli.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 16/A118/26/A145/58/A204/3/A208/51/A260/3/A264/17
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A118:
+          - N
+          - CA
+          - C
+          - CB
+          A145:
+          - N
+          - CA
+          A204:
+          - NZ
+          - CE
+          - CD
+          A208:
+          - OD1
+          - CG
+          - CB
+          - ND2
+          A260:
+          - SG
+          - CB
+          - CA
+          A264:
+          - OD1
+          - CG
+          - CB
+          - OD2
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0093_1dqa:
+  input: ./configs/benchmarks/inputs/ame/M0093_1dqa.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 59/A691/48/A767/1/A559/2/A866/66
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A691:
+          - NZ
+          - CE
+          - CD
+          A767:
+          - OD2
+          - CG
+          - CB
+          - OD1
+          A559:
+          - OE2
+          - CD
+          A866:
+          - CD2
+          - CG
+          - NE2
+          - CB
+          - ND1
+          - CE1
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0096_1chm:
+  input: ./configs/benchmarks/inputs/ame/M0096_1chm.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 26/A232/29/A262/95/A358/27
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A232:
+          - NE2
+          - CD2
+          - CE1
+          A262:
+          - OE2
+          - CD
+          A358:
+          - OE1
+          - CD
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0097_1ctt:
+  input: ./configs/benchmarks/inputs/ame/M0097_1ctt.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 101/A102/1/A104/24/A129/2/A132/48
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A102:
+          - ND1
+          - CG
+          - CE1
+          A104:
+          - OE1
+          - CD
+          A129:
+          - SG
+          - CB
+          A132:
+          - SG
+          - CB
+          - CA
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0110_1c0p:
+  input: ./configs/benchmarks/inputs/ame/M0110_1c0p.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 11/A1054/2/A1335/3/A1339/161
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A1054:
+          - N
+          - CA
+          A1335:
+          - O
+          - C
+          - CA
+          A1339:
+          - N
+          - CA
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0129_1os7:
+  input: ./configs/benchmarks/inputs/ame/M0129_1os7.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 96/A99/3/A101/28/A270/7/A255/42
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A99:
+          - NE2
+          - CD2
+          - CE1
+          A101:
+          - OD1
+          - CG
+          - CB
+          - OD2
+          A255:
+          - NE2
+          - CD2
+          - CE1
+          - CG
+          - ND1
+          A270:
+          - NH1
+          - CZ
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0151_1q0n:
+  input: ./configs/benchmarks/inputs/ame/M0151_1q0n.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 81/A82/9/A92/2/A95/1/A97/83
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A82:
+          - NE
+          - CD
+          - CZ
+          A92:
+          - NH2
+          - CZ
+          - NE
+          - NH1
+          A95:
+          - OD1
+          - CG
+          A97:
+          - OD2
+          - CG
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0157_1qh5:
+  input: ./configs/benchmarks/inputs/ame/M0157_1qh5.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 53/A54/1/A56/1/A58/A59/50/A110/23/A134/38/A173/7
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A54:
+          - NE2
+          - CD2
+          - CE1
+          A56:
+          - ND1
+          - CG
+          - CE1
+          - CB
+          - CD2
+          - NE2
+          A58:
+          - OD2
+          - CG
+          A59:
+          - NE2
+          - CD2
+          - CE1
+          A110:
+          - NE2
+          - CD2
+          - CE1
+          A134:
+          - OD2
+          - CG
+          A173:
+          - NE2
+          - CD2
+          - CE1
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0179_1q3s:
+  input: ./configs/benchmarks/inputs/ame/M0179_1q3s.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 3/A64/96/A393/5/A97/A98/72
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A64:
+          - OD1
+          - CG
+          - CB
+          - OD2
+          A97:
+          - N
+          - CA
+          - C
+          - CB
+          A98:
+          - N
+          - CA
+          - C
+          - CB
+          A393:
+          - OD2
+          - CG
+          - CB
+          - OD1
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0188_1xel:
+  input: ./configs/benchmarks/inputs/ame/M0188_1xel.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 123/A124/24/A149/3/A153/27
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A124:
+          - OG
+          - CB
+          - CA
+          A149:
+          - OH
+          - CZ
+          - CE1
+          - CE2
+          A153:
+          - NZ
+          - CE
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0209_1lij:
+  input: ./configs/benchmarks/inputs/ame/M0209_1lij.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 31/A318/89/A136/58
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A136:
+          - NE
+          - CD
+          - CZ
+          - CG
+          - NH1
+          - NH2
+          A318:
+          - OD2
+          - CG
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0255_1mg5:
+  input: ./configs/benchmarks/inputs/ame/M0255_1mg5.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 107/A108/30/A139/12/A152/3/A156/24
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A108:
+          - ND2
+          - CG
+          A139:
+          - OG
+          - CB
+          - CA
+          A152:
+          - OH
+          - CZ
+          A156:
+          - NZ
+          - CE
+          - CD
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0315_1ey3:
+  input: ./configs/benchmarks/inputs/ame/M0315_1ey3.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 97/A98/42/A141/2/A144/19/A164/16
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A98:
+          - N
+          - CA
+          A141:
+          - N
+          - CA
+          A144:
+          - OE1
+          - CD
+          - CG
+          - OE2
+          A164:
+          - OE2
+          - CD
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0349_1e3v:
+  input: ./configs/benchmarks/inputs/ame/M0349_1e3v.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 15/A16/23/A40/59/A100/2/A103/77
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A16:
+          - OH
+          - CZ
+          - CE1
+          - CE2
+          A40:
+          - OD2
+          - CG
+          A100:
+          - N
+          - CA
+          - C
+          - CB
+          A103:
+          - OD2
+          - CG
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0365_1pfk:
+  input: ./configs/benchmarks/inputs/ame/M0365_1pfk.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 10/A11/60/A72/52/A125/1/A127/1/A129/41/A171/9
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A11:
+          - N
+          - CA
+          A72:
+          - NH2
+          - CZ
+          - NE
+          - NH1
+          A125:
+          - OG1
+          - CB
+          - CA
+          - CG2
+          A127:
+          - OD2
+          - CG
+          A129:
+          - OD2
+          - CG
+          A171:
+          - NH1
+          - CZ
+          - NE
+          - NH2
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0375_4ts9:
+  input: ./configs/benchmarks/inputs/ame/M0375_4ts9.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 13/A204/64/A24/51/A90/2/A217/18/A43/3/A20/2/A87/20
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A20:
+          - N
+          - CA
+          A24:
+          - CD
+          - CG
+          - NE
+          - CB
+          - CZ
+          A87:
+          - NH2
+          - CZ
+          A90:
+          - OG
+          - CB
+          A204:
+          - OD1
+          - CG
+          A217:
+          - NH2
+          - CZ
+          - NE
+          - NH1
+          A43:
+          - NH1
+          - CZ
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0500_1e3i:
+  input: ./configs/benchmarks/inputs/ame/M0500_1e3i.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 21/A46/A47/A48/18/A67/110/A178/3/A182/22
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A46:
+          - SG
+          - CB
+          A47:
+          - CD
+          - N
+          - CG
+          A48:
+          - OG1
+          - CB
+          A67:
+          - NE2
+          - CD2
+          - CE1
+          A178:
+          - SG
+          - CB
+          - CA
+          A182:
+          - OG
+          - CB
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0552_1fgh:
+  input: ./configs/benchmarks/inputs/ame/M0552_1fgh.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 5/A447/13/A642/10/A644/44/A165/70/A101/A100/32
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A100:
+          - OD2
+          - CG
+          A101:
+          - NE2
+          - CD2
+          - CE1
+          A165:
+          - OD1
+          - CG
+          - CB
+          - OD2
+          A447:
+          - NH1
+          - CZ
+          A642:
+          - OG
+          - CB
+          - CA
+          A644:
+          - NE
+          - CD
+          - CZ
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0555_1f8r:
+  input: ./configs/benchmarks/inputs/ame/M0555_1f8r.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 38/A223/102/A326/38
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A223:
+          - NE2
+          - CD2
+          - CE1
+          - CG
+          - ND1
+          A326:
+          - CE
+          - CD
+          - NZ
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0584_1ldm:
+  input: ./configs/benchmarks/inputs/ame/M0584_1ldm.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 46/A106/59/A166/2/A169/23/A193/46
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A106:
+          - NE
+          - CD
+          - CZ
+          A166:
+          - OD1
+          - CG
+          A169:
+          - NH2
+          - CZ
+          A193:
+          - NE2
+          - CD2
+          - CE1
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0630_1j79:
+  input: ./configs/benchmarks/inputs/ame/M0630_1j79.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 89/A250/90
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A250:
+          - OD1
+          - CG
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0636_1uaq:
+  input: ./configs/benchmarks/inputs/ame/M0636_1uaq.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 63/A64/24/A89/1/A91/89
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A64:
+          - OE2
+          - CD
+          - CG
+          - OE1
+          A89:
+          - O
+          - C
+          A91:
+          - SG
+          - CB
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0663_1rk2:
+  input: ./configs/benchmarks/inputs/ame/M0663_1rk2.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 88/A252/A253/A254/A255/88
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A252:
+          - N
+          - CA
+          A253:
+          - CB
+          - CA
+          A254:
+          - N
+          - CA
+          A255:
+          - OD2
+          - CG
+          - CB
+          - OD1
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0664_2dhn:
+  input: ./configs/benchmarks/inputs/ame/M0664_2dhn.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 21/A22/77/A100/80
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A22:
+          - OE2
+          - CD
+          A100:
+          - NZ
+          - CE
+          - CD
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0674_1uf7:
+  input: ./configs/benchmarks/inputs/ame/M0674_1uf7.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 45/A46/79/A126/44/A171/9
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A46:
+          - OE1
+          - CD
+          - CG
+          - OE2
+          A126:
+          - NZ
+          - CE
+          - CD
+          A171:
+          - CB
+          - CA
+          - N
+          - C
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0710_1ra0:
+  input: ./configs/benchmarks/inputs/ame/M0710_1ra0.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 59/A156/60/A217/59
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A156:
+          - OE1
+          - CD
+          A217:
+          - OE2
+          - CD
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0711_2esd:
+  input: ./configs/benchmarks/inputs/ame/M0711_2esd.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 24/A154/95/A250/33/A284/25
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A154:
+          - ND2
+          - CG
+          A250:
+          - O
+          - C
+          - CA
+          A284:
+          - SG
+          - CB
+          - CA
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0717_1x7d:
+  input: ./configs/benchmarks/inputs/ame/M0717_1x7d.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 84/A56/34/A228/60
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A56:
+          - OE1
+          - CD
+          - CG
+          - OE2
+          A228:
+          - OD2
+          - CG
+          - CB
+          - OD1
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0731_1mt5:
+  input: ./configs/benchmarks/inputs/ame/M0731_1mt5.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 40/A142/74/A217/A218/19/A238/A239/A240/A241/40
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A142:
+          - NZ
+          - CE
+          A217:
+          - OG
+          - CB
+          - CA
+          A218:
+          - N
+          - CA
+          A238:
+          - N
+          - CA
+          - C
+          - CB
+          A239:
+          - N
+          - CA
+          - C
+          A240:
+          - N
+          - CA
+          A241:
+          - OG
+          - CB
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0732_1xs1:
+  input: ./configs/benchmarks/inputs/ame/M0732_1xs1.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 70/A124/1/A126/11/A138/20/A111/3/A115/70
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A124:
+          - O
+          - C
+          A126:
+          - O
+          - C
+          A138:
+          - OE1
+          - CD
+          - CG
+          - OE2
+          A111:
+          - N
+          - CA
+          - C
+          - CB
+          A115:
+          - NH2
+          - CZ
+          - NE
+          - NH1
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0738_1o98:
+  input: ./configs/benchmarks/inputs/ame/M0738_1o98.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 46/A62/10/A154/11/A261/110
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A62:
+          - OG
+          - CB
+          - CA
+          A154:
+          - OD1
+          - CG
+          A261:
+          - NH1
+          - CZ
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0739_1knp:
+  input: ./configs/benchmarks/inputs/ame/M0739_1knp.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 41/A290/60/A351/34/A386/42
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A290:
+          - NH2
+          - CZ
+          - NE
+          - NH1
+          A351:
+          - CE1
+          - ND1
+          - NE2
+          A386:
+          - CD2
+          - CG
+          - CB
+          - CD1
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0870_1oh9:
+  input: ./configs/benchmarks/inputs/ame/M0870_1oh9.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 44/A11/27/A45/59/A162/2/A8/26/A217/17
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A8:
+          - NZ
+          - CE
+          - CD
+          A11:
+          - N
+          - CA
+          - C
+          A45:
+          - N
+          - CA
+          - C
+          A162:
+          - OD2
+          - CG
+          - CB
+          - OD1
+          A217:
+          - NZ
+          - CE
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0904_1qgx:
+  input: ./configs/benchmarks/inputs/ame/M0904_1qgx.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 13/A49/65/A142/A72/22/A144/A145/9/A294/16/A147/48
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A49:
+          - OD2
+          - CG
+          - CB
+          - OD1
+          A72:
+          - OE1
+          - CD
+          - CG
+          - OE2
+          A142:
+          - OD1
+          - CG
+          - CB
+          - OD2
+          A144:
+          - O
+          - C
+          - CA
+          A145:
+          - CA
+          - N
+          - C
+          - CB
+          - O
+          - CG
+          A147:
+          - OG1
+          - CB
+          A294:
+          - OD2
+          - CG
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null
+M0907_1rbl:
+  input: ./configs/benchmarks/inputs/ame/M0907_1rbl.cif
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - A: protein
+  condition:
+    contig:
+      A:
+        token: 10/A175/25/A201/1/A203/A204/89/A294/39/A334/10
+        motif_min_length: 180
+        motif_max_length: 180
+        polymer_atom:
+          A175:
+          - NZ
+          - CE
+          - CD
+          A201:
+          - NZ
+          - CE
+          A203:
+          - OD1
+          - CG
+          - CB
+          - OD2
+          A204:
+          - OE1
+          - CD
+          - CG
+          - OE2
+          A294:
+          - NE2
+          - CD2
+          - CE1
+          - CG
+          - ND1
+          A334:
+          - NZ
+          - CE
+          - CD
+    secondary_structure:
+      coarse:
+        A: beta
+  hotspot: null

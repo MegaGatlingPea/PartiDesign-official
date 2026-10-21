@@ -1,0 +1,33 @@
+path: hu-4D5-8_Fv.cif
+include:
+- chain:
+    id: H
+- chain:
+    id: L
+design:
+- chain:
+    id: H
+    res_index: 26..32,52..57,99..105
+- chain:
+    id: L
+    res_index: 24..34,50..56,89..97
+structure_groups:
+- group:
+    id: H
+    visibility: 2
+- group:
+    id: H
+    res_index: 26..32,52..57,99..105
+    visibility: 0
+- group:
+    id: L
+    visibility: 2
+- group:
+    id: L
+    res_index: 24..34,50..56,89..97
+    visibility: 0
+reset_res_index:
+- chain:
+    id: H
+- chain:
+    id: L

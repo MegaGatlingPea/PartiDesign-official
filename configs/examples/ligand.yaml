@@ -1,0 +1,61 @@
+ligand_fixture:
+  input: ./configs/examples/structures/ligand_design/lig_bind_prot.cif
+  sample_num: 5
+  design_chains:
+  - L: ligand
+  design_length:
+    L: from_distribution
+  hotspot: A25-26/A29/A130/A175-176/A179/A182-183
+  score: true
+  postprocess: true
+ligand_smiles_fixture:
+  input: ./configs/examples/structures/ligand_design/lig_bind_prot.cif
+  sample_num: 5
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: O=C(O)C1=CC=CC=C1
+  score: true
+  postprocess: true
+ligand_scaffold_hopping:
+  input: ./configs/examples/structures/ligand_design/lig_redesign_prot.cif
+  sample_num: 5
+  design_chains:
+  - L: ligand
+  condition:
+    backbone:
+    - L
+  postprocess: true
+  score: true
+ligand_covalent_docking:
+  input: ./configs/examples/structures/ligand_design/lig_redesign_prot.cif
+  sample_num: 5
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: type_bond
+  postprocess: true
+  score: true
+ligand_motif_scaffolding:
+  input: ./configs/examples/structures/ligand_design/lig_redesign_prot.cif
+  sample_num: 5
+  design_chains:
+  - L: ligand
+  design_length:
+    L:
+    - 41
+  condition:
+    ligand:
+      L:
+        mode: atom_motif
+        atoms:
+        - C24
+        - C21
+        - O3
+  postprocess: true
+  score: true

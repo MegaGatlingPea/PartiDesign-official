@@ -1,0 +1,52 @@
+data_M0636_1uaq
+#
+loop_
+_atom_site.group_PDB 
+_atom_site.id 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.auth_asym_id 
+_atom_site.auth_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.occupancy 
+_atom_site.B_iso_or_equiv 
+_atom_site.pdbx_PDB_model_num 
+ATOM   1  N  N   . GLU A  A  64  A 64  ? -1.244 3.082  4.409  1.00 0.00 1
+ATOM   2  C  CA  . GLU A  A  64  A 64  ? -2.555 2.447  4.664  1.00 0.00 1
+ATOM   3  C  C   . GLU A  A  64  A 64  ? -2.678 1.940  6.106  1.00 0.00 1
+ATOM   4  O  O   . GLU A  A  64  A 64  ? -3.741 2.015  6.751  1.00 0.00 1
+ATOM   5  C  CB  . GLU A  A  64  A 64  ? -2.748 1.255  3.686  1.00 0.00 1
+ATOM   6  C  CG  . GLU A  A  64  A 64  ? -2.687 1.646  2.176  1.00 0.00 1
+ATOM   7  C  CD  . GLU A  A  64  A 64  ? -1.271 1.540  1.561  1.00 0.00 1
+ATOM   8  O  OE1 . GLU A  A  64  A 64  ? -0.395 2.307  1.981  1.00 0.00 1
+ATOM   9  O  OE2 . GLU A  A  64  A 64  ? -1.033 0.691  0.680  1.00 0.00 1
+ATOM   10 N  N   . SER A  A  89  A 89  ? -0.687 2.276  -5.078 1.00 0.00 1
+ATOM   11 C  CA  . SER A  A  89  A 89  ? -1.251 0.933  -5.123 1.00 0.00 1
+ATOM   12 C  C   . SER A  A  89  A 89  ? -0.666 0.172  -3.939 1.00 0.00 1
+ATOM   13 O  O   . SER A  A  89  A 89  ? 0.535  0.252  -3.705 1.00 0.00 1
+ATOM   14 C  CB  . SER A  A  89  A 89  ? -0.903 0.285  -6.462 1.00 0.00 1
+ATOM   15 O  OG  . SER A  A  89  A 89  ? -1.699 -0.851 -6.692 1.00 0.00 1
+ATOM   16 N  N   . CYS A  A  91  A 91  ? 0.829  -2.454 -1.186 1.00 0.00 1
+ATOM   17 C  CA  . CYS A  A  91  A 91  ? 1.749  -3.568 -1.159 1.00 0.00 1
+ATOM   18 C  C   . CYS A  A  91  A 91  ? 0.992  -4.814 -0.646 1.00 0.00 1
+ATOM   19 O  O   . CYS A  A  91  A 91  ? -0.205 -4.748 -0.293 1.00 0.00 1
+ATOM   20 C  CB  . CYS A  A  91  A 91  ? 2.934  -3.248 -0.253 1.00 0.00 1
+ATOM   21 S  SG  . CYS A  A  91  A 91  ? 2.583  -3.364 1.502  1.00 0.00 1
+HETATM 22 ZN ZN  . ZN  L1 L1 200 A 200 ? 1.935  -1.220 2.205  1.00 0.00 1
+HETATM 23 N  N3  . DUC L2 L2 300 A 300 ? 2.266  2.042  1.085  1.00 0.00 1
+HETATM 24 C  C2  . DUC L2 L2 300 A 300 ? 3.416  2.528  1.650  1.00 0.00 1
+HETATM 25 O  O2  . DUC L2 L2 300 A 300 ? 3.377  3.236  2.631  1.00 0.00 1
+HETATM 26 N  N1  . DUC L2 L2 300 A 300 ? 4.603  1.982  1.171  1.00 0.00 1
+HETATM 27 C  C6  . DUC L2 L2 300 A 300 ? 4.595  1.063  0.144  1.00 0.00 1
+HETATM 28 C  C5  . DUC L2 L2 300 A 300 ? 3.454  0.632  -0.444 1.00 0.00 1
+HETATM 29 C  C4  . DUC L2 L2 300 A 300 ? 2.172  1.068  0.064  1.00 0.00 1
+HETATM 30 O  O4  . DUC L2 L2 300 A 300 ? 1.450  -0.073 0.562  1.00 0.00 1
+#

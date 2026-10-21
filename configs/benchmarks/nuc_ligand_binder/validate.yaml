@@ -1,0 +1,32 @@
+# Native src.validate configuration; select the matching generated task(s).
+methods:
+- af3
+sequence:
+  seed: 101
+  sources:
+  - source: gt
+    label: self
+    count: 1
+  - source: na_mpnn
+    label: self_fi
+    count: 1
+    settings:
+      temperature: 0.1
+      fixed_interface:
+        enabled: true
+        cutoff: 6.0
+# Project-custom NA phosphate self-fit and NA-aligned ligand RMSD gate.
+criteria:
+- af3_na_bind_ligand
+scorer:
+  enabled: false
+structure_stage: base
+af3:
+  samples: 1
+  recycles: 10
+  seed: 101
+  msa:
+    mode: auto
+    search_workers: 2
+    templates: true
+    max_template_date: "2021-09-30"

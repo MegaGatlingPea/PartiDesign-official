@@ -1,0 +1,20 @@
+# Protein monomer helical comparison: baseline lengths and 100 structures per length.
+# Only coarse alpha conditioning is added; use monomer/validate.yaml (AF3).
+protein_monomer_benchmark:
+  input: null
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  design_length:
+    P:
+    - 100
+    - 200
+    - 300
+    - 400
+    - 500
+  condition:
+    secondary_structure:
+      coarse:
+        P: alpha

@@ -1,0 +1,33 @@
+# Native src.validate configuration for head-tail cyclic peptide tasks.
+methods:
+- af2_ig
+sequence:
+  seed: 101
+  sources:
+  - source: gt
+    label: self
+    count: 1
+  - source: cyclic_mpnn
+    label: self_fi
+    count: 1
+    settings:
+      temperature: 0.0001
+      fixed_interface:
+        enabled: true
+        cutoff: 6.0
+  - source: cyclic_mpnn
+    label: mpnn
+    count: 4
+    settings:
+      temperature: 0.0001
+criteria:
+- af2_ig_peptide
+scorer:
+  enabled: false
+structure_stage: base
+af2:
+  models:
+  - 1
+  samples: 1
+  recycles: 3
+  seed: 101

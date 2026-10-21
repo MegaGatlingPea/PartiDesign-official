@@ -1,0 +1,93 @@
+# Shared sequence policy. Reward files keep explicit source semantics; the
+# auto policy chooses SolubleMPNN for protein/cyclic candidates and keeps
+# nucleic-acid candidates on the design sequence path.
+source: design
+fixed_positions: []
+auto:
+  protein: soluble_mpnn
+  cyclic: soluble_mpnn
+  nucleic: design
+
+# Explicit ProteinMPNN means the vanilla learned weights. Auto SolubleMPNN is
+# represented separately below and must be normalized by the runtime before a
+# closed reward sequence schema is validated.
+proteinmpnn:
+  model_type: protein_mpnn
+  checkpoint: ./community_models/proteinmpnn/checkpoint/vanilla/v_48_020.pt
+  temperature: 0.0001
+  backbone_noise: 0.0
+  omit_aas: ''
+  rm_aa: C
+  bias_aa: {}
+  pssm_path: null
+  pssm_multi: 0.0
+  pssm_threshold: 0.0
+  pssm_log_odds: false
+  pssm_bias: false
+  tied_positions_path: null
+  ca_only: false
+  use_soluble_model: false
+
+# Metadata-only backend defaults for sequence.auto=soluble_mpnn. Do not merge
+# this named block into reward.sequence without mapping it to proteinmpnn.
+solublempnn_defaults:
+  model_type: soluble_mpnn
+  checkpoint: ./community_models/proteinmpnn/checkpoint/soluble/v_48_020.pt
+  temperature: 0.1
+  backbone_noise: 0.0
+  omit_aas: ''
+  rm_aa: C
+  bias_aa: {}
+  pssm_path: null
+  pssm_multi: 0.0
+  pssm_threshold: 0.0
+  pssm_log_odds: false
+  pssm_bias: false
+  tied_positions_path: null
+  ca_only: false
+  use_soluble_model: true
+
+ligandmpnn:
+  model_type: ligand_mpnn
+  checkpoint: ./community_models/ligandmpnn/checkpoint/ligandmpnn_v_32_010_25.pt
+  temperature: 0.1
+  backbone_noise: 0.0
+  omit_aas: ''
+  rm_aa: C
+  bias_aa: {}
+  pssm_path: null
+  pssm_multi: 0.0
+  pssm_threshold: 0.0
+  pssm_log_odds: false
+  pssm_bias: false
+  tied_positions_path: null
+  use_ligand_atoms: true
+  use_sidechain_context: true
+  pack_side_chains: false
+  repack_everything: false
+  homo_oligomer: false
+  symmetry_residues_path: null
+  symmetry_weights_path: null
+
+cyclicmpnn:
+  model_type: cyclicmpnn
+  checkpoint: ./community_models/cyclicmpnn/checkpoint/cyclicmpnn_48_010.pkl
+  base_model: v_48_020
+  temperature: 0.0001
+  backbone_noise: 0.0
+  omit_aas: ''
+  rm_aa: C
+  bias_aa: {}
+  pssm_path: null
+  pssm_multi: 0.0
+  pssm_threshold: 0.0
+  pssm_log_odds: false
+  pssm_bias: false
+  tied_positions_path: null
+
+na_mpnn:
+  model_type: na_mpnn
+  checkpoint: ./community_models/na_mpnn/checkpoint/s_19137.pt
+  temperature: 0.1
+  seed: 101
+  rm_aa: C

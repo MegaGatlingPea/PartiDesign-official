@@ -1,0 +1,1187 @@
+{
+  "benchmark": "MotifBench",
+  "cases": {
+    "motifbench_01_1ldb": {
+      "official_contig": {
+        "contig": "0-100;A1-21;0-100",
+        "length": "125",
+        "problem": "01_1LDB"
+      },
+      "official_test_case": {
+        "group": "1",
+        "length": "125",
+        "motif_residues": "A186-206",
+        "pdb_id": "1LDB",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-100;A1-21;0-100",
+      "source_motif_filename": "01_1LDB.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A16": "P16",
+        "A17": "P17",
+        "A18": "P18",
+        "A19": "P19",
+        "A2": "P2",
+        "A20": "P20",
+        "A21": "P21",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9"
+      },
+      "structure": "01_1LDB_prepared.pdb"
+    },
+    "motifbench_02_1itu": {
+      "official_contig": {
+        "contig": "0-100;A1-24;0-100",
+        "length": "150",
+        "problem": "02_1ITU"
+      },
+      "official_test_case": {
+        "group": "1",
+        "length": "150",
+        "motif_residues": "A124-147",
+        "pdb_id": "1ITU",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-100;A1-24;0-100",
+      "source_motif_filename": "02_1ITU.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A16": "P16",
+        "A17": "P17",
+        "A18": "P18",
+        "A19": "P19",
+        "A2": "P2",
+        "A20": "P20",
+        "A21": "P21",
+        "A22": "P22",
+        "A23": "P23",
+        "A24": "P24",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9"
+      },
+      "structure": "02_1ITU_prepared.pdb"
+    },
+    "motifbench_03_2cga": {
+      "official_contig": {
+        "contig": "0-100;A1-11;0-100",
+        "length": "125",
+        "problem": "03_2CGA"
+      },
+      "official_test_case": {
+        "group": "1",
+        "length": "125",
+        "motif_residues": "A184-194",
+        "pdb_id": "2CGA",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-100;A1-11;0-100",
+      "source_motif_filename": "03_2CGA.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9"
+      },
+      "structure": "03_2CGA_prepared.pdb"
+    },
+    "motifbench_04_5wn9": {
+      "official_contig": {
+        "contig": "10-40;A1-20;10-40",
+        "length": "75",
+        "problem": "04_5WN9"
+      },
+      "official_test_case": {
+        "group": "1",
+        "length": "75",
+        "motif_residues": "A170-189",
+        "pdb_id": "5WN9",
+        "redesign_idcs": "A170-175;A188-189"
+      },
+      "original_example_contig": "10-40;A1-20;10-40",
+      "source_motif_filename": "04_5WN9.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A16": "P16",
+        "A17": "P17",
+        "A18": "P18",
+        "A19": "P19",
+        "A2": "P2",
+        "A20": "P20",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9"
+      },
+      "structure": "04_5WN9_prepared.pdb"
+    },
+    "motifbench_05_5ze9": {
+      "official_contig": {
+        "contig": "0-100;A1-15;0-100",
+        "length": "100",
+        "problem": "05_5ZE9"
+      },
+      "official_test_case": {
+        "group": "1",
+        "length": "100",
+        "motif_residues": "A229-243",
+        "pdb_id": "5ZE9",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-100;A1-15;0-100",
+      "source_motif_filename": "05_5ZE9.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9"
+      },
+      "structure": "05_5ZE9_prepared.pdb"
+    },
+    "motifbench_06_6e6r": {
+      "official_contig": {
+        "contig": "0-65;A1-13;0-65",
+        "length": "75",
+        "problem": "06_6E6R"
+      },
+      "official_test_case": {
+        "group": "1",
+        "length": "75",
+        "motif_residues": "A23-35",
+        "pdb_id": "6E6R",
+        "redesign_idcs": "A23-35"
+      },
+      "original_example_contig": "0-65;A1-13;0-65",
+      "source_motif_filename": "06_6E6R.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9"
+      },
+      "structure": "06_6E6R_prepared.pdb"
+    },
+    "motifbench_07_6e6r": {
+      "official_contig": {
+        "contig": "0-190;A1-13;0-190",
+        "length": "200",
+        "problem": "07_6E6R"
+      },
+      "official_test_case": {
+        "group": "1",
+        "length": "200",
+        "motif_residues": "A23-35",
+        "pdb_id": "6E6R",
+        "redesign_idcs": "A23-35"
+      },
+      "original_example_contig": "0-190;A1-13;0-190",
+      "source_motif_filename": "07_6E6R.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9"
+      },
+      "structure": "07_6E6R_prepared.pdb"
+    },
+    "motifbench_08_7ad5": {
+      "official_contig": {
+        "contig": "0-100;A1-15;0-100",
+        "length": "125",
+        "problem": "08_7AD5"
+      },
+      "official_test_case": {
+        "group": "1",
+        "length": "125",
+        "motif_residues": "A99-113",
+        "pdb_id": "7AD5",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-100;A1-15;0-100",
+      "source_motif_filename": "08_7AD5.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9"
+      },
+      "structure": "08_7AD5_prepared.pdb"
+    },
+    "motifbench_09_7cg5": {
+      "official_contig": {
+        "contig": "0-100;A1-15;0-100",
+        "length": "125",
+        "problem": "09_7CG5"
+      },
+      "official_test_case": {
+        "group": "1",
+        "length": "125",
+        "motif_residues": "A6-20",
+        "pdb_id": "7CG5",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-100;A1-15;0-100",
+      "source_motif_filename": "09_7CG5.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9"
+      },
+      "structure": "09_7CG5_prepared.pdb"
+    },
+    "motifbench_10_7wrk": {
+      "official_contig": {
+        "contig": "0-100;A1-15;0-100",
+        "length": "125",
+        "problem": "10_7WRK"
+      },
+      "official_test_case": {
+        "group": "1",
+        "length": "125",
+        "motif_residues": "A80-94",
+        "pdb_id": "7WRK",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-100;A1-15;0-100",
+      "source_motif_filename": "10_7WRK.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9"
+      },
+      "structure": "10_7WRK_prepared.pdb"
+    },
+    "motifbench_11_3tqb": {
+      "official_contig": {
+        "contig": "0-60;A1-15;30-60;B1-15;0-60",
+        "length": "125",
+        "problem": "11_3TQB"
+      },
+      "official_test_case": {
+        "group": "2",
+        "length": "125",
+        "motif_residues": "A37-51;A65-79",
+        "pdb_id": "3TQB",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-60;A1-15;30-60;B1-15;0-60",
+      "source_motif_filename": "11_3TQB.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9",
+        "B1": "P101",
+        "B10": "P110",
+        "B11": "P111",
+        "B12": "P112",
+        "B13": "P113",
+        "B14": "P114",
+        "B15": "P115",
+        "B2": "P102",
+        "B3": "P103",
+        "B4": "P104",
+        "B5": "P105",
+        "B6": "P106",
+        "B7": "P107",
+        "B8": "P108",
+        "B9": "P109"
+      },
+      "structure": "11_3TQB_prepared.pdb"
+    },
+    "motifbench_12_4jhw": {
+      "official_contig": {
+        "contig": "10-25;B1-17;40-80;A1-7;10-25",
+        "length": "100",
+        "problem": "12_4JHW"
+      },
+      "official_test_case": {
+        "group": "2",
+        "length": "100",
+        "motif_residues": "F63-69;F196-212",
+        "pdb_id": "4JHW",
+        "redesign_idcs": "F63;F69;F196;F198;F203;F211-212"
+      },
+      "original_example_contig": "10-25;B1-17;40-80;A1-7;10-25",
+      "source_motif_filename": "12_4JHW.pdb",
+      "source_to_prepared": {
+        "A1": "P101",
+        "A2": "P102",
+        "A3": "P103",
+        "A4": "P104",
+        "A5": "P105",
+        "A6": "P106",
+        "A7": "P107",
+        "B1": "P1",
+        "B10": "P10",
+        "B11": "P11",
+        "B12": "P12",
+        "B13": "P13",
+        "B14": "P14",
+        "B15": "P15",
+        "B16": "P16",
+        "B17": "P17",
+        "B2": "P2",
+        "B3": "P3",
+        "B4": "P4",
+        "B5": "P5",
+        "B6": "P6",
+        "B7": "P7",
+        "B8": "P8",
+        "B9": "P9"
+      },
+      "structure": "12_4JHW_prepared.pdb"
+    },
+    "motifbench_13_4jhw": {
+      "official_contig": {
+        "contig": "10-100;B1-17;40-80;A1-7;10-100",
+        "length": "200",
+        "problem": "13_4JHW"
+      },
+      "official_test_case": {
+        "group": "2",
+        "length": "200",
+        "motif_residues": "F63-69;F196-212",
+        "pdb_id": "4JHW",
+        "redesign_idcs": "F63;F69;F196;F198;F203;F211-212"
+      },
+      "original_example_contig": "10-100;B1-17;40-80;A1-7;10-100",
+      "source_motif_filename": "13_4JHW.pdb",
+      "source_to_prepared": {
+        "A1": "P101",
+        "A2": "P102",
+        "A3": "P103",
+        "A4": "P104",
+        "A5": "P105",
+        "A6": "P106",
+        "A7": "P107",
+        "B1": "P1",
+        "B10": "P10",
+        "B11": "P11",
+        "B12": "P12",
+        "B13": "P13",
+        "B14": "P14",
+        "B15": "P15",
+        "B16": "P16",
+        "B17": "P17",
+        "B2": "P2",
+        "B3": "P3",
+        "B4": "P4",
+        "B5": "P5",
+        "B6": "P6",
+        "B7": "P7",
+        "B8": "P8",
+        "B9": "P9"
+      },
+      "structure": "13_4JHW_prepared.pdb"
+    },
+    "motifbench_14_5ius": {
+      "official_contig": {
+        "contig": "0-30;B1-22;15-40;A1-20;0-30",
+        "length": "100",
+        "problem": "14_5IUS"
+      },
+      "official_test_case": {
+        "group": "2",
+        "length": "100",
+        "motif_residues": "A63-82;A119-140",
+        "pdb_id": "5IUS",
+        "redesign_idcs": "A63;A65;A67;A69;A71-72;A76;A79-80;A82;A119-123;A125;A127;A129-130;A133;A135;A137-138;A140"
+      },
+      "original_example_contig": "0-30;B1-22;15-40;A1-20;0-30",
+      "source_motif_filename": "14_5IUS.pdb",
+      "source_to_prepared": {
+        "A1": "P101",
+        "A10": "P110",
+        "A11": "P111",
+        "A12": "P112",
+        "A13": "P113",
+        "A14": "P114",
+        "A15": "P115",
+        "A16": "P116",
+        "A17": "P117",
+        "A18": "P118",
+        "A19": "P119",
+        "A2": "P102",
+        "A20": "P120",
+        "A3": "P103",
+        "A4": "P104",
+        "A5": "P105",
+        "A6": "P106",
+        "A7": "P107",
+        "A8": "P108",
+        "A9": "P109",
+        "B1": "P1",
+        "B10": "P10",
+        "B11": "P11",
+        "B12": "P12",
+        "B13": "P13",
+        "B14": "P14",
+        "B15": "P15",
+        "B16": "P16",
+        "B17": "P17",
+        "B18": "P18",
+        "B19": "P19",
+        "B2": "P2",
+        "B20": "P20",
+        "B21": "P21",
+        "B22": "P22",
+        "B3": "P3",
+        "B4": "P4",
+        "B5": "P5",
+        "B6": "P6",
+        "B7": "P7",
+        "B8": "P8",
+        "B9": "P9"
+      },
+      "structure": "14_5IUS_prepared.pdb"
+    },
+    "motifbench_15_7a8s": {
+      "official_contig": {
+        "contig": "0-60;A1-15;30-60;B1-15;0-60",
+        "length": "100",
+        "problem": "15_7A8S"
+      },
+      "official_test_case": {
+        "group": "2",
+        "length": "100",
+        "motif_residues": "A41-55;A72-86",
+        "pdb_id": "7A8S",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-60;A1-15;30-60;B1-15;0-60",
+      "source_motif_filename": "15_7A8S.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9",
+        "B1": "P101",
+        "B10": "P110",
+        "B11": "P111",
+        "B12": "P112",
+        "B13": "P113",
+        "B14": "P114",
+        "B15": "P115",
+        "B2": "P102",
+        "B3": "P103",
+        "B4": "P104",
+        "B5": "P105",
+        "B6": "P106",
+        "B7": "P107",
+        "B8": "P108",
+        "B9": "P109"
+      },
+      "structure": "15_7A8S_prepared.pdb"
+    },
+    "motifbench_16_7bny": {
+      "official_contig": {
+        "contig": "0-60;A1-15;30-60;B1-15;0-60",
+        "length": "125",
+        "problem": "16_7BNY"
+      },
+      "official_test_case": {
+        "group": "2",
+        "length": "125",
+        "motif_residues": "A83-97;A111-125",
+        "pdb_id": "7BNY",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-60;A1-15;30-60;B1-15;0-60",
+      "source_motif_filename": "16_7BNY.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9",
+        "B1": "P101",
+        "B10": "P110",
+        "B11": "P111",
+        "B12": "P112",
+        "B13": "P113",
+        "B14": "P114",
+        "B15": "P115",
+        "B2": "P102",
+        "B3": "P103",
+        "B4": "P104",
+        "B5": "P105",
+        "B6": "P106",
+        "B7": "P107",
+        "B8": "P108",
+        "B9": "P109"
+      },
+      "structure": "16_7BNY_prepared.pdb"
+    },
+    "motifbench_17_7dgw": {
+      "official_contig": {
+        "contig": "0-60;A1-15;30-60;B1-15;0-60",
+        "length": "125",
+        "problem": "17_7DGW"
+      },
+      "official_test_case": {
+        "group": "2",
+        "length": "125",
+        "motif_residues": "A22-36;A70-84",
+        "pdb_id": "7DGW",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-60;A1-15;30-60;B1-15;0-60",
+      "source_motif_filename": "17_7DGW.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A15": "P15",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9",
+        "B1": "P101",
+        "B10": "P110",
+        "B11": "P111",
+        "B12": "P112",
+        "B13": "P113",
+        "B14": "P114",
+        "B15": "P115",
+        "B2": "P102",
+        "B3": "P103",
+        "B4": "P104",
+        "B5": "P105",
+        "B6": "P106",
+        "B7": "P107",
+        "B8": "P108",
+        "B9": "P109"
+      },
+      "structure": "17_7DGW_prepared.pdb"
+    },
+    "motifbench_18_7mqq": {
+      "official_contig": {
+        "contig": "0-60;B1-15;30-60;A1-15;0-60",
+        "length": "100",
+        "problem": "18_7MQQ"
+      },
+      "official_test_case": {
+        "group": "2",
+        "length": "100",
+        "motif_residues": "A80-94;A115-129",
+        "pdb_id": "7MQQ",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-60;B1-15;30-60;A1-15;0-60",
+      "source_motif_filename": "18_7MQQ.pdb",
+      "source_to_prepared": {
+        "A1": "P101",
+        "A10": "P110",
+        "A11": "P111",
+        "A12": "P112",
+        "A13": "P113",
+        "A14": "P114",
+        "A15": "P115",
+        "A2": "P102",
+        "A3": "P103",
+        "A4": "P104",
+        "A5": "P105",
+        "A6": "P106",
+        "A7": "P107",
+        "A8": "P108",
+        "A9": "P109",
+        "B1": "P1",
+        "B10": "P10",
+        "B11": "P11",
+        "B12": "P12",
+        "B13": "P13",
+        "B14": "P14",
+        "B15": "P15",
+        "B2": "P2",
+        "B3": "P3",
+        "B4": "P4",
+        "B5": "P5",
+        "B6": "P6",
+        "B7": "P7",
+        "B8": "P8",
+        "B9": "P9"
+      },
+      "structure": "18_7MQQ_prepared.pdb"
+    },
+    "motifbench_19_7mqq": {
+      "official_contig": {
+        "contig": "0-140;B1-15;30-60;A1-15;0-140",
+        "length": "200",
+        "problem": "19_7MQQ"
+      },
+      "official_test_case": {
+        "group": "2",
+        "length": "200",
+        "motif_residues": "A80-94;A115-129",
+        "pdb_id": "7MQQ",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-140;B1-15;30-60;A1-15;0-140",
+      "source_motif_filename": "19_7MQQ.pdb",
+      "source_to_prepared": {
+        "A1": "P101",
+        "A10": "P110",
+        "A11": "P111",
+        "A12": "P112",
+        "A13": "P113",
+        "A14": "P114",
+        "A15": "P115",
+        "A2": "P102",
+        "A3": "P103",
+        "A4": "P104",
+        "A5": "P105",
+        "A6": "P106",
+        "A7": "P107",
+        "A8": "P108",
+        "A9": "P109",
+        "B1": "P1",
+        "B10": "P10",
+        "B11": "P11",
+        "B12": "P12",
+        "B13": "P13",
+        "B14": "P14",
+        "B15": "P15",
+        "B2": "P2",
+        "B3": "P3",
+        "B4": "P4",
+        "B5": "P5",
+        "B6": "P6",
+        "B7": "P7",
+        "B8": "P8",
+        "B9": "P9"
+      },
+      "structure": "19_7MQQ_prepared.pdb"
+    },
+    "motifbench_20_7uwl": {
+      "official_contig": {
+        "contig": "0-130;A1-11;25-35;B1-11;0-130",
+        "length": "175",
+        "problem": "20_7UWL"
+      },
+      "official_test_case": {
+        "group": "2",
+        "length": "175",
+        "motif_residues": "E63-73;E101-111",
+        "pdb_id": "7UWL",
+        "redesign_idcs": "E63-73;E101-103;E105-111"
+      },
+      "original_example_contig": "0-130;A1-11;25-35;B1-11;0-130",
+      "source_motif_filename": "20_7UWL.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9",
+        "B1": "P101",
+        "B10": "P110",
+        "B11": "P111",
+        "B2": "P102",
+        "B3": "P103",
+        "B4": "P104",
+        "B5": "P105",
+        "B6": "P106",
+        "B7": "P107",
+        "B8": "P108",
+        "B9": "P109"
+      },
+      "structure": "20_7UWL_prepared.pdb"
+    },
+    "motifbench_21_1b73": {
+      "official_contig": {
+        "contig": "0-25;A1-2;20-50;B1-1;20-75;C1-3;0-25",
+        "length": "125",
+        "problem": "21_1B73"
+      },
+      "official_test_case": {
+        "group": "3",
+        "length": "125",
+        "motif_residues": "A7-8;A70;A178-180",
+        "pdb_id": "1B73",
+        "redesign_idcs": "A179"
+      },
+      "original_example_contig": "0-25;A1-2;20-50;B1-1;20-75;C1-3;0-25",
+      "source_motif_filename": "21_1B73.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A2": "P2",
+        "B1": "P101",
+        "C1": "P201",
+        "C2": "P202",
+        "C3": "P203"
+      },
+      "structure": "21_1B73_prepared.pdb"
+    },
+    "motifbench_22_1bcf": {
+      "official_contig": {
+        "contig": "8-15;C1-8;16-30;D1-8;16-30;B1-8;16-30;A1-8;8-15",
+        "length": "125",
+        "problem": "22_1BCF"
+      },
+      "official_test_case": {
+        "group": "3",
+        "length": "125",
+        "motif_residues": "A18-25;A47-54;A92-99;A123-130",
+        "pdb_id": "1BCF",
+        "redesign_idcs": "A19-25;A47-50;A52-53;A92-93;A95-99;A123-126;A128-129"
+      },
+      "original_example_contig": "8-15;C1-8;16-30;D1-8;16-30;B1-8;16-30;A1-8;8-15",
+      "source_motif_filename": "22_1BCF.pdb",
+      "source_to_prepared": {
+        "A1": "P301",
+        "A2": "P302",
+        "A3": "P303",
+        "A4": "P304",
+        "A5": "P305",
+        "A6": "P306",
+        "A7": "P307",
+        "A8": "P308",
+        "B1": "P201",
+        "B2": "P202",
+        "B3": "P203",
+        "B4": "P204",
+        "B5": "P205",
+        "B6": "P206",
+        "B7": "P207",
+        "B8": "P208",
+        "C1": "P1",
+        "C2": "P2",
+        "C3": "P3",
+        "C4": "P4",
+        "C5": "P5",
+        "C6": "P6",
+        "C7": "P7",
+        "C8": "P8",
+        "D1": "P101",
+        "D2": "P102",
+        "D3": "P103",
+        "D4": "P104",
+        "D5": "P105",
+        "D6": "P106",
+        "D7": "P107",
+        "D8": "P108"
+      },
+      "structure": "22_1BCF_prepared.pdb"
+    },
+    "motifbench_23_1mpy": {
+      "official_contig": {
+        "contig": "0-20;A1-1;40-50;B1-1;10-15;C1-1;25-30;D1-1;5-15;E1-1;5-15;F1-1;0-20",
+        "length": "125",
+        "problem": "23_1MPY"
+      },
+      "official_test_case": {
+        "group": "3",
+        "length": "125",
+        "motif_residues": "A153;A199;A214;A246;A255;A265",
+        "pdb_id": "1MPY",
+        "redesign_idcs": ""
+      },
+      "original_example_contig": "0-20;A1-1;40-50;B1-1;10-15;C1-1;25-30;D1-1;5-15;E1-1;5-15;F1-1;0-20",
+      "source_motif_filename": "23_1MPY.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "B1": "P101",
+        "C1": "P201",
+        "D1": "P301",
+        "E1": "P401",
+        "F1": "P501"
+      },
+      "structure": "23_1MPY_prepared.pdb"
+    },
+    "motifbench_24_1qy3": {
+      "official_contig": {
+        "contig": "0-65;A1-14;20-30;B1-1;120-130;C1-1;0-65",
+        "length": "225",
+        "problem": "24_1QY3"
+      },
+      "official_test_case": {
+        "group": "3",
+        "length": "225",
+        "motif_residues": "A58-71;A96;A222",
+        "pdb_id": "1QY3",
+        "redesign_idcs": "A58-61;A63-64;A68-71"
+      },
+      "original_example_contig": "0-65;A1-14;20-30;B1-1;120-130;C1-1;0-65",
+      "source_motif_filename": "24_1QY3.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A12": "P12",
+        "A13": "P13",
+        "A14": "P14",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9",
+        "B1": "P101",
+        "C1": "P201"
+      },
+      "structure": "24_1QY3_prepared.pdb"
+    },
+    "motifbench_25_2rkx": {
+      "official_contig": {
+        "contig": "0-20;A1-3;30-40;B1-3;45-55;C1-1;20-30;D1-1;35-45;E1-1;5-15;F1-1;20-30;G1-1;15-25;H1-3;0-20",
+        "length": "225",
+        "problem": "25_2RKX"
+      },
+      "official_test_case": {
+        "group": "3",
+        "length": "225",
+        "motif_residues": "A9-11;A48-50;A101;A128;A169;A176;A201;A222-224",
+        "pdb_id": "2RKX",
+        "redesign_idcs": "A10;A49;A223"
+      },
+      "original_example_contig": "0-20;A1-3;30-40;B1-3;45-55;C1-1;20-30;D1-1;35-45;E1-1;5-15;F1-1;20-30;G1-1;15-25;H1-3;0-20",
+      "source_motif_filename": "25_2RKX.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A2": "P2",
+        "A3": "P3",
+        "B1": "P101",
+        "B2": "P102",
+        "B3": "P103",
+        "C1": "P201",
+        "D1": "P301",
+        "E1": "P401",
+        "F1": "P501",
+        "G1": "P601",
+        "H1": "P701",
+        "H2": "P702",
+        "H3": "P703"
+      },
+      "structure": "25_2RKX_prepared.pdb"
+    },
+    "motifbench_26_3b5v": {
+      "official_contig": {
+        "contig": "0-30;A1-3;25-35;B1-1;25-35;C1-1;15-25;D1-1;25-35;E1-1;15-25;F1-5;20-30;G1-2;15-25;H1-3;0-30",
+        "length": "200",
+        "problem": "26_3B5V"
+      },
+      "official_test_case": {
+        "group": "3",
+        "length": "200",
+        "motif_residues": "A51-53;A81;A110;A131;A159;A180-184;A210-211;A231-233",
+        "pdb_id": "3B5V",
+        "redesign_idcs": "A52;A181;A183;A232"
+      },
+      "original_example_contig": "0-30;A1-3;25-35;B1-1;25-35;C1-1;15-25;D1-1;25-35;E1-1;15-25;F1-5;20-30;G1-2;15-25;H1-3;0-30",
+      "source_motif_filename": "26_3B5V.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A2": "P2",
+        "A3": "P3",
+        "B1": "P101",
+        "C1": "P201",
+        "D1": "P301",
+        "E1": "P401",
+        "F1": "P501",
+        "F2": "P502",
+        "F3": "P503",
+        "F4": "P504",
+        "F5": "P505",
+        "G1": "P601",
+        "G2": "P602",
+        "H1": "P701",
+        "H2": "P702",
+        "H3": "P703"
+      },
+      "structure": "26_3B5V_prepared.pdb"
+    },
+    "motifbench_27_4xoj": {
+      "official_contig": {
+        "contig": "0-50;A1-1;40-50;B1-1;50-80;C1-3;0-50",
+        "length": "150",
+        "problem": "27_4XOJ"
+      },
+      "official_test_case": {
+        "group": "3",
+        "length": "150",
+        "motif_residues": "A55;A99;A190-192",
+        "pdb_id": "4XOJ",
+        "redesign_idcs": "A191"
+      },
+      "original_example_contig": "0-50;A1-1;40-50;B1-1;50-80;C1-3;0-50",
+      "source_motif_filename": "27_4XOJ.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "B1": "P101",
+        "C1": "P201",
+        "C2": "P202",
+        "C3": "P203"
+      },
+      "structure": "27_4XOJ_prepared.pdb"
+    },
+    "motifbench_28_5yui": {
+      "official_contig": {
+        "contig": "5-30;A1-5;5-20;B1-3;10-35;C1-3;10-30",
+        "length": "75",
+        "problem": "28_5YUI"
+      },
+      "official_test_case": {
+        "group": "3",
+        "length": "75",
+        "motif_residues": "A93-97;A118-120;A198-200",
+        "pdb_id": "5YUI",
+        "redesign_idcs": "A93;A95;A97;A118;A120"
+      },
+      "original_example_contig": "5-30;A1-5;5-20;B1-3;10-35;C1-3;10-30",
+      "source_motif_filename": "28_5YUI.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "B1": "P101",
+        "B2": "P102",
+        "B3": "P103",
+        "C1": "P201",
+        "C2": "P202",
+        "C3": "P203"
+      },
+      "structure": "28_5YUI_prepared.pdb"
+    },
+    "motifbench_29_6cpa": {
+      "official_contig": {
+        "contig": "0-20;A1-4;30-55;B1-1;50-70;C1-1;40-55;D1-1;20-25;E1-1;0-20",
+        "length": "200",
+        "problem": "29_6CPA"
+      },
+      "official_test_case": {
+        "group": "3",
+        "length": "200",
+        "motif_residues": "A69-72;A127;A196;A248;A270",
+        "pdb_id": "6CPA",
+        "redesign_idcs": "A70-71"
+      },
+      "original_example_contig": "0-20;A1-4;30-55;B1-1;50-70;C1-1;40-55;D1-1;20-25;E1-1;0-20",
+      "source_motif_filename": "29_6CPA.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "B1": "P101",
+        "C1": "P201",
+        "D1": "P301",
+        "E1": "P401"
+      },
+      "structure": "29_6CPA_prepared.pdb"
+    },
+    "motifbench_30_7uwl": {
+      "official_contig": {
+        "contig": "0-80;A1-11;25-35;B1-11;15-25;C1-11;20-30;D1-10;0-80",
+        "length": "175",
+        "problem": "30_7UWL"
+      },
+      "official_test_case": {
+        "group": "3",
+        "length": "175",
+        "motif_residues": "E63-73;E101-111;E132-142;E165-174",
+        "pdb_id": "7UWL",
+        "redesign_idcs": "E63-73;E101-103;E105-111;E132-142;E165-174"
+      },
+      "original_example_contig": "0-80;A1-11;25-35;B1-11;15-25;C1-11;20-30;D1-10;0-80",
+      "source_motif_filename": "30_7UWL.pdb",
+      "source_to_prepared": {
+        "A1": "P1",
+        "A10": "P10",
+        "A11": "P11",
+        "A2": "P2",
+        "A3": "P3",
+        "A4": "P4",
+        "A5": "P5",
+        "A6": "P6",
+        "A7": "P7",
+        "A8": "P8",
+        "A9": "P9",
+        "B1": "P101",
+        "B10": "P110",
+        "B11": "P111",
+        "B2": "P102",
+        "B3": "P103",
+        "B4": "P104",
+        "B5": "P105",
+        "B6": "P106",
+        "B7": "P107",
+        "B8": "P108",
+        "B9": "P109",
+        "C1": "P201",
+        "C10": "P210",
+        "C11": "P211",
+        "C2": "P202",
+        "C3": "P203",
+        "C4": "P204",
+        "C5": "P205",
+        "C6": "P206",
+        "C7": "P207",
+        "C8": "P208",
+        "C9": "P209",
+        "D1": "P301",
+        "D10": "P310",
+        "D2": "P302",
+        "D3": "P303",
+        "D4": "P304",
+        "D5": "P305",
+        "D6": "P306",
+        "D7": "P307",
+        "D8": "P308",
+        "D9": "P309"
+      },
+      "structure": "30_7UWL_prepared.pdb"
+    }
+  }
+}

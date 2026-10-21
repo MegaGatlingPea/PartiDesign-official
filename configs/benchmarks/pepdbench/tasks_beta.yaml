@@ -1,0 +1,597 @@
+# Sampling budget: 40 backbones per length, 10 lengths (8-17), 400 per task.
+# Six targets with linear, disulfide, and cyclic variants: 18 tasks, 7200 backbones.
+# Design benchmark: OpenMM postprocess and PartiScore disabled.
+pepdbench_dll3_linear:
+  input: ./configs/benchmarks/inputs/pepdbench/dll3.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+  hotspot: A33/A35/A51/A55/A57/A60/A101/A114
+pepdbench_dll3_disulfide:
+  input: ./configs/benchmarks/inputs/pepdbench/dll3.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  hotspot: A33/A35/A51/A55/A57/A60/A101/A114
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    sequence:
+      P:
+      - resid: 2
+        residue: C
+      - resid: -2
+        residue: C
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: -2
+        atom: SG
+      order: single
+pepdbench_dll3_cyclic:
+  input: ./configs/benchmarks/inputs/pepdbench/dll3.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  cyclic_offset: true
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: -1
+        atom: C
+      order: single
+  hotspot: A33/A35/A51/A55/A57/A60/A101/A114
+pepdbench_gabarap_linear:
+  input: ./configs/benchmarks/inputs/pepdbench/gabarap.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+  hotspot: A30/A48/A51-54/A65/A69
+pepdbench_gabarap_disulfide:
+  input: ./configs/benchmarks/inputs/pepdbench/gabarap.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  hotspot: A30/A48/A51-54/A65/A69
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    sequence:
+      P:
+      - resid: 2
+        residue: C
+      - resid: -2
+        residue: C
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: -2
+        atom: SG
+      order: single
+pepdbench_gabarap_cyclic:
+  input: ./configs/benchmarks/inputs/pepdbench/gabarap.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  cyclic_offset: true
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: -1
+        atom: C
+      order: single
+  hotspot: A30/A48/A51-54/A65/A69
+pepdbench_keap1_linear:
+  input: ./configs/benchmarks/inputs/pepdbench/keap1.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+  hotspot: A10/A56/A91/A201/A231-232/A248/A278
+pepdbench_keap1_disulfide:
+  input: ./configs/benchmarks/inputs/pepdbench/keap1.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  hotspot: A10/A56/A91/A201/A231-232/A248/A278
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    sequence:
+      P:
+      - resid: 2
+        residue: C
+      - resid: -2
+        residue: C
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: -2
+        atom: SG
+      order: single
+pepdbench_keap1_cyclic:
+  input: ./configs/benchmarks/inputs/pepdbench/keap1.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  cyclic_offset: true
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: -1
+        atom: C
+      order: single
+  hotspot: A10/A56/A91/A201/A231-232/A248/A278
+pepdbench_klk2_linear:
+  input: ./configs/benchmarks/inputs/pepdbench/klk2.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+  hotspot: A124-125/A153/A155/A159/A177-179
+pepdbench_klk2_disulfide:
+  input: ./configs/benchmarks/inputs/pepdbench/klk2.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  hotspot: A124-125/A153/A155/A159/A177-179
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    sequence:
+      P:
+      - resid: 2
+        residue: C
+      - resid: -2
+        residue: C
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: -2
+        atom: SG
+      order: single
+pepdbench_klk2_cyclic:
+  input: ./configs/benchmarks/inputs/pepdbench/klk2.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  cyclic_offset: true
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: -1
+        atom: C
+      order: single
+  hotspot: A124-125/A153/A155/A159/A177-179
+pepdbench_mdm2_linear:
+  input: ./configs/benchmarks/inputs/pepdbench/mdm2.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+pepdbench_mdm2_disulfide:
+  input: ./configs/benchmarks/inputs/pepdbench/mdm2.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    sequence:
+      P:
+      - resid: 2
+        residue: C
+      - resid: -2
+        residue: C
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: -2
+        atom: SG
+      order: single
+pepdbench_mdm2_cyclic:
+  input: ./configs/benchmarks/inputs/pepdbench/mdm2.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  cyclic_offset: true
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: -1
+        atom: C
+      order: single
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+pepdbench_xiap_linear:
+  input: ./configs/benchmarks/inputs/pepdbench/xiap.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+  hotspot: A51-54/A59/A64/A68-69
+pepdbench_xiap_disulfide:
+  input: ./configs/benchmarks/inputs/pepdbench/xiap.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  hotspot: A51-54/A59/A64/A68-69
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    sequence:
+      P:
+      - resid: 2
+        residue: C
+      - resid: -2
+        residue: C
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: -2
+        atom: SG
+      order: single
+pepdbench_xiap_cyclic:
+  input: ./configs/benchmarks/inputs/pepdbench/xiap.pdb
+  sample_num: 40
+  postprocess: false
+  score: false
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+  cyclic_offset: true
+  condition:
+    secondary_structure:
+      coarse:
+        P: beta
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: -1
+        atom: C
+      order: single
+  hotspot: A51-54/A59/A64/A68-69

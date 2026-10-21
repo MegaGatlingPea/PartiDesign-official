@@ -1,0 +1,45 @@
+# Formal protein-ligand benchmark: OQO, IAI, FAD and SAM only.
+# Fixed protein design length 100 aa; 200 structures per task, 800 total.
+# Source: https://arxiv.org/html/2603.27950v1 (Appendix E).
+# Design benchmark: OpenMM postprocess and PartiScore disabled.
+# Additional protein-ligand tasks are in configs/examples/protein_ligand_additional.yaml.
+ligand_binder_7v11_fixed:
+  input: ./configs/benchmarks/inputs/ligand_binder/7v11_oqo.pdb
+  sample_num: 200
+  postprocess: false
+  score: false
+  design_chains:
+    - {P: protein}
+  design_length:
+    P: [100]
+  hotspot: null
+ligand_binder_5sdv_fixed:
+  input: ./configs/benchmarks/inputs/ligand_binder/5sdv_iai.pdb
+  sample_num: 200
+  postprocess: false
+  score: false
+  design_chains:
+    - {P: protein}
+  design_length:
+    P: [100]
+  hotspot: null
+ligand_binder_7bkc_fixed:
+  input: ./configs/benchmarks/inputs/ligand_binder/7bkc_fad.pdb
+  sample_num: 200
+  postprocess: false
+  score: false
+  design_chains:
+    - {P: protein}
+  design_length:
+    P: [100]
+  hotspot: null
+ligand_binder_7c7m_fixed:
+  input: ./configs/benchmarks/inputs/ligand_binder/7c7m_sam.pdb
+  sample_num: 200
+  postprocess: false
+  score: false
+  design_chains:
+    - {P: protein}
+  design_length:
+    P: [100]
+  hotspot: null

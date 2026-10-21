@@ -1,0 +1,316 @@
+{
+  "benchmark": "ProtDBench",
+  "cases": {
+    "protdbench_bhrf1": {
+      "design_length": {
+        "Z": [
+          80,
+          84,
+          89,
+          93,
+          98,
+          102,
+          107,
+          111,
+          116,
+          120
+        ]
+      },
+      "hotspot": "A65/A74/A77/A82/A85/A93",
+      "sample_num": 4,
+      "source_binder_length_range": "80–120",
+      "source_hotspots": [
+        "A65",
+        "A74",
+        "A77",
+        "A82",
+        "A85",
+        "A93"
+      ],
+      "source_pdb_id": "2WH6",
+      "structure": "BHRF1_2wh6_crop.pdb",
+      "target_chains": [
+        "A"
+      ],
+      "target_name": "BHRF1"
+    },
+    "protdbench_h1": {
+      "design_length": {
+        "Z": [
+          40,
+          49,
+          58,
+          67,
+          76,
+          84,
+          93,
+          102,
+          111,
+          120
+        ]
+      },
+      "hotspot": "B21/B45/B52",
+      "sample_num": 4,
+      "source_binder_length_range": "40–120",
+      "source_hotspots": [
+        "B21",
+        "B45",
+        "B52"
+      ],
+      "source_pdb_id": "5VLI",
+      "structure": "H1_5vli_crop.pdb",
+      "target_chains": [
+        "A",
+        "B"
+      ],
+      "target_name": "Influenza H1"
+    },
+    "protdbench_il17a": {
+      "design_length": {
+        "Z": [
+          50,
+          60,
+          70,
+          80,
+          90,
+          100,
+          110,
+          120,
+          130,
+          140
+        ]
+      },
+      "hotspot": "A94/A116/B67",
+      "sample_num": 4,
+      "source_binder_length_range": "50–140",
+      "source_hotspots": [
+        "A94",
+        "A116",
+        "B67"
+      ],
+      "source_pdb_id": "4HSA",
+      "structure": "IL17A_4hsa_crop.pdb",
+      "target_chains": [
+        "A",
+        "B"
+      ],
+      "target_name": "IL-17A"
+    },
+    "protdbench_il7ra": {
+      "design_length": {
+        "Z": [
+          50,
+          58,
+          66,
+          73,
+          81,
+          89,
+          97,
+          104,
+          112,
+          120
+        ]
+      },
+      "hotspot": "B58/B80/B139",
+      "sample_num": 4,
+      "source_binder_length_range": "50–120",
+      "source_hotspots": [
+        "B58",
+        "B80",
+        "B139"
+      ],
+      "source_pdb_id": "3DI3",
+      "structure": "IL7RA_3di3_crop.pdb",
+      "target_chains": [
+        "B"
+      ],
+      "target_name": "IL-7 receptor alpha"
+    },
+    "protdbench_insulin_receptor": {
+      "design_length": {
+        "Z": [
+          40,
+          49,
+          58,
+          67,
+          76,
+          84,
+          93,
+          102,
+          111,
+          120
+        ]
+      },
+      "hotspot": "E64/E88/E96",
+      "sample_num": 4,
+      "source_binder_length_range": "40–120",
+      "source_hotspots": [
+        "E64",
+        "E88",
+        "E96"
+      ],
+      "source_pdb_id": "4ZXB",
+      "structure": "Insulin_4zxb_crop.pdb",
+      "target_chains": [
+        "E"
+      ],
+      "target_name": "Insulin receptor"
+    },
+    "protdbench_pdl1": {
+      "design_length": {
+        "Z": [
+          50,
+          58,
+          66,
+          73,
+          81,
+          89,
+          97,
+          104,
+          112,
+          120
+        ]
+      },
+      "hotspot": "A56/A115/A123",
+      "sample_num": 4,
+      "source_binder_length_range": "50–120",
+      "source_hotspots": [
+        "A56",
+        "A115",
+        "A123"
+      ],
+      "source_pdb_id": "5O45",
+      "structure": "PDL1_5o45_crop.pdb",
+      "target_chains": [
+        "A"
+      ],
+      "target_name": "PD-L1"
+    },
+    "protdbench_sc2rbd": {
+      "design_length": {
+        "Z": [
+          80,
+          84,
+          89,
+          93,
+          98,
+          102,
+          107,
+          111,
+          116,
+          120
+        ]
+      },
+      "hotspot": "E485/E489/E494/E500/E505",
+      "sample_num": 4,
+      "source_binder_length_range": "80–120",
+      "source_hotspots": [
+        "E485",
+        "E489",
+        "E494",
+        "E500",
+        "E505"
+      ],
+      "source_pdb_id": "6M0J",
+      "structure": "SC2RBD_6m0j_crop.pdb",
+      "target_chains": [
+        "E"
+      ],
+      "target_name": "SARS-CoV-2 RBD"
+    },
+    "protdbench_tnfa": {
+      "design_length": {
+        "Z": [
+          50,
+          58,
+          66,
+          73,
+          81,
+          89,
+          97,
+          104,
+          112,
+          120
+        ]
+      },
+      "hotspot": "A113/C73",
+      "sample_num": 4,
+      "source_binder_length_range": "50–120",
+      "source_hotspots": [
+        "A113",
+        "C73"
+      ],
+      "source_pdb_id": "1TNF",
+      "structure": "TNFa_1tnf_crop.pdb",
+      "target_chains": [
+        "A",
+        "B",
+        "C"
+      ],
+      "target_name": "TNF-alpha"
+    },
+    "protdbench_trka": {
+      "design_length": {
+        "Z": [
+          50,
+          58,
+          66,
+          73,
+          81,
+          89,
+          97,
+          104,
+          112,
+          120
+        ]
+      },
+      "hotspot": "X294/X296/X333",
+      "sample_num": 4,
+      "source_binder_length_range": "50–120",
+      "source_hotspots": [
+        "X294",
+        "X296",
+        "X333"
+      ],
+      "source_pdb_id": "1WWW",
+      "structure": "TrkA_1www_crop.pdb",
+      "target_chains": [
+        "X"
+      ],
+      "target_name": "TrkA"
+    },
+    "protdbench_vegfa": {
+      "design_length": {
+        "Z": [
+          50,
+          60,
+          70,
+          80,
+          90,
+          100,
+          110,
+          120,
+          130,
+          140
+        ]
+      },
+      "hotspot": "W81/W83/W91",
+      "sample_num": 4,
+      "source_binder_length_range": "50–140",
+      "source_hotspots": [
+        "W81",
+        "W83",
+        "W91"
+      ],
+      "source_pdb_id": "1BJ1",
+      "structure": "VEGFA_1bj1_crop.pdb",
+      "target_chains": [
+        "V",
+        "W"
+      ],
+      "target_name": "VEGF-A"
+    }
+  },
+  "preparation": "Prepared target structures retain their original selected residues and coordinates. Blank/A alternate locations were kept; B alternatives were removed.",
+  "source": "PartiFlow-v2@d05062fd7488, pdbs/protdbench and configs/tasks/example_prot.yaml"
+}

@@ -1,0 +1,117 @@
+# Coarse-paired RNA/DNA variant of tasks.yaml; all original sampling settings are retained.
+# This adds no token-level or explicit base-pair endpoint constraints.
+# Reuse validate.yaml; keep outputs separate from the baseline run.
+rna_ligand_binder_imidacloprid_nitroimine:
+  input: ./configs/benchmarks/inputs/ligand_binder/nitroimine.cif
+  sample_num: 100
+  score: false
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 30
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: C1CN(/C(=N/[N+](=O)[O-])/N1)CC2=CN=C(C=C2)Cl
+    secondary_structure:
+      coarse:
+        R: paired
+  hotspot: null
+  postprocess: false
+dna_ligand_binder_imidacloprid_nitroimine:
+  input: ./configs/benchmarks/inputs/ligand_binder/nitroimine.cif
+  sample_num: 100
+  score: false
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 20
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: C1CN(/C(=N/[N+](=O)[O-])/N1)CC2=CN=C(C=C2)Cl
+    secondary_structure:
+      coarse:
+        D: paired
+  hotspot: null
+  postprocess: false
+rna_ligand_binder_ethyl_maltol:
+  input: ./configs/benchmarks/inputs/ligand_binder/ethyl_maltol.cif
+  sample_num: 100
+  score: false
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 30
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: CCC1=C(C(=O)C=CO1)O
+    secondary_structure:
+      coarse:
+        R: paired
+  hotspot: null
+  postprocess: false
+dna_ligand_binder_ethyl_maltol:
+  input: ./configs/benchmarks/inputs/ligand_binder/ethyl_maltol.cif
+  sample_num: 100
+  score: false
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 20
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: CCC1=C(C(=O)C=CO1)O
+    secondary_structure:
+      coarse:
+        D: paired
+  hotspot: null
+  postprocess: false
+rna_ligand_binder_vanillin:
+  input: ./configs/benchmarks/inputs/ligand_binder/vanillin.cif
+  sample_num: 100
+  score: false
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 30
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: COC1=C(C=CC(=C1)C=O)O
+    secondary_structure:
+      coarse:
+        R: paired
+  hotspot: null
+  postprocess: false
+dna_ligand_binder_vanillin:
+  input: ./configs/benchmarks/inputs/ligand_binder/vanillin.cif
+  sample_num: 100
+  score: false
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 20
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: COC1=C(C=CC(=C1)C=O)O
+    secondary_structure:
+      coarse:
+        D: paired
+  hotspot: null
+  postprocess: false

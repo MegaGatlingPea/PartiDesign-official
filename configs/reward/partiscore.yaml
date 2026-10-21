@@ -1,0 +1,9 @@
+defaults:
+  - /sequence@sequence
+  - _self_
+
+_target_: src.design.rewards.partiscore.PartiScoreReward
+
+sequence:
+  source: design
+  fixed_positions: []

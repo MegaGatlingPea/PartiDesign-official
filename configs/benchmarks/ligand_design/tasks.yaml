@@ -1,0 +1,53 @@
+# PartiDesign sampling budget: 200 de novo ligands per pocket; 5 pockets, 1000 total.
+# Heavy-atom counts come from the model distribution. Validation uses refined structures for RDKit/QED and Vina Dock.
+# De novo exception: OpenMM postprocess and PartiScore enabled; no ESMFold2/PAE gate.
+ligand_design_2vt4:
+  input: ./configs/benchmarks/inputs/ligand_design/2vt4_complex.pdb
+  sample_num: 200
+  score: true
+  design_chains:
+  - L: ligand
+  design_length:
+    L: from_distribution
+  hotspot: A121/A211/A329/A310/A306/A215/A303/A307
+  postprocess: true
+ligand_design_5sdv:
+  input: ./configs/benchmarks/inputs/ligand_design/5sdv_complex.pdb
+  sample_num: 200
+  score: true
+  design_chains:
+  - L: ligand
+  design_length:
+    L: from_distribution
+  hotspot: A693/A726/A685/A713/A718/A689/A692/A729
+  postprocess: true
+ligand_design_6cm4:
+  input: ./configs/benchmarks/inputs/ligand_design/6cm4_complex.pdb
+  sample_num: 200
+  score: true
+  design_chains:
+  - L: ligand
+  design_length:
+    L: from_distribution
+  hotspot: A114/A389/A122/A197/A118/A386/A416/A382
+  postprocess: true
+ligand_design_7c7m:
+  input: ./configs/benchmarks/inputs/ligand_design/7c7m_complex.pdb
+  sample_num: 200
+  score: true
+  design_chains:
+  - L: ligand
+  design_length:
+    L: from_distribution
+  hotspot: A84/A151/A198/A197/A80/A152/A81/A195
+  postprocess: true
+ligand_design_7v11:
+  input: ./configs/benchmarks/inputs/ligand_design/7v11_complex.pdb
+  sample_num: 200
+  score: true
+  design_chains:
+  - L: ligand
+  design_length:
+    L: from_distribution
+  hotspot: A573/A575/A414/A598/A596/A593/A571/A594
+  postprocess: true

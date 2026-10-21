@@ -1,0 +1,301 @@
+# Runtime criteria; metric units, sources and protocols are in docs/validation.md.
+presets:
+  af2_ig_protein:
+    methods:
+    - af2_ig
+    reduction: all_and_mean
+    rules:
+    - metric: plddt
+      op: '>='
+      value: 0.8
+      scope: complex
+    - metric: ptm
+      op: '>='
+      value: 0.55
+      scope: complex
+    - metric: iptm
+      op: '>='
+      value: 0.5
+      scope: complex
+    - metric: ipae_normalized
+      op: <=
+      value: 0.35
+      scope: complex
+    - metric: plddt
+      op: '>='
+      value: 0.8
+      scope: monomer
+    - metric: bound_unbound_rmsd
+      op: <=
+      value: 3.5
+      scope: paired
+  af2_ig_peptide:
+    methods:
+    - af2_ig
+    reduction: all_and_mean
+    rules:
+    - metric: plddt
+      op: '>='
+      value: 0.8
+      scope: complex
+    - metric: ptm
+      op: '>='
+      value: 0.55
+      scope: complex
+    - metric: iptm
+      op: '>='
+      value: 0.4
+      scope: complex
+    - metric: ipae_normalized
+      op: <=
+      value: 0.3
+      scope: complex
+    - metric: plddt
+      op: '>='
+      value: 0.8
+      scope: monomer
+    - metric: bound_unbound_rmsd
+      op: <=
+      value: 2.5
+      scope: paired
+  af2_ig_alphaproteo:
+    methods:
+    - af2_ig
+    reduction: any_prediction
+    rules:
+    - metric: plddt_total
+      op: '>'
+      value: 0.9
+      scope: complex
+    - metric: pae_interaction
+      op: <
+      value: 7.0
+      scope: complex
+    - metric: binder_design_rmsd
+      op: <
+      value: 1.5
+      scope: complex
+  af2_ig_protdbench:
+    methods:
+    - af2_ig
+    reduction: any_af2_pair
+    rules:
+    - metric: plddt
+      op: '>'
+      value: 0.8
+      scope: complex
+    - metric: iptm
+      op: '>'
+      value: 0.5
+      scope: complex
+    - metric: ipae_angstrom
+      op: <
+      value: 10.85
+      scope: complex
+    - metric: bound_unbound_ca_rmsd
+      op: <
+      value: 3.5
+      scope: paired
+  af3_basic:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: binder_iptm
+      op: '>'
+      value: 0.8
+    - metric: binder_ptm
+      op: '>'
+      value: 0.8
+    - metric: complex_design_rmsd
+      op: <
+      value: 2.5
+  af3_strict:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: binder_iptm
+      op: '>'
+      value: 0.85
+    - metric: binder_ptm
+      op: '>'
+      value: 0.88
+    - metric: complex_design_rmsd
+      op: <
+      value: 2.5
+  af3_alphaproteo:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: best_ranked
+    rules:
+    - metric: min_interchain_pae_angstrom
+      op: <
+      value: 1.5
+    - metric: binder_ptm
+      op: '>'
+      value: 0.8
+    - metric: complex_design_rmsd
+      op: <
+      value: 2.5
+  af3_ame:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: binder_scRMSD_bb3
+      op: <=
+      value: 2.0
+    - metric: motif_rmsd_reference
+      op: <=
+      value: 1.5
+    - metric: correct_motif_sequence
+      op: '>='
+      value: 1.0
+    - metric: has_ligand_clashes
+      op: <
+      value: 0.5
+  af3_protein_monomer:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: design_rmsd
+      op: <
+      value: 2.0
+      scope: prediction
+  af3_na_monomer:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: na_token_center_rmsd
+      op: <
+      value: 5.0
+      scope: prediction
+  af3_protein_na_complex:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: complex_ca_p_rmsd
+      op: <
+      value: 5.0
+  af3_protein_bind_na:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: na_aligned_protein_ca_rmsd
+      op: <
+      value: 5.0
+  af3_na_bind_protein:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: protein_aligned_na_p_rmsd
+      op: <
+      value: 5.0
+  af3_ligand_iptm_screen:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: binder_iptm
+      op: '>='
+      value: 0.5
+  af3_protein_bind_ligand:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: min_design_target_pae_angstrom
+      op: <
+      value: 2.0
+    - metric: binder_design_rmsd
+      op: <
+      value: 2.0
+    - metric: complexa_aligned_ligand_rmsd
+      op: <
+      value: 5.0
+  af3_antibody:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: antibody_antigen_pae_angstrom
+      op: <
+      value: 10.0
+      scope: complex
+    - metric: antigen_aligned_antibody_ca_rmsd
+      op: <
+      value: 2.0
+      scope: complex
+  af3_na_bind_ligand:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: na_p_self_rmsd
+      op: <
+      value: 5.0
+    - metric: na_aligned_ligand_rmsd
+      op: <
+      value: 5.0
+  odesign_denovo_ligand:
+    methods:
+    - vina_dock
+    reduction: any_prediction
+    rules:
+    - metric: rdkit_valid
+      op: ==
+      value: 1
+    - metric: docking_success
+      op: ==
+      value: 1
+    - metric: qed
+      op: '>'
+      value: 0.25
+    - metric: vina_dock
+      op: <
+      value: -8.18

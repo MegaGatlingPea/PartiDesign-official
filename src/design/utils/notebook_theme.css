@@ -1,0 +1,1172 @@
+/* Native ipywidgets only. Every rule is scoped to the Nord Light workbench. */
+.pd-workbench.pd-nord-light {
+  color-scheme: light;
+  --n-color-background: #eceff4;
+  --n-color-surface: #ffffff;
+  --n-color-surface-raised: #eceff4;
+  --n-color-surface-lowered: #e5e9f0;
+  --n-color-text: #2e3440;
+  --n-color-text-weak: #434c5e;
+  --n-color-text-weaker: #4c566a;
+  --n-color-text-link: #4c566a;
+  --n-color-text-on-accent: #2e3440;
+  --n-color-border: #d8dee9;
+  --n-color-border-strong: #5e81ac;
+  --n-color-accent: #88c0d0;
+  --n-color-accent-hover: #8fbcbb;
+  --n-color-accent-active: #81a1c1;
+  --n-color-focus: #5e81ac;
+  --n-color-status-success: #8fbcbb;
+  --n-color-status-success-hover: #88c0d0;
+  --n-color-status-success-active: #81a1c1;
+  --n-color-disabled: #e5e9f0;
+  --n-color-text-disabled: #4c566a;
+  --n-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --n-font-family-code: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --jp-widgets-color: var(--n-color-text);
+  --jp-widgets-label-color: var(--n-color-text-weak);
+  --jp-widgets-readout-color: var(--n-color-text);
+  --jp-widgets-input-color: var(--n-color-text);
+  --jp-widgets-input-background-color: var(--n-color-surface);
+  --jp-widgets-input-border-color: var(--n-color-border-strong);
+  --jp-widgets-input-focus-border-color: var(--n-color-focus);
+  box-sizing: border-box;
+  container-name: pd-workbench;
+  container-type: inline-size;
+  width: 100%;
+  min-width: 0;
+  padding: 12px !important;
+  gap: 8px;
+  border: 1px solid var(--n-color-border) !important;
+  border-radius: 12px;
+  background: var(--n-color-background) !important;
+  color: var(--n-color-text);
+  font-family: var(--n-font-family);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow: visible;
+}
+
+.pd-workbench.pd-nord-light .widget-box {
+  box-sizing: border-box;
+  min-width: 0;
+  border-color: var(--n-color-border) !important;
+}
+
+.pd-workbench.pd-nord-light .pd-header {
+  display: flex !important;
+  flex-flow: row nowrap;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 6px;
+  margin: 0 !important;
+}
+
+.pd-workbench.pd-nord-light .pd-title {
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0;
+  height: auto;
+  margin: 0 !important;
+  color: var(--n-color-text) !important;
+  font-family: var(--n-font-family);
+  font-size: 18px !important;
+  font-weight: 650 !important;
+  line-height: 1.3;
+  white-space: normal;
+}
+
+/* Each workspace owns one 520px frame; only the form contents scroll. */
+.pd-workbench.pd-nord-light .pd-workspace {
+  display: grid !important;
+  grid-template-columns: minmax(340px, 46%) minmax(340px, 1fr);
+  align-items: stretch !important;
+  width: 100%;
+  min-width: 0;
+  gap: 12px !important;
+}
+
+.pd-workbench.pd-nord-light .pd-card {
+  box-sizing: border-box;
+  min-width: 0 !important;
+  max-width: 100%;
+  padding: 12px !important;
+  gap: 6px !important;
+  border: 1px solid var(--n-color-border) !important;
+  border-radius: 10px;
+  background: var(--n-color-surface) !important;
+  color: var(--n-color-text);
+}
+
+.pd-workbench.pd-nord-light :is(.pd-form-card, .pd-viewer) {
+  display: flex !important;
+  flex-flow: column nowrap;
+  align-self: stretch;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 520px !important;
+  min-height: 520px !important;
+  max-height: 520px !important;
+}
+
+.pd-workbench.pd-nord-light .pd-form-card {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+
+.pd-workbench.pd-nord-light .pd-form-card > * {
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pd-workbench.pd-nord-light .pd-viewer {
+  overflow: hidden;
+}
+
+.pd-workbench.pd-nord-light .pd-view-caption {
+  flex: 0 0 22px;
+  width: 100% !important;
+  min-width: 0;
+  height: 22px !important;
+  min-height: 22px;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--n-color-text-weak) !important;
+  font-size: 12px;
+  line-height: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pd-workbench.pd-nord-light .pd-molstar {
+  display: flex !important;
+  flex: 1 1 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.pd-workbench.pd-nord-light .pd-molstar > [data-partidesign-viewer] {
+  flex: 1 1 auto;
+  width: 100% !important;
+  min-width: 0;
+  height: 100% !important;
+  min-height: 0;
+}
+
+.pd-workbench.pd-nord-light .pd-section {
+  width: 100%;
+  min-width: 0;
+  padding: 8px !important;
+  gap: 6px;
+  border: 1px solid var(--n-color-border) !important;
+  border-radius: 6px;
+  background: var(--n-color-surface);
+}
+
+.pd-workbench.pd-nord-light .pd-section-title {
+  height: auto;
+  margin: 2px 0 !important;
+  color: var(--n-color-text) !important;
+  font-family: var(--n-font-family);
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+/* The label column and remaining input space match across native field types. */
+.pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-textarea, .widget-dropdown, .widget-select, .widget-combobox),
+.pd-workbench.pd-nord-light .widget-toggle-buttons:not(.pd-steps) {
+  display: flex !important;
+  box-sizing: border-box;
+  flex-flow: row nowrap;
+  align-items: center;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  margin: 2px 0 !important;
+  padding: 0 !important;
+  font-family: var(--n-font-family);
+}
+
+.pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-dropdown, .widget-combobox) {
+  height: 30px !important;
+  min-height: 30px;
+}
+
+.pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-textarea, .widget-dropdown, .widget-select, .widget-combobox, .widget-toggle-buttons):not(.pd-steps) > .widget-label {
+  flex: 0 0 94px;
+  width: 94px !important;
+  min-width: 94px;
+  max-width: 94px;
+  height: auto;
+  margin: 0 6px 0 0 !important;
+  padding: 0 !important;
+  text-align: left;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-textarea, .widget-dropdown, .widget-select, .widget-combobox, .widget-toggle-buttons) > .widget-label:empty {
+  display: none !important;
+}
+
+.pd-workbench.pd-nord-light .widget-label:not(.pd-title, .pd-section-title) {
+  color: var(--n-color-text-weak) !important;
+  font-family: var(--n-font-family);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-combobox) input,
+.pd-workbench.pd-nord-light :is(.widget-dropdown, .widget-select) select,
+.pd-workbench.pd-nord-light .widget-textarea textarea {
+  box-sizing: border-box;
+  flex: 1 1 0 !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 4px 8px;
+  border: 1px solid var(--n-color-border-strong) !important;
+  border-radius: 6px;
+  background: var(--n-color-surface) !important;
+  color: var(--n-color-text) !important;
+  font-family: var(--n-font-family);
+  font-size: 13px;
+  line-height: 20px;
+  box-shadow: none !important;
+}
+
+.pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-combobox) input,
+.pd-workbench.pd-nord-light .widget-dropdown select {
+  height: 30px !important;
+  min-height: 30px;
+}
+
+.pd-workbench.pd-nord-light :is(.widget-dropdown, .widget-select) select {
+  max-width: none !important;
+  padding-right: 22px;
+}
+
+.pd-workbench.pd-nord-light .widget-select {
+  align-items: flex-start;
+  height: auto !important;
+  min-height: 30px;
+}
+
+.pd-workbench.pd-nord-light .widget-select > .widget-label {
+  padding-top: 6px !important;
+}
+
+.pd-workbench.pd-nord-light .widget-select select {
+  height: auto;
+  min-height: 30px;
+  padding: 3px;
+  line-height: 1.4;
+}
+
+.pd-workbench.pd-nord-light :is(.widget-dropdown, .widget-select) option {
+  padding: 3px 5px;
+  background: var(--n-color-surface);
+  color: var(--n-color-text);
+}
+
+.pd-workbench.pd-nord-light .widget-select option:checked {
+  background: var(--n-color-accent) !important;
+  color: var(--n-color-text-on-accent) !important;
+}
+
+.pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-combobox) input::placeholder,
+.pd-workbench.pd-nord-light .widget-textarea textarea::placeholder {
+  color: var(--n-color-text-weaker);
+  opacity: 1;
+}
+
+.pd-workbench.pd-nord-light .widget-textarea {
+  height: auto !important;
+  align-items: flex-start;
+}
+
+.pd-workbench.pd-nord-light .widget-textarea textarea {
+  height: auto;
+  min-height: 60px;
+  padding: 6px 8px;
+  font-family: var(--n-font-family-code);
+  font-size: 12px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-combobox) input:disabled,
+.pd-workbench.pd-nord-light :is(.widget-dropdown, .widget-select) select:disabled,
+.pd-workbench.pd-nord-light .widget-textarea textarea:disabled {
+  background: var(--n-color-disabled) !important;
+  color: var(--n-color-text-disabled) !important;
+  -webkit-text-fill-color: var(--n-color-text-disabled);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+/* Short runtime messages use labels; legacy note widgets stay visually quiet. */
+.pd-workbench.pd-nord-light .pd-inline-info,
+.pd-workbench.pd-nord-light .pd-note {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  margin: 2px 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  color: var(--n-color-text-weak) !important;
+  font-size: 12px;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.pd-workbench.pd-nord-light .pd-note textarea,
+.pd-workbench.pd-nord-light .pd-note textarea:disabled {
+  min-height: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  color: var(--n-color-text-weak) !important;
+  -webkit-text-fill-color: var(--n-color-text-weak);
+  font-family: var(--n-font-family) !important;
+  font-size: 12px !important;
+  font-weight: 400;
+  line-height: 1.3;
+  opacity: 1;
+  resize: none;
+  cursor: default;
+}
+
+/* Native checkboxes have no inherited label column or invisible indent. */
+.pd-workbench.pd-nord-light .pd-check.widget-checkbox {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  width: auto !important;
+  min-width: 0;
+  max-width: 100%;
+  height: auto !important;
+  min-height: 24px;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.pd-workbench.pd-nord-light .pd-check > .widget-label:empty {
+  display: none !important;
+}
+
+.pd-workbench.pd-nord-light .pd-check .widget-label-basic {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  width: auto !important;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 24px;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.3;
+}
+
+.pd-workbench.pd-nord-light .pd-check input[type="checkbox"] {
+  position: static;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin: 0 !important;
+  accent-color: var(--n-color-accent);
+  cursor: pointer;
+}
+
+.pd-workbench.pd-nord-light .pd-check .widget-label {
+  display: inline !important;
+  flex: 0 1 auto;
+  width: auto !important;
+  max-width: none;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--n-color-text) !important;
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.pd-workbench.pd-nord-light .pd-check input[type="checkbox"]:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pd-workbench.pd-nord-light :is(.pd-options, .pd-actions, .pd-preset-row, .pd-condition-tools) {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  margin: 2px 0 !important;
+  padding: 0 !important;
+  gap: 6px !important;
+}
+
+.pd-workbench.pd-nord-light .pd-options {
+  column-gap: 12px !important;
+}
+
+.pd-workbench.pd-nord-light :is(.pd-preset-row, .pd-condition-tools) > .widget-dropdown {
+  flex: 1 1 200px;
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+.pd-workbench.pd-nord-light :is(.pd-preset-row, .pd-condition-tools) > .jupyter-button {
+  flex: 0 0 auto;
+  width: auto !important;
+  min-width: 56px !important;
+}
+
+/* Native Button, FileUpload, and ToggleButtons share the same compact surface. */
+.pd-workbench.pd-nord-light .jupyter-button {
+  box-sizing: border-box;
+  min-width: 0 !important;
+  max-width: 100%;
+  height: auto;
+  min-height: 30px;
+  margin: 2px 0 !important;
+  padding: 4px 9px !important;
+  border: 1px solid var(--n-color-border-strong) !important;
+  border-radius: 6px;
+  background: var(--n-color-surface-raised) !important;
+  color: var(--n-color-text) !important;
+  font-family: var(--n-font-family);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 20px;
+  text-shadow: none;
+  box-shadow: none !important;
+  white-space: normal;
+  cursor: pointer;
+}
+
+.pd-workbench.pd-nord-light .jupyter-button:hover:not(:disabled) {
+  background: var(--n-color-surface-lowered) !important;
+}
+
+.pd-workbench.pd-nord-light .jupyter-button:active:not(:disabled) {
+  border-color: var(--n-color-focus) !important;
+  background: var(--n-color-surface-lowered) !important;
+}
+
+.pd-workbench.pd-nord-light .jupyter-button.mod-active,
+.pd-workbench.pd-nord-light .jupyter-button.mod-active:hover:not(:disabled),
+.pd-workbench.pd-nord-light .jupyter-button.mod-primary,
+.pd-workbench.pd-nord-light .jupyter-button.mod-primary:hover:not(:disabled) {
+  border-color: var(--n-color-accent) !important;
+  background: var(--n-color-accent) !important;
+  color: var(--n-color-text-on-accent) !important;
+}
+
+.pd-workbench.pd-nord-light .jupyter-button.mod-primary:hover:not(:disabled) {
+  border-color: var(--n-color-accent-hover) !important;
+  background: var(--n-color-accent-hover) !important;
+}
+
+.pd-workbench.pd-nord-light .jupyter-button.mod-primary:active:not(:disabled) {
+  border-color: var(--n-color-accent-active) !important;
+  background: var(--n-color-accent-active) !important;
+}
+
+.pd-workbench.pd-nord-light .jupyter-button.mod-success {
+  border-color: var(--n-color-status-success) !important;
+  background: var(--n-color-status-success) !important;
+  color: var(--n-color-text-on-accent) !important;
+}
+
+.pd-workbench.pd-nord-light .jupyter-button.mod-success:hover:not(:disabled) {
+  border-color: var(--n-color-status-success-hover) !important;
+  background: var(--n-color-status-success-hover) !important;
+}
+
+.pd-workbench.pd-nord-light .jupyter-button.mod-success:active:not(:disabled) {
+  border-color: var(--n-color-status-success-active) !important;
+  background: var(--n-color-status-success-active) !important;
+}
+
+.pd-workbench.pd-nord-light .jupyter-button:disabled,
+.pd-workbench.pd-nord-light .jupyter-button:disabled:hover {
+  border-color: var(--n-color-border) !important;
+  background: var(--n-color-disabled) !important;
+  color: var(--n-color-text-disabled) !important;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.pd-workbench.pd-nord-light :is(.pd-actions, .pd-preset-row, .pd-condition-tools) .jupyter-button {
+  margin: 0 !important;
+}
+
+.pd-workbench.pd-nord-light .pd-help.jupyter-button {
+  flex: 0 0 22px;
+  width: 22px !important;
+  min-width: 22px !important;
+  max-width: 22px;
+  height: 22px !important;
+  min-height: 22px;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50%;
+  background: transparent !important;
+  color: var(--n-color-text-weaker) !important;
+  font-size: 0;
+  line-height: 22px;
+}
+
+.pd-workbench.pd-nord-light .pd-help .fa {
+  margin: 0 !important;
+  font-size: 18px;
+  line-height: 22px;
+  vertical-align: top;
+}
+
+.pd-workbench.pd-nord-light .pd-help.jupyter-button:hover:not(:disabled) {
+  background: var(--n-color-surface-lowered) !important;
+  color: var(--n-color-text) !important;
+}
+
+.pd-workbench.pd-nord-light .widget-toggle-buttons {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pd-workbench.pd-nord-light .widget-toggle-buttons > div {
+  display: flex;
+  flex: 1 1 0;
+  flex-flow: row wrap;
+  min-width: 0;
+  gap: 6px;
+}
+
+.pd-workbench.pd-nord-light .widget-toggle-buttons .jupyter-button {
+  margin: 0 !important;
+}
+
+.pd-workbench.pd-nord-light .pd-steps {
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+.pd-workbench.pd-nord-light .pd-steps > div {
+  display: flex;
+  flex-flow: row nowrap;
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+}
+
+.pd-workbench.pd-nord-light .pd-steps .jupyter-button {
+  flex: 1 1 0;
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 32px;
+  padding: 5px 6px !important;
+  font-size: 12px;
+  font-weight: 550 !important;
+  line-height: 18px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* Support classic Phosphor, Lumino, and current ipywidgets Collapse classes. */
+.pd-workbench.pd-nord-light .widget-tab {
+  margin: 0 !important;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.pd-workbench.pd-nord-light .widget-tab :is(.p-TabBar, .lm-TabBar) {
+  flex-shrink: 0;
+  height: auto !important;
+  min-height: 32px;
+  overflow: visible;
+}
+
+.pd-workbench.pd-nord-light .widget-tab :is(.p-TabBar-content, .lm-TabBar-content) {
+  display: flex;
+  flex-flow: row nowrap;
+  min-width: 0;
+  gap: 8px;
+  padding: 0;
+  border-bottom: 1px solid var(--n-color-border);
+}
+
+.pd-workbench.pd-nord-light .widget-tab :is(.p-TabBar-tab, .lm-TabBar-tab) {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  width: auto !important;
+  min-width: 0;
+  height: auto;
+  min-height: 32px;
+  margin: 0 0 -1px;
+  padding: 6px 7px;
+  border: 1px solid transparent !important;
+  border-radius: 6px 6px 0 0;
+  background: transparent !important;
+  color: var(--n-color-text-weak) !important;
+  font-family: var(--n-font-family);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.pd-workbench.pd-nord-light .widget-tab :is(.p-TabBar-tabLabel, .lm-TabBar-tabLabel) {
+  min-width: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.pd-workbench.pd-nord-light .widget-tab :is(.p-TabBar-tab, .lm-TabBar-tab):hover {
+  background: var(--n-color-surface-raised) !important;
+  color: var(--n-color-text) !important;
+}
+
+.pd-workbench.pd-nord-light .widget-tab :is(.p-TabBar-tab.p-mod-current, .lm-TabBar-tab.lm-mod-current) {
+  border-color: var(--n-color-border) !important;
+  border-bottom-color: var(--n-color-surface) !important;
+  background: var(--n-color-surface) !important;
+  color: var(--n-color-text) !important;
+  font-weight: 600;
+}
+
+.pd-workbench.pd-nord-light .widget-tab :is(.widget-tab-contents, .p-StackedPanel, .lm-StackedPanel) {
+  min-width: 0;
+  padding: 8px 0 0;
+  border: 0 !important;
+  background: var(--n-color-surface) !important;
+  color: var(--n-color-text);
+}
+
+.pd-workbench.pd-nord-light .widget-accordion {
+  width: 100%;
+  min-width: 0;
+  margin: 2px 0;
+}
+
+.pd-workbench.pd-nord-light .widget-accordion :is(.p-Collapse, .lm-Collapse, .jupyter-widget-Collapse, .p-Accordion, .lm-Accordion) {
+  min-width: 0;
+  border-color: var(--n-color-border) !important;
+  border-radius: 6px;
+  background: var(--n-color-surface) !important;
+}
+
+.pd-workbench.pd-nord-light .widget-accordion :is(.p-Collapse-header, .lm-Collapse-header, .jupyter-widget-Collapse-header, .p-Accordion-title, .lm-Accordion-title, .p-AccordionPanel-title, .lm-AccordionPanel-title) {
+  min-height: 30px;
+  padding: 6px 8px;
+  border-color: var(--n-color-border) !important;
+  border-radius: 6px;
+  background: var(--n-color-surface-raised) !important;
+  color: var(--n-color-text) !important;
+  font-family: var(--n-font-family);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 18px;
+}
+
+.pd-workbench.pd-nord-light .widget-accordion :is(.p-Collapse-header, .lm-Collapse-header, .jupyter-widget-Collapse-header, .p-Accordion-title, .lm-Accordion-title, .p-AccordionPanel-title, .lm-AccordionPanel-title):hover {
+  background: var(--n-color-surface-lowered) !important;
+}
+
+.pd-workbench.pd-nord-light .widget-accordion :is(.p-Collapse-contents, .lm-Collapse-contents, .jupyter-widget-Collapse-contents, .p-AccordionPanel-content, .lm-AccordionPanel-content) {
+  min-width: 0;
+  padding: 8px;
+  border-color: var(--n-color-border) !important;
+  background: var(--n-color-surface) !important;
+  color: var(--n-color-text);
+}
+
+.pd-workbench.pd-nord-light .pd-footer {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  gap: 6px 12px;
+  margin: 0 !important;
+}
+
+.pd-workbench.pd-nord-light .pd-footer > .widget-box {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  width: auto !important;
+  min-width: 0;
+  gap: 6px;
+}
+
+.pd-workbench.pd-nord-light .pd-footer > .widget-box:first-child {
+  flex: 0 0 auto;
+}
+
+.pd-workbench.pd-nord-light .pd-footer > .widget-box:last-child {
+  flex: 1 1 180px;
+  justify-content: flex-end;
+}
+
+.pd-workbench.pd-nord-light .pd-footer .pd-inline-info {
+  flex: 1 1 auto;
+  width: auto !important;
+  min-width: 0;
+  margin: 0 !important;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pd-workbench.pd-nord-light .pd-footer .jupyter-button {
+  margin: 0 !important;
+}
+
+/* Focus stays inside each control, including at scroll and field boundaries. */
+.pd-workbench.pd-nord-light .jupyter-button:focus,
+.pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-combobox) input:focus,
+.pd-workbench.pd-nord-light :is(.widget-dropdown, .widget-select) select:focus,
+.pd-workbench.pd-nord-light .widget-textarea textarea:focus,
+.pd-workbench.pd-nord-light .pd-check input[type="checkbox"]:focus,
+.pd-workbench.pd-nord-light .widget-tab :is(.p-TabBar-tab, .lm-TabBar-tab):focus,
+.pd-workbench.pd-nord-light .widget-accordion :is(.p-Collapse-header, .lm-Collapse-header, .jupyter-widget-Collapse-header, .p-Accordion-title, .lm-Accordion-title, .p-AccordionPanel-title, .lm-AccordionPanel-title):focus {
+  outline: 0 !important;
+  outline-offset: 0 !important;
+}
+
+.pd-workbench.pd-nord-light .jupyter-button:focus-visible,
+.pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-combobox) input:focus-visible,
+.pd-workbench.pd-nord-light :is(.widget-dropdown, .widget-select) select:focus-visible,
+.pd-workbench.pd-nord-light .widget-textarea textarea:focus-visible,
+.pd-workbench.pd-nord-light .pd-check input[type="checkbox"]:focus-visible,
+.pd-workbench.pd-nord-light .widget-tab :is(.p-TabBar-tab, .lm-TabBar-tab):focus-visible,
+.pd-workbench.pd-nord-light .widget-accordion :is(.p-Collapse-header, .lm-Collapse-header, .jupyter-widget-Collapse-header, .p-Accordion-title, .lm-Accordion-title, .p-AccordionPanel-title, .lm-AccordionPanel-title):focus-visible {
+  box-shadow: inset 0 0 0 2px var(--n-color-focus) !important;
+}
+
+.pd-workbench.pd-nord-light .pd-check input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--n-color-focus) !important;
+  outline-offset: -2px !important;
+}
+
+.pd-workbench.pd-nord-light .widget-output {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--n-color-text);
+}
+
+.pd-workbench.pd-nord-light .widget-output :is(pre, code) {
+  color: var(--n-color-text);
+  font-family: var(--n-font-family-code);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.pd-workbench.pd-nord-light .widget-output pre {
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* MolStar 3.3.2 panels; keep its geometry and canvas rendering untouched. */
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-layout-region, .msp-left-panel-controls-buttons) {
+  background-color: var(--n-color-surface-lowered) !important;
+  color: var(--n-color-text) !important;
+  border-color: var(--n-color-border) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] .msp-plugin {
+  background-color: var(--n-color-surface) !important;
+  color: var(--n-color-text) !important;
+  font-family: var(--n-font-family);
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-control-group-header, .msp-control-group-header > button, .msp-control-group-header div, .msp-control-group-header > span, .msp-viewport-controls-panel, .msp-hover-box-body, .msp-semi-transparent-background) {
+  background-color: var(--n-color-surface-raised) !important;
+  color: var(--n-color-text) !important;
+  border-color: var(--n-color-border) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-sequence, .msp-sequence-select, .msp-sequence-select > select, .msp-sequence-wrapper-non-empty) {
+  background-color: var(--n-color-surface-lowered) !important;
+  color: var(--n-color-text) !important;
+  border-color: var(--n-color-border) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-sequence-chain-label, .msp-sequence-label, .msp-sequence-number) {
+  color: var(--n-color-text-link) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] .msp-sequence-present {
+  color: var(--n-color-text) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] .msp-sequence-missing {
+  color: var(--n-color-text-weaker) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-control-row, .msp-control-row > div, .msp-control-row-label, .msp-control-current) {
+  background-color: var(--n-color-surface-lowered) !important;
+  color: var(--n-color-text-weak) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-form-control, .msp-control-row select, .msp-control-row input, .msp-control-row button, .msp-btn, .msp-btn-link, .msp-btn-icon) {
+  background-color: var(--n-color-surface-raised) !important;
+  color: var(--n-color-text) !important;
+  border-color: var(--n-color-border) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(select.msp-form-control, .msp-control-row select, .msp-sequence-select > select) {
+  appearance: auto !important;
+  background-image: none !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-control-row option, .msp-sequence-select option) {
+  background-color: var(--n-color-surface-raised);
+  color: var(--n-color-text);
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-form-control, .msp-control-row select, .msp-control-row input)::placeholder {
+  color: var(--n-color-text-weaker) !important;
+  opacity: 1;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-form-control, .msp-control-row select, .msp-control-row input, .msp-control-row button, .msp-btn, .msp-btn-link, .msp-btn-icon):hover:not(:disabled) {
+  background-color: var(--n-color-surface-lowered) !important;
+  color: var(--n-color-text) !important;
+  outline: 1px solid var(--n-color-border-strong) !important;
+  outline-offset: -1px !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-btn-link-toggle-off, .msp-btn-link-toggle-off:active, .msp-btn-link-toggle-off:focus) {
+  background-color: var(--n-color-surface-raised) !important;
+  color: var(--n-color-text-weak) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-btn-link-toggle-on, .msp-btn-link-toggle-on:active, .msp-btn-link-toggle-on:focus, .msp-btn-link-toggle-on:hover, .msp-btn-link-toggle-off:hover) {
+  background-color: var(--n-color-accent) !important;
+  color: var(--n-color-text-on-accent) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-form-control, .msp-control-row select, .msp-control-row input, .msp-control-row button, .msp-btn, .msp-btn-link, .msp-btn-icon):focus-visible {
+  outline: 0 !important;
+  box-shadow: inset 0 0 0 2px var(--n-color-focus) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-btn-link-toggle-on:focus-visible, .msp-btn-link-toggle-off:hover:focus-visible) {
+  box-shadow: inset 0 0 0 2px var(--n-color-text-on-accent) !important;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-form-control, .msp-control-row select, .msp-control-row input, .msp-control-row button, .msp-btn, .msp-btn-link, .msp-btn-icon):disabled {
+  background-color: var(--n-color-disabled) !important;
+  color: var(--n-color-text-disabled) !important;
+  opacity: 0.6;
+}
+
+.pd-workbench.pd-nord-light [data-partidesign-viewer] :is(.msp-form-control, .msp-control-row input)[readonly] {
+  background-color: var(--n-color-surface-lowered) !important;
+  color: var(--n-color-text-weak) !important;
+  opacity: 1;
+}
+
+/* Respond to the notebook cell width, including when its sidebars are open. */
+@container pd-workbench (max-width: 739.98px) {
+  .pd-workbench.pd-nord-light .pd-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container pd-workbench (max-width: 420px) {
+  .pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-textarea, .widget-dropdown, .widget-select, .widget-combobox),
+  .pd-workbench.pd-nord-light .widget-toggle-buttons:not(.pd-steps) {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto !important;
+    gap: 2px;
+  }
+
+  .pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-textarea, .widget-dropdown, .widget-select, .widget-combobox, .widget-toggle-buttons):not(.pd-steps) > .widget-label {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-width: 0;
+    max-width: none;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .pd-workbench.pd-nord-light :is(.widget-text, .widget-int-text, .widget-float-text, .widget-combobox) input,
+  .pd-workbench.pd-nord-light :is(.widget-dropdown, .widget-select) select,
+  .pd-workbench.pd-nord-light .widget-textarea textarea {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+  }
+}
+
+@supports not (container-type: inline-size) {
+  .pd-workbench.pd-nord-light .pd-workspace {
+    display: flex !important;
+    flex-flow: row wrap;
+  }
+
+  .pd-workbench.pd-nord-light .pd-form-card {
+    flex: 1 1 380px !important;
+  }
+
+  .pd-workbench.pd-nord-light .pd-viewer {
+    flex: 1 1 340px !important;
+  }
+}
+
+/* Role selectors share a row with a readable source-chain label. */
+.pd-workbench.pd-nord-light .pd-role-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 6px;
+}
+.pd-workbench.pd-nord-light .pd-role-row > .widget-label {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.pd-workbench.pd-nord-light .pd-role-row > .widget-dropdown {
+  flex: 0 0 112px;
+  width: 112px !important;
+}
+.pd-workbench.pd-nord-light .widget-tab .widget-tab-contents > .widget-box {
+  margin: 0 !important;
+}
+
+/* Keep selection actions legible in every panel, not only the Input step. */
+.pd-workbench.pd-nord-light .widget-box.widget-hbox {
+  gap: 8px;
+}
+.pd-workbench.pd-nord-light .pd-pick-level > div {
+  display: flex;
+  flex-flow: row nowrap !important;
+  min-width: 0;
+  gap: 8px;
+}
+.pd-workbench.pd-nord-light .pd-pick-level .jupyter-button {
+  flex: 1 1 0;
+  width: auto !important;
+  min-width: 0 !important;
+}
+.pd-workbench.pd-nord-light .pd-runtime,
+.pd-workbench.pd-nord-light .pd-native-panel,
+.pd-workbench.pd-nord-light .pd-native-section {
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+}
+.pd-workbench.pd-nord-light .pd-native-heading {
+  height: auto;
+  margin: 2px 0;
+  font-weight: 650;
+  white-space: normal;
+}
+.pd-workbench.pd-nord-light .pd-native-help,
+.pd-workbench.pd-nord-light .pd-native-readout {
+  height: auto;
+  margin: 2px 0;
+  color: var(--n-color-text-weak);
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.pd-workbench.pd-nord-light .pd-native-chain-row {
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pd-workbench.pd-nord-light .pd-native-chain-row > .widget-label {
+  flex: 1 1 80px;
+  min-width: 0;
+  white-space: normal;
+}
+.pd-workbench.pd-nord-light .pd-native-chain-row > .widget-dropdown {
+  flex: 1 1 180px;
+  width: auto !important;
+}
+
+/* Compact task preparation and persistent viewer selection controls. */
+.pd-workbench.pd-nord-light .pd-task-preset {
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--n-color-border);
+}
+.pd-workbench.pd-nord-light .pd-motif-browser {
+  align-items: flex-start;
+  gap: 10px;
+}
+.pd-workbench.pd-nord-light .pd-motif-browser > * {
+  min-width: 0;
+}
+.pd-workbench.pd-nord-light .pd-motif-tools .pd-actions > .widget-text {
+  flex: 1 1 140px;
+  width: auto !important;
+}
+.pd-workbench.pd-nord-light .pd-motif-tools .pd-actions .jupyter-button {
+  min-width: 62px !important;
+  padding: 0 8px !important;
+}
+.pd-workbench.pd-nord-light .pd-native-motif-list-column {
+  flex: 1 1 140px !important;
+}
+.pd-workbench.pd-nord-light .pd-native-motif-detail {
+  flex: 1 1 170px !important;
+}
+.pd-workbench.pd-nord-light .pd-native-motif-detail .pd-section {
+  padding: 6px !important;
+  margin: 0 !important;
+}
+.pd-workbench.pd-nord-light .pd-help {
+  flex: 0 0 22px;
+  width: 22px !important;
+  min-width: 22px !important;
+  height: 22px;
+}
+.pd-workbench.pd-nord-light .pd-help-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--n-color-text-weaker);
+  cursor: help;
+}
+.pd-workbench.pd-nord-light .pd-help-button:hover,
+.pd-workbench.pd-nord-light .pd-help-button:focus-visible {
+  color: var(--n-color-text);
+  background: var(--n-color-surface-lowered);
+  outline: 2px solid var(--n-color-border-strong, #5e81ac);
+  outline-offset: 1px;
+}
+.pd-workbench.pd-nord-light .pd-molstar [data-partidesign-viewer] {
+  top: 0;
+  height: 100% !important;
+}
+.pd-workbench.pd-nord-light .pd-scope-toolbar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  max-width: 100%;
+  color: var(--n-color-text-weaker);
+  font: 11px/1.2 system-ui, sans-serif;
+}
+.pd-workbench.pd-nord-light .pd-scope-toolbar > span {
+  margin-right: 5px;
+}
+.pd-workbench.pd-nord-light .pd-scope-toolbar button {
+  border: 1px solid var(--n-color-border);
+  border-radius: 6px;
+  background: var(--n-color-surface);
+  color: var(--n-color-text);
+  padding: 4px 6px;
+  font: inherit;
+  cursor: pointer;
+}
+.pd-workbench.pd-nord-light .pd-scope-toolbar button[aria-pressed="true"] {
+  background: #88c0d0;
+  border-color: #88c0d0;
+  color: #2e3440;
+}
+.pd-workbench.pd-nord-light .pd-scope-toolbar button:focus-visible {
+  outline: 2px solid #5e81ac;
+  outline-offset: 1px;
+}
+.pd-workbench.pd-nord-light .pd-view-header {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 26px;
+  height: 26px;
+  min-height: 26px;
+  gap: 8px;
+}
+.pd-workbench.pd-nord-light .pd-view-header > .pd-view-caption {
+  flex: 1 1 auto;
+  width: auto !important;
+  min-width: 0;
+  display: block !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.pd-workbench.pd-nord-light .pd-view-header > .pd-scope-toolbar {
+  position: static;
+  flex: 0 0 auto;
+}
+@container pd-workbench (max-width: 420px) {
+  .pd-workbench.pd-nord-light .pd-view-header .pd-scope-toolbar {
+    font-size: 10px;
+    gap: 2px;
+  }
+  .pd-workbench.pd-nord-light .pd-view-header .pd-scope-toolbar button {
+    padding: 3px 4px;
+  }
+  .pd-workbench.pd-nord-light .pd-view-header .pd-scope-toolbar > span {
+    margin-right: 3px;
+  }
+  .pd-workbench.pd-nord-light .pd-view-header > .pd-view-caption {
+    font-size: 11px;
+  }
+}
+.pd-workbench.pd-nord-light .pd-runtime-log textarea {
+  max-height: 230px;
+  white-space: pre;
+  overflow: auto;
+}
+@container pd-workbench (max-width: 739.98px) {
+  .pd-workbench.pd-nord-light .pd-steps > div {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+}
+
+/* Visibility belongs to the active task, including modality-dependent fields. */
+.pd-workbench.pd-nord-light :is(.jupyter-widget, .jupyter-widgets)[style*="display: none"],
+.pd-workbench.pd-nord-light :is(.jupyter-widget, .jupyter-widgets)[style*="display:none"] {
+  display: none !important;
+}

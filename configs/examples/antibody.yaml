@@ -1,0 +1,170 @@
+antibody_fixture:
+  format: antibody
+  sample_num: 5
+  antibody:
+    scaffold: adalimumab.6cr1
+    chains:
+      VH: VH
+      VL: VL
+    template: true
+    design:
+      VH:
+        cdrs:
+        - CDR3
+        lengths:
+          CDR3: native
+      VL: {}
+  antigen:
+    input: ./configs/examples/structures/antibody_design/7uxq.cif
+    crop:
+      include:
+      - A
+    hotspot: A20/A30-32
+  score: false
+  postprocess: false
+  override: true
+vhh_fixture:
+  format: antibody
+  sample_num: 5
+  antibody:
+    scaffold: 7eow
+    chains:
+      VHH: VHH
+    template: true
+  antigen:
+    input: ./configs/examples/structures/antibody_design/9bkq-assembly2.cif
+    crop:
+      include:
+      - B
+  score: false
+  postprocess: false
+  override: true
+pdl1_adalimumab_selective_cdr3_official:
+  format: antibody
+  sample_num: 5
+  antibody:
+    scaffold: adalimumab.6cr1
+    chains:
+      VH: VH
+      VL: VL
+    design:
+      VH:
+        cdrs:
+        - CDR3
+        lengths:
+          CDR3: official
+      VL: {}
+    template: true
+  antigen:
+    input: ./configs/examples/structures/antibody_design/7uxq.cif
+    crop:
+      include:
+      - A
+  score: false
+  postprocess: false
+  override: true
+penguinpox_7eow_selective_cdr3_official:
+  format: antibody
+  sample_num: 5
+  antibody:
+    scaffold: 7eow
+    chains:
+      VHH: VHH
+    design:
+      VHH:
+        cdrs:
+        - CDR3
+        lengths:
+          CDR3: official
+    template: true
+  antigen:
+    input: ./configs/examples/structures/antibody_design/9bkq-assembly2.cif
+    crop:
+      include:
+      - B
+  score: false
+  postprocess: false
+  override: true
+pdl1_adalimumab_framework_optin:
+  format: antibody
+  sample_num: 5
+  antibody:
+    scaffold: adalimumab.6cr1
+    chains:
+      VH: VH
+      VL: VL
+    design:
+      VH:
+        cdrs:
+        - CDR3
+        lengths:
+          CDR3: official
+        framework: '5'
+      VL: {}
+    template: true
+  antigen:
+    input: ./configs/examples/structures/antibody_design/7uxq.cif
+    crop:
+      include:
+      - A
+  score: false
+  postprocess: false
+  override: true
+penguinpox_7eow_framework_optin:
+  format: antibody
+  sample_num: 5
+  antibody:
+    scaffold: 7eow
+    chains:
+      VHH: VHH
+    design:
+      VHH:
+        cdrs:
+        - CDR3
+        lengths:
+          CDR3: official
+        framework: '5'
+    template: true
+  antigen:
+    input: ./configs/examples/structures/antibody_design/9bkq-assembly2.cif
+    crop:
+      include:
+      - B
+  score: false
+  postprocess: false
+  override: true
+pdl1_adalimumab_reference:
+  format: antibody
+  sample_num: 5
+  antibody:
+    scaffold: adalimumab.6cr1
+    chains:
+      VH: VH
+      VL: VL
+    design: {}
+    template: true
+  antigen:
+    input: ./configs/examples/structures/antibody_design/7uxq.cif
+    crop:
+      include:
+      - A
+  score: false
+  postprocess: false
+  override: true
+penguinpox_7eow_reference:
+  format: antibody
+  sample_num: 5
+  antibody:
+    scaffold: 7eow
+    chains:
+      VHH: VHH
+    design: {}
+    template: true
+  antigen:
+    input: ./configs/examples/structures/antibody_design/9bkq-assembly2.cif
+    crop:
+      include:
+      - B
+  score: false
+  postprocess: false
+  override: true

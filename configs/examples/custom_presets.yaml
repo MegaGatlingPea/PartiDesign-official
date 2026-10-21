@@ -1,0 +1,33 @@
+presets:
+  guide_protein:
+    methods:
+    - esmfold2-fast
+    reduction: any_prediction
+    source: user-supplied example criterion; replace with an authoritative reference
+    authority_ref: user-supplied example criterion; replace with an authoritative
+      reference
+    logic:
+      within_prediction: AND
+      across_predictions: OR
+    missing: unavailable
+    count: selected validation sequence/prediction slots
+    temperature: selected backend setting
+    model:
+      methods:
+      - esmfold2-fast
+      selection: any_prediction
+    statistical_scope:
+      unit: prediction
+      reduction: any_prediction
+      aggregation: per-entry success over complete predictions
+    metrics:
+    - name: design_rmsd
+      unit: angstrom
+      direction: <
+      threshold: 2.5
+      scope: complex
+    rules:
+    - metric: design_rmsd
+      op: <
+      value: 2.5
+      unit: angstrom

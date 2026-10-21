@@ -1,0 +1,45 @@
+# PartiDesign sampling budget: 100 structures per length, 5 lengths, 500 per task.
+# Protein lengths follow the existing La-Proteina grid; RNA/DNA length plans are retained.
+# Design benchmark: OpenMM postprocess and PartiScore disabled.
+protein_monomer_benchmark:
+  input: null
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  design_length:
+    P:
+    - 100
+    - 200
+    - 300
+    - 400
+    - 500
+rna_monomer_benchmark:
+  input: null
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 15
+    - 24
+    - 32
+    - 48
+    - 60
+dna_monomer_benchmark:
+  input: null
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 12
+    - 24
+    - 32
+    - 48
+    - 60

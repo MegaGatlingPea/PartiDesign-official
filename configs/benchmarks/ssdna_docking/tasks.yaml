@@ -1,0 +1,51 @@
+# Docking benchmark: 40 samples per case; OpenMM postprocess and PartiScore enabled.
+ssdna_dock_8a1c_b0_2_11:
+  input: ./configs/benchmarks/inputs/ssdna_docking/ssdna_dock_8a1c_b0_2_11.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - D: dna
+  condition:
+    sequence:
+      D: CGTTAGGTGT
+ssdna_dock_7p9j_d0_4_9:
+  input: ./configs/benchmarks/inputs/ssdna_docking/ssdna_dock_7p9j_d0_4_9.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - D: dna
+  condition:
+    sequence:
+      D: AATCAA
+ssdna_dock_7qaz_d0_4_9:
+  input: ./configs/benchmarks/inputs/ssdna_docking/ssdna_dock_7qaz_d0_4_9.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - D: dna
+  condition:
+    sequence:
+      D: AATCAA
+ssdna_dock_7tzv_c0_5_9:
+  input: ./configs/benchmarks/inputs/ssdna_docking/ssdna_dock_7tzv_c0_5_9.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - D: dna
+  condition:
+    sequence:
+      D: CTACT
+ssdna_dock_8czq_b0_2_12:
+  input: ./configs/benchmarks/inputs/ssdna_docking/ssdna_dock_8czq_b0_2_12.cif
+  sample_num: 40
+  score: true
+  postprocess: true
+  design_chains:
+  - D: dna
+  condition:
+    sequence:
+      D: TTCCGCTTGAC

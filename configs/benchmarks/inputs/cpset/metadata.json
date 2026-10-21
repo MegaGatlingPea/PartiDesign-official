@@ -1,0 +1,3130 @@
+{
+  "audit_summary": {
+    "cases": 56,
+    "crosslinks": {
+      "disulfide": 31,
+      "head_tail": 20,
+      "mk8_staple": 14,
+      "nle_staple": 2
+    },
+    "nonstandard_design_residue_counts": {
+      "BAL": 4,
+      "DPR": 1,
+      "MK8": 28,
+      "NLE": 11
+    },
+    "residue_template_declarations": 5
+  },
+  "benchmark": "cpset",
+  "cases": {
+    "cpset_1g9i_disulfide": {
+      "case": "cpset_1g9i_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 4
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 19
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 9
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 17
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A78/A175/A174/A177/A172/A40/A194/A155/A81/A24/A171/A192",
+      "native_atom_count": 162,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 22,
+      "native_sequence": "EPCCDSCRCTKSIPPQCHCANI",
+      "native_source_chain": "L",
+      "source_pdb_filename": "1g9i.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 3
+        },
+        {
+          "aa": "C",
+          "resid": 7
+        },
+        {
+          "aa": "C",
+          "resid": 4
+        },
+        {
+          "aa": "C",
+          "resid": 19
+        },
+        {
+          "aa": "C",
+          "resid": 9
+        },
+        {
+          "aa": "C",
+          "resid": 17
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 3,
+          "distance": 3.8,
+          "end_resid": 7
+        },
+        {
+          "begin_resid": 4,
+          "distance": 3.8,
+          "end_resid": 19
+        },
+        {
+          "begin_resid": 9,
+          "distance": 3.8,
+          "end_resid": 17
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 3,
+          "end_resid": 7,
+          "type": "disulfide"
+        },
+        {
+          "begin_resid": 4,
+          "end_resid": 19,
+          "type": "disulfide"
+        },
+        {
+          "begin_resid": 9,
+          "end_resid": 17,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1g9i_complex.pdb"
+    },
+    "cpset_1sfi_head_tail_disulfide": {
+      "case": "cpset_1sfi_head_tail_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 14
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 11
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A155/A175/A177/A174/A172/A24/A79/A194/A171/A192/A173/A40",
+      "native_atom_count": 105,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 14,
+      "native_sequence": "GRCTKSIPPICFPD",
+      "native_source_chain": "L",
+      "source_pdb_filename": "1sfi.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 3
+        },
+        {
+          "aa": "C",
+          "resid": 11
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 14
+        },
+        {
+          "begin_resid": 3,
+          "distance": 3.8,
+          "end_resid": 11
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 14,
+          "type": "head_tail"
+        },
+        {
+          "begin_resid": 3,
+          "end_resid": 11,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1sfi_complex.pdb"
+    },
+    "cpset_1sld_disulfide": {
+      "case": "cpset_1sld_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 6
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B45/B90/B88/B84/B79/B54/B46/B43/B110/B108/B27/B86",
+      "native_atom_count": 49,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 6,
+      "native_sequence": "CHPQFC",
+      "native_source_chain": "P",
+      "source_pdb_filename": "1sld.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 6
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 6
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 6,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1sld_complex.pdb"
+    },
+    "cpset_1sle_disulfide": {
+      "case": "cpset_1sle_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 8
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B90/B45/B88/B108/B25/B79/B47/B110/B54/B86/B27/B46",
+      "native_atom_count": 56,
+      "native_peptide_chain": "M",
+      "native_peptide_length": 8,
+      "native_sequence": "CHPQGPPC",
+      "native_source_chain": "M",
+      "source_pdb_filename": "1sle.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 8
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 8
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 8,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1sle_complex.pdb"
+    },
+    "cpset_1smf_disulfide": {
+      "case": "cpset_1smf_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 9
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A172/A175/A174/A177/A40/A194/A24/A171/A192/A176/A173/A23",
+      "native_atom_count": 65,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 9,
+      "native_sequence": "CTKSIPPEC",
+      "native_source_chain": "L",
+      "source_pdb_filename": "1smf.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 9
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 9
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 9,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1smf_complex.pdb"
+    },
+    "cpset_1vwe_disulfide": {
+      "case": "cpset_1vwe_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 6
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B90/B45/B88/B54/B79/B46/B86/B108/B110/B27/B43/B92",
+      "native_atom_count": 49,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 6,
+      "native_sequence": "CHPQFC",
+      "native_source_chain": "P",
+      "source_pdb_filename": "1vwe.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 6
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 6
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 6,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1vwe_complex.pdb"
+    },
+    "cpset_1vwm_disulfide": {
+      "case": "cpset_1vwm_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 6
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B90/B45/B88/B54/B46/B79/B108/B86/B110/B27/B92/B84",
+      "native_atom_count": 49,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 6,
+      "native_sequence": "CHPQFC",
+      "native_source_chain": "P",
+      "source_pdb_filename": "1vwm.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 6
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 6
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 6,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1vwm_complex.pdb"
+    },
+    "cpset_1vwn_disulfide": {
+      "case": "cpset_1vwn_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 6
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B90/B45/B88/B54/B46/B79/B108/B27/B110/B86/B92/B84",
+      "native_atom_count": 49,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 6,
+      "native_sequence": "CHPQFC",
+      "native_source_chain": "P",
+      "source_pdb_filename": "1vwn.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 6
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 6
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 6,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1vwn_complex.pdb"
+    },
+    "cpset_1vwo_disulfide": {
+      "case": "cpset_1vwo_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 8
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B90/B45/B88/B79/B54/B84/B108/B86/B46/B110/B25/B92",
+      "native_atom_count": 56,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 8,
+      "native_sequence": "CHPQGPPC",
+      "native_source_chain": "P",
+      "source_pdb_filename": "1vwo.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 8
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 8
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 8,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1vwo_complex.pdb"
+    },
+    "cpset_1vwp_disulfide": {
+      "case": "cpset_1vwp_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 8
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B90/B45/B88/B54/B108/B79/B86/B110/B25/B84/B46/B47",
+      "native_atom_count": 56,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 8,
+      "native_sequence": "CHPQGPPC",
+      "native_source_chain": "P",
+      "source_pdb_filename": "1vwp.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 8
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 8
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 8,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1vwp_complex.pdb"
+    },
+    "cpset_1yf4_disulfide": {
+      "case": "cpset_1yf4_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 6
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A195/A148/A175/A189/A193/A190/A214/A219/A192/A216/A217/A194",
+      "native_atom_count": 74,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 9,
+      "native_sequence": "CYFQNCPRG",
+      "native_source_chain": "B",
+      "source_pdb_filename": "1yf4.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 6
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 6
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 6,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "1yf4_complex.pdb"
+    },
+    "cpset_2br8_disulfide": {
+      "case": "cpset_2br8_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 2
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 8
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 16
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "C164/B191/B145/C77/C55/B193/B151/B146/B186/B144/B189/B188",
+      "native_atom_count": 113,
+      "native_peptide_chain": "G",
+      "native_peptide_length": 16,
+      "native_sequence": "GCCSLPPCALNNPKYC",
+      "native_source_chain": "G",
+      "receptor_atoms_restored": 30,
+      "receptor_normalization": "Original HID heavy atoms retained as HIS; HID is a protonation-specific histidine label, and hydrogens are not represented.",
+      "source_pdb_filename": "2br8.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 2
+        },
+        {
+          "aa": "C",
+          "resid": 8
+        },
+        {
+          "aa": "C",
+          "resid": 3
+        },
+        {
+          "aa": "C",
+          "resid": 16
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 2,
+          "distance": 3.8,
+          "end_resid": 8
+        },
+        {
+          "begin_resid": 3,
+          "distance": 3.8,
+          "end_resid": 16
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 2,
+          "end_resid": 8,
+          "type": "disulfide"
+        },
+        {
+          "begin_resid": 3,
+          "end_resid": 16,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "2br8_complex.pdb"
+    },
+    "cpset_2c9t_disulfide": {
+      "case": "cpset_2c9t_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 2
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 8
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 12
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "G162/F186/F194/F191/G57/F91/G55/G164/G75/F193/G114/G77",
+      "native_atom_count": 90,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 12,
+      "native_sequence": "GCCSDPRCAWRC",
+      "native_source_chain": "P",
+      "source_pdb_filename": "2c9t.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 2
+        },
+        {
+          "aa": "C",
+          "resid": 8
+        },
+        {
+          "aa": "C",
+          "resid": 3
+        },
+        {
+          "aa": "C",
+          "resid": 12
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 2,
+          "distance": 3.8,
+          "end_resid": 8
+        },
+        {
+          "begin_resid": 3,
+          "distance": 3.8,
+          "end_resid": 12
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 2,
+          "end_resid": 8,
+          "type": "disulfide"
+        },
+        {
+          "begin_resid": 3,
+          "end_resid": 12,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "2c9t_complex.pdb"
+    },
+    "cpset_2nwn_disulfide": {
+      "case": "cpset_2nwn_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 12
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A188/A42/A186/A185/A43/A87/A191/A214/A46/A189/A222/A20",
+      "native_atom_count": 102,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 12,
+      "native_sequence": "CSWRGLENHRMC",
+      "native_source_chain": "L",
+      "source_pdb_filename": "2nwn.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 12
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 12
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 12,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "2nwn_complex.pdb"
+    },
+    "cpset_2yja_mk8_staple": {
+      "case": "cpset_2yja_mk8_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B362/B380/B542/B372/B376/B358/B538/B543/B375/B379/B539/B367",
+      "native_atom_count": 95,
+      "native_peptide_chain": "A",
+      "native_peptide_length": 11,
+      "native_sequence": "HK[MK8]LHQ[MK8]LQDS",
+      "native_source_chain": "A",
+      "source_pdb_filename": "2yja.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 3
+        },
+        {
+          "aa": "MK8",
+          "resid": 7
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 3,
+          "distance": 6.1,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            3,
+            7
+          ],
+          "type": "mk8_staple"
+        }
+      ],
+      "structure": "2yja_complex.pdb"
+    },
+    "cpset_2yq6_mk8_staple": {
+      "case": "cpset_2yq6_mk8_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 8
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 12
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A96/A129/A133/A139/A136/A108/A195/A138/A101/A130/A97/A137",
+      "native_atom_count": 146,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 18,
+      "native_sequence": "AIAQELR[MK8]IGD[MK8]FNAYYA",
+      "native_source_chain": "B",
+      "receptor_atoms_restored": 20,
+      "receptor_normalization": "Original HID heavy atoms retained as HIS; HID is a protonation-specific histidine label, and hydrogens are not represented.",
+      "source_pdb_filename": "2yq6.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 8
+        },
+        {
+          "aa": "MK8",
+          "resid": 12
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 8,
+          "distance": 6.1,
+          "end_resid": 12
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            8,
+            12
+          ],
+          "type": "mk8_staple"
+        }
+      ],
+      "structure": "2yq6_complex.pdb"
+    },
+    "cpset_3avb_head_tail": {
+      "case": "cpset_3avb_head_tail",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 8
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B114/B112/B115/A40/B111/B118/B113/A69/A70/B122/A77/A73",
+      "native_atom_count": 63,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 8,
+      "native_sequence": "SLKIDNLD",
+      "native_source_chain": "L",
+      "source_pdb_filename": "3avb.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 8
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 8,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "3avb_complex.pdb"
+    },
+    "cpset_3avi_head_tail": {
+      "case": "cpset_3avi_head_tail",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 8
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A114/A118/A111/A115/A112/B69/B39/A113/A122/B72/B73/B76",
+      "native_atom_count": 63,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 8,
+      "native_sequence": "SLKIDNMD",
+      "native_source_chain": "L",
+      "source_pdb_filename": "3avi.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 8
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 8,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "3avi_complex.pdb"
+    },
+    "cpset_3g5v_disulfide": {
+      "case": "cpset_3g5v_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 16
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A32/B51/B32/A50/B100/B101/A30/B33/A31/B34/B54/A91",
+      "native_atom_count": 122,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 16,
+      "native_sequence": "CGADSYEMEEDGVRKC",
+      "native_source_chain": "L",
+      "source_pdb_filename": "3g5v.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 16
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 16
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 16,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "3g5v_complex.pdb"
+    },
+    "cpset_3g5y_disulfide": {
+      "case": "cpset_3g5y_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 16
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A50/B101/A32/B51/B32/B100/B57/A30/B53/B33/B34/B54",
+      "native_atom_count": 122,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 16,
+      "native_sequence": "CGADSYEMEEDGVRKC",
+      "native_source_chain": "L",
+      "source_pdb_filename": "3g5y.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 16
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 16
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 16,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "3g5y_complex.pdb"
+    },
+    "cpset_3oy5_disulfide": {
+      "case": "cpset_3oy5_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 4
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 15
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A192/A93/A195/A220/A191/A50/A197/A20/A46/A47/A57/A144",
+      "native_atom_count": 112,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 15,
+      "native_sequence": "DGACSWRGLENHAMC",
+      "native_source_chain": "L",
+      "source_pdb_filename": "3oy5.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 4
+        },
+        {
+          "aa": "C",
+          "resid": 15
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 4,
+          "distance": 3.8,
+          "end_resid": 15
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 4,
+          "end_resid": 15,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "3oy5_complex.pdb"
+    },
+    "cpset_3p8f_head_tail_disulfide": {
+      "case": "cpset_3p8f_head_tail_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 14
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 11
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A189/A191/A186/A188/A213/A92/A211/A26/A190/A94/A212/A169",
+      "native_atom_count": 105,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 14,
+      "native_sequence": "GRCTKSIPPICFPD",
+      "native_source_chain": "L",
+      "source_pdb_filename": "3p8f.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 3
+        },
+        {
+          "aa": "C",
+          "resid": 11
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 14
+        },
+        {
+          "begin_resid": 3,
+          "distance": 3.8,
+          "end_resid": 11
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 14,
+          "type": "head_tail"
+        },
+        {
+          "begin_resid": 3,
+          "end_resid": 11,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "3p8f_complex.pdb"
+    },
+    "cpset_4k1e_head_tail_disulfide": {
+      "case": "cpset_4k1e_head_tail_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 14
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 11
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A177/A175/A194/A172/A25/A196/A171/A192/A78/A193/A195/A176",
+      "native_atom_count": 109,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 14,
+      "native_sequence": "GFCQRSIPPICFPD",
+      "native_source_chain": "L",
+      "source_pdb_filename": "4k1e.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 3
+        },
+        {
+          "aa": "C",
+          "resid": 11
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 14
+        },
+        {
+          "begin_resid": 3,
+          "distance": 3.8,
+          "end_resid": 11
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 14,
+          "type": "head_tail"
+        },
+        {
+          "begin_resid": 3,
+          "end_resid": 11,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "4k1e_complex.pdb"
+    },
+    "cpset_4mzk_nle_staple": {
+      "case": "cpset_4mzk_nle_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 9
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 13
+          },
+          "order": "double"
+        }
+      ],
+      "reference_contact_residues": "A139/A173/A105/A171/A174/A136/A168/A198/A202/A203/A97/A106",
+      "native_atom_count": 146,
+      "native_peptide_chain": "T",
+      "native_peptide_length": 18,
+      "native_sequence": "KNIPSLLR[NLE]QAH[NLE]RKKMV",
+      "native_source_chain": "T",
+      "source_pdb_filename": "4mzk.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "NLE",
+          "resid": 9
+        },
+        {
+          "aa": "NLE",
+          "resid": 13
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 9,
+          "distance": 6.2,
+          "end_resid": 13
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            9,
+            13
+          ],
+          "type": "nle_staple"
+        }
+      ],
+      "structure": "4mzk_complex.pdb"
+    },
+    "cpset_4x1q_disulfide": {
+      "case": "cpset_4x1q_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 10
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A94/A20/A221/A193/A195/A192/A150/A91/A47/A219/A196/A92",
+      "native_atom_count": 81,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 10,
+      "native_sequence": "CPAYSRYLDC",
+      "native_source_chain": "L",
+      "source_pdb_filename": "4x1q.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 10
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 10
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 10,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "4x1q_complex.pdb"
+    },
+    "cpset_4z0d_disulfide": {
+      "case": "cpset_4z0d_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 13
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A120/A108/A109/A111/A122/A110/A73/A69/A72/A118/A121/A112",
+      "native_atom_count": 100,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 13,
+      "native_sequence": "CWTTRMSPPQQIC",
+      "native_source_chain": "L",
+      "source_pdb_filename": "4z0d.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 13
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 13
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 13,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "4z0d_complex.pdb"
+    },
+    "cpset_4zhl_disulfide": {
+      "case": "cpset_4zhl_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 10
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A94/A198/A192/A193/A221/A196/A219/A91/A195/A47/A220/A92",
+      "native_atom_count": 77,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 10,
+      "native_sequence": "CPAYSRYIGC",
+      "native_source_chain": "L",
+      "source_pdb_filename": "4zhl.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 10
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 10
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 10,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "4zhl_complex.pdb"
+    },
+    "cpset_5c3f_nle_staple": {
+      "case": "cpset_5c3f_nle_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 13
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 17
+          },
+          "order": "double"
+        }
+      ],
+      "reference_contact_residues": "A263/A248/A252/A260/A216/A318/A262/A265/A266/A253/A261/A231",
+      "native_atom_count": 175,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 22,
+      "native_sequence": "EDIIRNIARHLA[NLE]VGD[NLE][NLE]DRSI",
+      "native_source_chain": "B",
+      "source_pdb_filename": "5c3f.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "NLE",
+          "resid": 13
+        },
+        {
+          "aa": "NLE",
+          "resid": 17
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 13,
+          "distance": 6.2,
+          "end_resid": 17
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            13,
+            17
+          ],
+          "type": "nle_staple"
+        }
+      ],
+      "structure": "5c3f_complex.pdb"
+    },
+    "cpset_5dxe_mk8_staple": {
+      "case": "cpset_5dxe_mk8_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A362/A542/A380/A358/A372/A375/A376/A539/A379/A543/A373/A359",
+      "native_atom_count": 97,
+      "native_peptide_chain": "C",
+      "native_peptide_length": 11,
+      "native_sequence": "HK[MK8]LHR[MK8]LQDS",
+      "native_source_chain": "C",
+      "receptor_atoms_restored": 24,
+      "receptor_normalization": "Original SCH (S-methyl-thio-cysteine) residues retain native heavy atoms and coordinates; mapped to protein parent CYS. Six adjacent peptide bonds are explicit CONECT records.",
+      "source_pdb_filename": "5dxe.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 3
+        },
+        {
+          "aa": "MK8",
+          "resid": 7
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 3,
+          "distance": 6.1,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            3,
+            7
+          ],
+          "type": "mk8_staple"
+        }
+      ],
+      "structure": "5dxe_complex.pdb"
+    },
+    "cpset_5n99_head_tail_passive_dpr": {
+      "case": "cpset_5n99_head_tail_passive_dpr",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 5
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B45/B90/B43/B27/B88/B25/B108/B79/A120/B86/B85/B54",
+      "native_atom_count": 47,
+      "native_peptide_chain": "E",
+      "native_peptide_length": 5,
+      "native_sequence": "NQ[DPR]WQ",
+      "native_source_chain": "E",
+      "source_pdb_filename": "5n99.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 5
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 5,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "5n99_complex.pdb"
+    },
+    "cpset_5w89_mk8_staple": {
+      "case": "cpset_5w89_mk8_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 4
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 8
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A263/A260/A262/A266/A224/A318/A261/A252/A256/A220/A231/A319",
+      "native_atom_count": 174,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 20,
+      "native_sequence": "IW[NLE][MK8]QEL[MK8]RLGDEINARYAR",
+      "native_source_chain": "B",
+      "source_pdb_filename": "5w89.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 4
+        },
+        {
+          "aa": "MK8",
+          "resid": 8
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 4,
+          "distance": 6.1,
+          "end_resid": 8
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            4,
+            8
+          ],
+          "type": "mk8_staple"
+        }
+      ],
+      "structure": "5w89_complex.pdb"
+    },
+    "cpset_5zjz_mk8_staple": {
+      "case": "cpset_5zjz_mk8_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 7
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 11
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A38/A73/A77/A132/A139/A40/A37/A140/A69/A135/A186/A76",
+      "native_atom_count": 126,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 13,
+      "native_sequence": "KKRYSR[MK8]QLL[MK8]FW",
+      "native_source_chain": "B",
+      "source_pdb_filename": "5zjz.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 7
+        },
+        {
+          "aa": "MK8",
+          "resid": 11
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 7,
+          "distance": 6.1,
+          "end_resid": 11
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            7,
+            11
+          ],
+          "type": "mk8_staple"
+        }
+      ],
+      "structure": "5zjz_complex.pdb"
+    },
+    "cpset_5zk5_mk8_staple": {
+      "case": "cpset_5zk5_mk8_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 10
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 14
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A38/A40/A132/A73/A186/A139/A37/A140/A69/A135/A77/A138",
+      "native_atom_count": 128,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 14,
+      "native_sequence": "KRYSREQLL[MK8]FQR[MK8]",
+      "native_source_chain": "B",
+      "source_pdb_filename": "5zk5.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 10
+        },
+        {
+          "aa": "MK8",
+          "resid": 14
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 10,
+          "distance": 6.1,
+          "end_resid": 14
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            10,
+            14
+          ],
+          "type": "mk8_staple"
+        }
+      ],
+      "structure": "5zk5_complex.pdb"
+    },
+    "cpset_5zk9_mk8_staple": {
+      "case": "cpset_5zk9_mk8_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 7
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 11
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A38/A147/A40/A73/A132/A139/A77/A37/A140/A135/A186/A69",
+      "native_atom_count": 116,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 13,
+      "native_sequence": "RIIYSR[MK8]QLL[MK8]LK",
+      "native_source_chain": "B",
+      "source_pdb_filename": "5zk9.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 7
+        },
+        {
+          "aa": "MK8",
+          "resid": 11
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 7,
+          "distance": 6.1,
+          "end_resid": 11
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            7,
+            11
+          ],
+          "type": "mk8_staple"
+        }
+      ],
+      "structure": "5zk9_complex.pdb"
+    },
+    "cpset_5zml_mk8_staple": {
+      "case": "cpset_5zml_mk8_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 7
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 11
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A38/A77/A40/A73/A132/A139/A37/A140/A186/A69/A143/A135",
+      "native_atom_count": 128,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 14,
+      "native_sequence": "KKRYSR[MK8]QLL[MK8]FRR",
+      "native_source_chain": "B",
+      "source_pdb_filename": "5zml.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 7
+        },
+        {
+          "aa": "MK8",
+          "resid": 11
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 7,
+          "distance": 6.1,
+          "end_resid": 11
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            7,
+            11
+          ],
+          "type": "mk8_staple"
+        }
+      ],
+      "structure": "5zml_complex.pdb"
+    },
+    "cpset_6a8n_disulfide": {
+      "case": "cpset_6a8n_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 10
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "C91/C220/C93/C192/C191/C218/C195/C194/C217/C90/C88/C197",
+      "native_atom_count": 77,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 10,
+      "native_sequence": "CPAYSRYIGC",
+      "native_source_chain": "L",
+      "source_pdb_filename": "6a8n.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 1
+        },
+        {
+          "aa": "C",
+          "resid": 10
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 10
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 10,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "6a8n_complex.pdb"
+    },
+    "cpset_6bvh_head_tail_disulfide": {
+      "case": "cpset_6bvh_head_tail_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 14
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 11
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A175/A177/A171/A174/A172/A194/A196/A24/A192/A155/A176/A204",
+      "native_atom_count": 100,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 14,
+      "native_sequence": "GTCTRSIPPICNPN",
+      "native_source_chain": "L",
+      "source_pdb_filename": "6bvh.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 3
+        },
+        {
+          "aa": "C",
+          "resid": 11
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 14
+        },
+        {
+          "begin_resid": 3,
+          "distance": 3.8,
+          "end_resid": 11
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 14,
+          "type": "head_tail"
+        },
+        {
+          "begin_resid": 3,
+          "end_resid": 11,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "6bvh_complex.pdb"
+    },
+    "cpset_6d3y_head_tail_disulfide": {
+      "case": "cpset_6d3y_head_tail_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 14
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 11
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A195/A193/A40/A216/A190/A173/A192/A189/A41/A214/A194/A215",
+      "native_atom_count": 108,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 14,
+      "native_sequence": "GRCTKSRPPICFPD",
+      "native_source_chain": "L",
+      "source_pdb_filename": "6d3y.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 3
+        },
+        {
+          "aa": "C",
+          "resid": 11
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 14
+        },
+        {
+          "begin_resid": 3,
+          "distance": 3.8,
+          "end_resid": 11
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 14,
+          "type": "head_tail"
+        },
+        {
+          "begin_resid": 3,
+          "end_resid": 11,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "6d3y_complex.pdb"
+    },
+    "cpset_6d3z_head_tail_disulfide": {
+      "case": "cpset_6d3z_head_tail_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 14
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 11
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A193/A190/A216/A214/A41/A195/A173/A189/A192/A57/A215/A194",
+      "native_atom_count": 113,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 14,
+      "native_sequence": "GRCYKSRPPICFPN",
+      "native_source_chain": "L",
+      "source_pdb_filename": "6d3z.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 3
+        },
+        {
+          "aa": "C",
+          "resid": 11
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 14
+        },
+        {
+          "begin_resid": 3,
+          "distance": 3.8,
+          "end_resid": 11
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 14,
+          "type": "head_tail"
+        },
+        {
+          "begin_resid": 3,
+          "end_resid": 11,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "6d3z_complex.pdb"
+    },
+    "cpset_6d40_head_tail_disulfide": {
+      "case": "cpset_6d40_head_tail_disulfide",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 14
+          },
+          "order": "single"
+        },
+        {
+          "atom1": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "SG",
+            "chain": "P",
+            "resid": 11
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A194/A196/A174/A217/A191/A215/A42/A190/A216/A58/A195/A193",
+      "native_atom_count": 110,
+      "native_peptide_chain": "L",
+      "native_peptide_length": 14,
+      "native_sequence": "GRCYKSIPPICFPD",
+      "native_source_chain": "L",
+      "source_pdb_filename": "6d40.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "C",
+          "resid": 3
+        },
+        {
+          "aa": "C",
+          "resid": 11
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 14
+        },
+        {
+          "begin_resid": 3,
+          "distance": 3.8,
+          "end_resid": 11
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 14,
+          "type": "head_tail"
+        },
+        {
+          "begin_resid": 3,
+          "end_resid": 11,
+          "type": "disulfide"
+        }
+      ],
+      "structure": "6d40_complex.pdb"
+    },
+    "cpset_6dn5_head_tail_passive_bal": {
+      "case": "cpset_6dn5_head_tail_passive_bal",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A120/A208/A68/A206/A102/A71/A70/A101/A207/A73/A72/A69",
+      "native_atom_count": 59,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 7,
+      "native_sequence": "WDINNN[BAL]",
+      "native_source_chain": "B",
+      "source_pdb_filename": "6dn5.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 7,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "6dn5_complex.pdb"
+    },
+    "cpset_7k2e_head_tail": {
+      "case": "cpset_7k2e_head_tail",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A363/A508/A602/A530/A483/A555/A382/A415/A380/A509/A334/A572",
+      "native_atom_count": 50,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 7,
+      "native_sequence": "GDEETGE",
+      "native_source_chain": "P",
+      "source_pdb_filename": "7k2e.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 7,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "7k2e_complex.pdb"
+    },
+    "cpset_7k2f_head_tail": {
+      "case": "cpset_7k2f_head_tail",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A363/A415/A508/A555/A530/A602/A380/A483/A382/A509/A572/A334",
+      "native_atom_count": 47,
+      "native_peptide_chain": "C",
+      "native_peptide_length": 7,
+      "native_sequence": "GAEETGE",
+      "native_source_chain": "C",
+      "source_pdb_filename": "7k2f.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 7,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "7k2f_complex.pdb"
+    },
+    "cpset_7k2g_head_tail": {
+      "case": "cpset_7k2g_head_tail",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B334/B363/B555/B530/B602/B380/B382/B415/B508/B577/B509/B525",
+      "native_atom_count": 48,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 7,
+      "native_sequence": "GDEEAGE",
+      "native_source_chain": "P",
+      "source_pdb_filename": "7k2g.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 7,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "7k2g_complex.pdb"
+    },
+    "cpset_7k2h_head_tail": {
+      "case": "cpset_7k2h_head_tail",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B530/B555/B363/B602/B508/B380/B382/B415/B483/B509/B525/B572",
+      "native_atom_count": 48,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 7,
+      "native_sequence": "GDPETGE",
+      "native_source_chain": "P",
+      "source_pdb_filename": "7k2h.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 7,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "7k2h_complex.pdb"
+    },
+    "cpset_7k2i_head_tail": {
+      "case": "cpset_7k2i_head_tail",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B415/B363/B508/B530/B602/B483/B555/B380/B577/B509/B572/B382",
+      "native_atom_count": 45,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 7,
+      "native_sequence": "GAPETGE",
+      "native_source_chain": "P",
+      "source_pdb_filename": "7k2i.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 7,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "7k2i_complex.pdb"
+    },
+    "cpset_7k2k_head_tail_passive_bal": {
+      "case": "cpset_7k2k_head_tail_passive_bal",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B415/B363/B555/B530/B508/B602/B525/B483/B382/B380/B509/B572",
+      "native_atom_count": 51,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 7,
+      "native_sequence": "[BAL]DEETGE",
+      "native_source_chain": "P",
+      "source_pdb_filename": "7k2k.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 7,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "7k2k_complex.pdb"
+    },
+    "cpset_7k2l_head_tail_passive_bal": {
+      "case": "cpset_7k2l_head_tail_passive_bal",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A415/A530/A363/A555/A508/A602/A483/A382/A380/A509/A577/A572",
+      "native_atom_count": 49,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 7,
+      "native_sequence": "[BAL]NPETGE",
+      "native_source_chain": "P",
+      "source_pdb_filename": "7k2l.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 7,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "7k2l_complex.pdb"
+    },
+    "cpset_7k2m_head_tail": {
+      "case": "cpset_7k2m_head_tail",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A415/A363/A508/A555/A602/A530/A483/A382/A380/A509/A572/A525",
+      "native_atom_count": 49,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 7,
+      "native_sequence": "GEPETGE",
+      "native_source_chain": "P",
+      "source_pdb_filename": "7k2m.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 7,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "7k2m_complex.pdb"
+    },
+    "cpset_7k2n_head_tail_passive_bal": {
+      "case": "cpset_7k2n_head_tail_passive_bal",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "N",
+            "chain": "P",
+            "resid": 1
+          },
+          "atom2": {
+            "atom": "C",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A508/A555/A415/A602/A483/A363/A530/A380/A382/A577/A334/A556",
+      "native_atom_count": 49,
+      "native_peptide_chain": "P",
+      "native_peptide_length": 7,
+      "native_sequence": "[BAL]DPETGE",
+      "native_source_chain": "P",
+      "source_pdb_filename": "7k2n.pdb",
+      "source_restype_constraints": [],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 1,
+          "distance": 3.8,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "begin_resid": 1,
+          "end_resid": 7,
+          "type": "head_tail"
+        }
+      ],
+      "structure": "7k2n_complex.pdb"
+    },
+    "cpset_7v1a_mk8_staple": {
+      "case": "cpset_7v1a_mk8_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 13
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 17
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A1530/A1529/A1506/A1544/A1503/A1526/A1496/A1492/A1499/A1495/A1534/A1507",
+      "native_atom_count": 148,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 19,
+      "native_sequence": "DIDQMFSTLLGE[MK8]DLL[MK8]QS",
+      "native_source_chain": "B",
+      "source_pdb_filename": "7v1a.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 13
+        },
+        {
+          "aa": "MK8",
+          "resid": 17
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 13,
+          "distance": 6.1,
+          "end_resid": 17
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            13,
+            17
+          ],
+          "type": "mk8_staple"
+        }
+      ],
+      "structure": "7v1a_complex.pdb"
+    },
+    "cpset_7w36_mk8_staple": {
+      "case": "cpset_7w36_mk8_staple",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 11
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 15
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A3/A10/A36/A96/A241/A244/A17/A13/A243/A14/A15/A97",
+      "native_atom_count": 184,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 20,
+      "native_sequence": "WKRHISEQLR[MK8]RDR[MK8]QRQAF",
+      "native_source_chain": "B",
+      "source_pdb_filename": "7w36.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 11
+        },
+        {
+          "aa": "MK8",
+          "resid": 15
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 11,
+          "distance": 6.1,
+          "end_resid": 15
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            11,
+            15
+          ],
+          "type": "mk8_staple"
+        }
+      ],
+      "structure": "7w36_complex.pdb"
+    },
+    "cpset_9fl8_mk8_staple_passive_nle": {
+      "case": "cpset_9fl8_mk8_staple_passive_nle",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 3
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 7
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "B148/B231/B134/B88/B177/B130/B230/B138/B181/B184/B227/B137",
+      "native_atom_count": 143,
+      "native_peptide_chain": "F",
+      "native_peptide_length": 17,
+      "native_sequence": "LD[MK8]NFK[MK8][NLE]EEHLAL[NLE]VE",
+      "native_source_chain": "F",
+      "source_pdb_filename": "9fl8.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 3
+        },
+        {
+          "aa": "MK8",
+          "resid": 7
+        },
+        {
+          "aa": "NLE",
+          "resid": 8
+        },
+        {
+          "aa": "NLE",
+          "resid": 15
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 3,
+          "distance": 6.1,
+          "end_resid": 7
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            3,
+            7
+          ],
+          "type": "mk8_staple"
+        },
+        {
+          "resid": 8,
+          "resname": "NLE",
+          "type": "residue_template"
+        },
+        {
+          "resid": 15,
+          "resname": "NLE",
+          "type": "residue_template"
+        }
+      ],
+      "structure": "9fl8_complex.pdb"
+    },
+    "cpset_9o14_mk8_staple_passive_nle": {
+      "case": "cpset_9o14_mk8_staple_passive_nle",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 2
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 6
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A146/A136/A111/A108/A149/A107/A132/A143/A201/A145/A137/A140",
+      "native_atom_count": 185,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 21,
+      "native_sequence": "W[MK8]AQR[MK8]GRELRR[NLE]SDEFVDSF",
+      "native_source_chain": "B",
+      "source_pdb_filename": "9o14.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 2
+        },
+        {
+          "aa": "MK8",
+          "resid": 6
+        },
+        {
+          "aa": "NLE",
+          "resid": 13
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 2,
+          "distance": 6.1,
+          "end_resid": 6
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            2,
+            6
+          ],
+          "type": "mk8_staple"
+        },
+        {
+          "resid": 13,
+          "resname": "NLE",
+          "type": "residue_template"
+        }
+      ],
+      "structure": "9o14_complex.pdb"
+    },
+    "cpset_9o15_mk8_staple_passive_nle": {
+      "case": "cpset_9o15_mk8_staple_passive_nle",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 2
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 6
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "E136/E108/E143/E149/E146/E118/E145/E112/E104/E107/E133/E132",
+      "native_atom_count": 195,
+      "native_peptide_chain": "F",
+      "native_peptide_length": 22,
+      "native_sequence": "W[MK8]AQR[MK8]GRELRR[NLE]SDEFVDSFK",
+      "native_source_chain": "F",
+      "source_pdb_filename": "9o15.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 2
+        },
+        {
+          "aa": "MK8",
+          "resid": 6
+        },
+        {
+          "aa": "NLE",
+          "resid": 13
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 2,
+          "distance": 6.1,
+          "end_resid": 6
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            2,
+            6
+          ],
+          "type": "mk8_staple"
+        },
+        {
+          "resid": 13,
+          "resname": "NLE",
+          "type": "residue_template"
+        }
+      ],
+      "structure": "9o15_complex.pdb"
+    },
+    "cpset_9o16_mk8_staple_passive_nle": {
+      "case": "cpset_9o16_mk8_staple_passive_nle",
+      "design_bonds": [
+        {
+          "atom1": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 2
+          },
+          "atom2": {
+            "atom": "CE",
+            "chain": "P",
+            "resid": 6
+          },
+          "order": "single"
+        }
+      ],
+      "reference_contact_residues": "A108/A146/A136/A118/A143/A149/A107/A145/A119/A132/A104/A140",
+      "native_atom_count": 185,
+      "native_peptide_chain": "B",
+      "native_peptide_length": 21,
+      "native_sequence": "W[MK8]AQR[MK8]GRELRR[NLE]SDEFVDSF",
+      "native_source_chain": "B",
+      "source_pdb_filename": "9o16.pdb",
+      "source_restype_constraints": [
+        {
+          "aa": "MK8",
+          "resid": 2
+        },
+        {
+          "aa": "MK8",
+          "resid": 6
+        },
+        {
+          "aa": "NLE",
+          "resid": 13
+        }
+      ],
+      "source_sample_num": 25,
+      "source_spatial_constraints": [
+        {
+          "begin_resid": 2,
+          "distance": 6.1,
+          "end_resid": 6
+        }
+      ],
+      "source_topology": [
+        {
+          "anchors": [
+            2,
+            6
+          ],
+          "type": "mk8_staple"
+        },
+        {
+          "resid": 13,
+          "resname": "NLE",
+          "type": "residue_template"
+        }
+      ],
+      "structure": "9o16_complex.pdb"
+    }
+  },
+  "chemistry_note": "Native peptide is chain P in the single structure. YAML reconstructs its sequence and explicit crosslinks. MK8 CE-CE is a single bond; NLE CE-CE is a double bond, matching the source residue templates.",
+  "design_chain_coordinates": "Native design-chain coordinates are present in the structure for reference and are masked by the task compiler except explicitly conditioned motifs."
+}

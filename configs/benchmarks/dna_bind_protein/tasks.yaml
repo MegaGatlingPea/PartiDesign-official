@@ -1,0 +1,77 @@
+# NACraft NA-12 source targets from pinned commit 2ec87dbb64a3ab5209795aaa4f70ac9dd152c1dc.
+# 100 generated structures per target: matches one NACraft mode parent-candidate count.
+# Local validation remains Original1 + FI NA-MPNN1 + ordinary NA-MPNN4.
+# Prepared inputs retain observed protein coordinates/auth numbering; raw complexes are archived.
+# No native nucleic-acid sequence or coordinates are used as design conditions.
+dna_bind_protein_8c58:
+  input: ./configs/benchmarks/inputs/dna_bind_protein/8C58_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include: [A]
+  design_chains:
+  - R: dna
+  design_length:
+    R: [14]
+  hotspot: A302/A192/A304/A326
+dna_bind_protein_8u0p:
+  input: ./configs/benchmarks/inputs/dna_bind_protein/8U0P_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include: [A]
+  design_chains:
+  - R: dna
+  design_length:
+    R: [11]
+  hotspot: A514/A472/A274/A517
+dna_bind_protein_7uv7:
+  input: ./configs/benchmarks/inputs/dna_bind_protein/7UV7_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include: [C]
+  design_chains:
+  - R: dna
+  design_length:
+    R: [21]
+  hotspot: C124/C207/C197/C198
+dna_bind_protein_8vx4:
+  input: ./configs/benchmarks/inputs/dna_bind_protein/8VX4_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include: [A]
+  design_chains:
+  - R: dna
+  design_length:
+    R: [35]
+  hotspot: A203/A154/A149/A294
+dna_bind_protein_7uxy:
+  input: ./configs/benchmarks/inputs/dna_bind_protein/7UXY_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include: [C]
+  design_chains:
+  - R: dna
+  design_length:
+    R: [32]
+  hotspot: C207/C124/C75/C83
+dna_bind_protein_8sln:
+  input: ./configs/benchmarks/inputs/dna_bind_protein/8SLN_protein.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  crop:
+    include: [A]
+  design_chains:
+  - R: dna
+  design_length:
+    R: [29]
+  hotspot: A170/A217/A253/A85

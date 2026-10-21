@@ -1,0 +1,656 @@
+{
+  "benchmark": "ligand_design",
+  "cases": {
+    "ligand_design_2vt4": {
+      "native_atom_count": 21,
+      "nearby_receptor_residues": [
+        [
+          "A121",
+          2.57
+        ],
+        [
+          "A211",
+          2.72
+        ],
+        [
+          "A329",
+          2.86
+        ],
+        [
+          "A310",
+          3.42
+        ],
+        [
+          "A306",
+          3.48
+        ],
+        [
+          "A215",
+          3.58
+        ],
+        [
+          "A303",
+          3.58
+        ],
+        [
+          "A307",
+          3.64
+        ],
+        [
+          "A117",
+          3.68
+        ],
+        [
+          "A122",
+          3.73
+        ],
+        [
+          "A208",
+          3.73
+        ],
+        [
+          "A201",
+          3.74
+        ],
+        [
+          "A333",
+          3.84
+        ],
+        [
+          "A203",
+          3.91
+        ],
+        [
+          "A125",
+          3.93
+        ],
+        [
+          "A212",
+          3.98
+        ],
+        [
+          "A207",
+          3.98
+        ],
+        [
+          "A126",
+          4.05
+        ],
+        [
+          "A118",
+          4.1
+        ],
+        [
+          "A199",
+          5.69
+        ],
+        [
+          "A216",
+          5.78
+        ],
+        [
+          "A209",
+          5.82
+        ],
+        [
+          "A123",
+          5.97
+        ],
+        [
+          "A94",
+          5.98
+        ]
+      ],
+      "pdb_id": "2VT4",
+      "receptor_preparation": "auth chain A canonical protein residues and MSE; water/additives removed; native designed ligand retained as masked ground truth",
+      "reference_ligand_auth_chain": "A",
+      "reference_ligand_auth_resid": 400,
+      "reference_ligand_ccd": "P32",
+      "reference_ligand_centroid": [
+        8.764,
+        20.624,
+        22.592
+      ],
+      "source_url": "https://files.rcsb.org/download/2VT4.pdb",
+      "structure": "2vt4_complex.pdb",
+      "target": "beta1 adrenergic receptor"
+    },
+    "ligand_design_5sdv": {
+      "native_atom_count": 33,
+      "nearby_receptor_residues": [
+        [
+          "A693",
+          2.78
+        ],
+        [
+          "A726",
+          3.02
+        ],
+        [
+          "A685",
+          3.02
+        ],
+        [
+          "A713",
+          3.08
+        ],
+        [
+          "A718",
+          3.18
+        ],
+        [
+          "A689",
+          3.21
+        ],
+        [
+          "A692",
+          3.27
+        ],
+        [
+          "A729",
+          3.29
+        ],
+        [
+          "A677",
+          3.36
+        ],
+        [
+          "A725",
+          3.45
+        ],
+        [
+          "A721",
+          3.46
+        ],
+        [
+          "A688",
+          3.49
+        ],
+        [
+          "A678",
+          3.6
+        ],
+        [
+          "A712",
+          3.68
+        ],
+        [
+          "A722",
+          3.68
+        ],
+        [
+          "A675",
+          3.79
+        ],
+        [
+          "A635",
+          3.8
+        ],
+        [
+          "A696",
+          4.01
+        ],
+        [
+          "A524",
+          4.16
+        ],
+        [
+          "A730",
+          4.76
+        ],
+        [
+          "A719",
+          5.01
+        ],
+        [
+          "A686",
+          5.24
+        ],
+        [
+          "A684",
+          5.36
+        ],
+        [
+          "A697",
+          5.63
+        ],
+        [
+          "A715",
+          5.64
+        ],
+        [
+          "A724",
+          5.67
+        ],
+        [
+          "A762",
+          5.71
+        ],
+        [
+          "A690",
+          5.81
+        ],
+        [
+          "A714",
+          5.85
+        ],
+        [
+          "A720",
+          5.86
+        ],
+        [
+          "A728",
+          5.89
+        ],
+        [
+          "A687",
+          5.92
+        ],
+        [
+          "A674",
+          5.92
+        ],
+        [
+          "A723",
+          5.96
+        ]
+      ],
+      "pdb_id": "5SDV",
+      "receptor_preparation": "auth chain A canonical protein residues and MSE; water/additives removed; native designed ligand retained as masked ground truth",
+      "reference_ligand_auth_chain": "A",
+      "reference_ligand_auth_resid": 803,
+      "reference_ligand_ccd": "IAI",
+      "reference_ligand_centroid": [
+        92.553,
+        -10.375,
+        12.226
+      ],
+      "source_url": "https://files.rcsb.org/download/5SDV.pdb",
+      "structure": "5sdv_complex.pdb",
+      "target": "PDE10A"
+    },
+    "ligand_design_6cm4": {
+      "native_atom_count": 30,
+      "nearby_receptor_residues": [
+        [
+          "A114",
+          2.69
+        ],
+        [
+          "A389",
+          3.3
+        ],
+        [
+          "A122",
+          3.31
+        ],
+        [
+          "A197",
+          3.32
+        ],
+        [
+          "A118",
+          3.33
+        ],
+        [
+          "A386",
+          3.36
+        ],
+        [
+          "A416",
+          3.41
+        ],
+        [
+          "A382",
+          3.44
+        ],
+        [
+          "A100",
+          3.5
+        ],
+        [
+          "A390",
+          3.56
+        ],
+        [
+          "A412",
+          3.67
+        ],
+        [
+          "A198",
+          3.72
+        ],
+        [
+          "A119",
+          3.73
+        ],
+        [
+          "A110",
+          3.74
+        ],
+        [
+          "A408",
+          3.75
+        ],
+        [
+          "A115",
+          3.8
+        ],
+        [
+          "A193",
+          4.0
+        ],
+        [
+          "A409",
+          4.02
+        ],
+        [
+          "A94",
+          4.08
+        ],
+        [
+          "A91",
+          4.44
+        ],
+        [
+          "A189",
+          4.46
+        ],
+        [
+          "A184",
+          4.48
+        ],
+        [
+          "A393",
+          4.83
+        ],
+        [
+          "A405",
+          5.25
+        ],
+        [
+          "A121",
+          5.55
+        ],
+        [
+          "A116",
+          5.75
+        ],
+        [
+          "A111",
+          5.96
+        ],
+        [
+          "A194",
+          5.99
+        ]
+      ],
+      "pdb_id": "6CM4",
+      "receptor_preparation": "auth chain A canonical protein residues and MSE; water/additives removed; native designed ligand retained as masked ground truth",
+      "reference_ligand_auth_chain": "A",
+      "reference_ligand_auth_resid": 2001,
+      "reference_ligand_ccd": "8NU",
+      "reference_ligand_centroid": [
+        9.925,
+        5.846,
+        -9.582
+      ],
+      "source_url": "https://files.rcsb.org/download/6CM4.pdb",
+      "structure": "6cm4_complex.pdb",
+      "target": "dopamine D2 receptor"
+    },
+    "ligand_design_7c7m": {
+      "native_atom_count": 27,
+      "nearby_receptor_residues": [
+        [
+          "A84",
+          2.69
+        ],
+        [
+          "A151",
+          2.7
+        ],
+        [
+          "A198",
+          2.79
+        ],
+        [
+          "A197",
+          2.83
+        ],
+        [
+          "A80",
+          2.85
+        ],
+        [
+          "A152",
+          3.3
+        ],
+        [
+          "A81",
+          3.32
+        ],
+        [
+          "A195",
+          3.39
+        ],
+        [
+          "A128",
+          3.42
+        ],
+        [
+          "A196",
+          3.52
+        ],
+        [
+          "A130",
+          3.6
+        ],
+        [
+          "A204",
+          3.66
+        ],
+        [
+          "A153",
+          3.74
+        ],
+        [
+          "A200",
+          3.9
+        ],
+        [
+          "A156",
+          3.93
+        ],
+        [
+          "A150",
+          3.98
+        ],
+        [
+          "A221",
+          4.02
+        ],
+        [
+          "A199",
+          4.16
+        ],
+        [
+          "A129",
+          4.22
+        ],
+        [
+          "A127",
+          4.23
+        ],
+        [
+          "A131",
+          4.56
+        ],
+        [
+          "A77",
+          4.77
+        ],
+        [
+          "A201",
+          5.83
+        ],
+        [
+          "A255",
+          5.86
+        ]
+      ],
+      "pdb_id": "7C7M",
+      "receptor_preparation": "auth chain A canonical protein residues and MSE; water/additives removed; native designed ligand retained as masked ground truth",
+      "reference_ligand_auth_chain": "A",
+      "reference_ligand_auth_resid": 303,
+      "reference_ligand_ccd": "SAM",
+      "reference_ligand_centroid": [
+        15.022,
+        18.629,
+        -19.768
+      ],
+      "source_url": "https://files.rcsb.org/download/7C7M.pdb",
+      "structure": "7c7m_complex.pdb",
+      "target": "CntL"
+    },
+    "ligand_design_7v11": {
+      "native_atom_count": 38,
+      "nearby_receptor_residues": [
+        [
+          "A573",
+          2.78
+        ],
+        [
+          "A575",
+          2.99
+        ],
+        [
+          "A414",
+          3.04
+        ],
+        [
+          "A598",
+          3.13
+        ],
+        [
+          "A596",
+          3.17
+        ],
+        [
+          "A593",
+          3.2
+        ],
+        [
+          "A571",
+          3.21
+        ],
+        [
+          "A594",
+          3.24
+        ],
+        [
+          "A599",
+          3.28
+        ],
+        [
+          "A595",
+          3.3
+        ],
+        [
+          "A574",
+          3.32
+        ],
+        [
+          "A572",
+          3.4
+        ],
+        [
+          "A431",
+          3.46
+        ],
+        [
+          "A415",
+          3.48
+        ],
+        [
+          "A528",
+          3.5
+        ],
+        [
+          "A413",
+          3.52
+        ],
+        [
+          "A521",
+          3.57
+        ],
+        [
+          "A607",
+          3.58
+        ],
+        [
+          "A569",
+          3.62
+        ],
+        [
+          "A570",
+          3.69
+        ],
+        [
+          "A524",
+          3.74
+        ],
+        [
+          "A606",
+          3.76
+        ],
+        [
+          "A608",
+          3.87
+        ],
+        [
+          "A416",
+          3.91
+        ],
+        [
+          "A432",
+          4.04
+        ],
+        [
+          "A597",
+          4.84
+        ],
+        [
+          "A434",
+          5.38
+        ],
+        [
+          "A605",
+          5.62
+        ],
+        [
+          "A433",
+          5.64
+        ],
+        [
+          "A600",
+          5.79
+        ]
+      ],
+      "pdb_id": "7V11",
+      "receptor_preparation": "auth chain A canonical protein residues and MSE; water/additives removed; native designed ligand retained as masked ground truth",
+      "reference_ligand_auth_chain": "A",
+      "reference_ligand_auth_resid": 701,
+      "reference_ligand_ccd": "OQO",
+      "reference_ligand_centroid": [
+        -32.467,
+        5.393,
+        4.056
+      ],
+      "source_url": "https://files.rcsb.org/download/7V11.pdb",
+      "structure": "7v11_complex.pdb",
+      "target": "Factor XIa"
+    }
+  },
+  "design_chain_coordinates": "Native design-chain coordinates are present in the structure for reference and are masked by the task compiler except explicitly conditioned motifs."
+}

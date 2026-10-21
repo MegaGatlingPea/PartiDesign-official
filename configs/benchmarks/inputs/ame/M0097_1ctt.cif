@@ -1,0 +1,70 @@
+data_M0097_1ctt
+#
+loop_
+_atom_site.group_PDB 
+_atom_site.id 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.auth_asym_id 
+_atom_site.auth_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.occupancy 
+_atom_site.B_iso_or_equiv 
+_atom_site.pdbx_PDB_model_num 
+ATOM   1  N  N     . HIS A  A  102 A 102 ? 4.647  3.035  0.538  1.00 0.00 1
+ATOM   2  C  CA    . HIS A  A  102 A 102 ? 4.142  1.849  1.180  1.00 0.00 1
+ATOM   3  C  C     . HIS A  A  102 A 102 ? 5.205  0.751  1.190  1.00 0.00 1
+ATOM   4  O  O     . HIS A  A  102 A 102 ? 6.041  0.654  0.268  1.00 0.00 1
+ATOM   5  C  CB    . HIS A  A  102 A 102 ? 2.876  1.353  0.450  1.00 0.00 1
+ATOM   6  C  CG    . HIS A  A  102 A 102 ? 1.745  2.287  0.724  1.00 0.00 1
+ATOM   7  N  ND1   . HIS A  A  102 A 102 ? 0.563  1.878  1.327  1.00 0.00 1
+ATOM   8  C  CD2   . HIS A  A  102 A 102 ? 1.648  3.619  0.497  1.00 0.00 1
+ATOM   9  C  CE1   . HIS A  A  102 A 102 ? -0.214 2.956  1.394  1.00 0.00 1
+ATOM   10 N  NE2   . HIS A  A  102 A 102 ? 0.412  4.013  0.922  1.00 0.00 1
+ATOM   11 N  N     . GLU A  A  104 A 104 ? 4.933  -2.131 0.372  1.00 0.00 1
+ATOM   12 C  CA    . GLU A  A  104 A 104 ? 4.893  -2.783 -0.916 1.00 0.00 1
+ATOM   13 C  C     . GLU A  A  104 A 104 ? 5.616  -2.040 -1.996 1.00 0.00 1
+ATOM   14 O  O     . GLU A  A  104 A 104 ? 6.291  -2.664 -2.830 1.00 0.00 1
+ATOM   15 C  CB    . GLU A  A  104 A 104 ? 3.466  -3.129 -1.396 1.00 0.00 1
+ATOM   16 C  CG    . GLU A  A  104 A 104 ? 2.592  -3.837 -0.330 1.00 0.00 1
+ATOM   17 C  CD    . GLU A  A  104 A 104 ? 1.869  -2.980 0.676  1.00 0.00 1
+ATOM   18 O  OE1   . GLU A  A  104 A 104 ? 2.693  -2.404 1.526  1.00 0.00 1
+ATOM   19 O  OE2   . GLU A  A  104 A 104 ? 0.656  -3.043 0.844  1.00 0.00 1
+ATOM   20 N  N     . CYS A  A  129 A 129 ? -3.186 -2.183 1.032  1.00 0.00 1
+ATOM   21 C  CA    . CYS A  A  129 A 129 ? -4.147 -1.177 0.715  1.00 0.00 1
+ATOM   22 C  C     . CYS A  A  129 A 129 ? -4.376 -1.216 -0.780 1.00 0.00 1
+ATOM   23 O  O     . CYS A  A  129 A 129 ? -3.623 -1.803 -1.588 1.00 0.00 1
+ATOM   24 C  CB    . CYS A  A  129 A 129 ? -3.715 0.225  1.219  1.00 0.00 1
+ATOM   25 S  SG    . CYS A  A  129 A 129 ? -2.594 0.931  0.003  1.00 0.00 1
+ATOM   26 N  N     . CYS A  A  132 A 132 ? -1.714 0.080  -3.185 1.00 0.00 1
+ATOM   27 C  CA    . CYS A  A  132 A 132 ? -0.694 -0.953 -3.454 1.00 0.00 1
+ATOM   28 C  C     . CYS A  A  132 A 132 ? -1.226 -2.038 -4.350 1.00 0.00 1
+ATOM   29 O  O     . CYS A  A  132 A 132 ? -0.562 -2.393 -5.319 1.00 0.00 1
+ATOM   30 C  CB    . CYS A  A  132 A 132 ? -0.398 -1.625 -2.103 1.00 0.00 1
+ATOM   31 S  SG    . CYS A  A  132 A 132 ? 0.744  -0.318 -1.308 1.00 0.00 1
+HETATM 32 ZN ZN    . ZN  L1 L1 296 A 296 ? -0.297 0.289  0.428  1.00 0.00 1
+HETATM 33 N  N1    . DHZ L2 L2 295 A 295 ? 0.802  0.897  4.539  1.00 0.00 1
+HETATM 34 C  C2    . DHZ L2 L2 295 A 295 ? 1.714  0.012  3.970  1.00 0.00 1
+HETATM 35 O  O2    . DHZ L2 L2 295 A 295 ? 2.876  0.330  3.716  1.00 0.00 1
+HETATM 36 N  N3    . DHZ L2 L2 295 A 295 ? 1.225  -1.248 3.637  1.00 0.00 1
+HETATM 37 C  C4    . DHZ L2 L2 295 A 295 ? -0.149 -1.785 4.114  1.00 0.00 1
+HETATM 38 C  C5    . DHZ L2 L2 295 A 295 ? -1.028 -0.615 4.562  1.00 0.00 1
+HETATM 39 C  C6    . DHZ L2 L2 295 A 295 ? -0.507 0.613  4.786  1.00 0.00 1
+HETATM 40 C  "C1'" . DHZ L2 L2 295 A 295 ? 1.385  2.278  5.162  1.00 0.00 1
+HETATM 41 C  "C2'" . DHZ L2 L2 295 A 295 ? 1.328  3.698  4.760  1.00 0.00 1
+HETATM 42 O  "O2'" . DHZ L2 L2 295 A 295 ? 2.193  3.921  3.615  1.00 0.00 1
+HETATM 43 C  "C3'" . DHZ L2 L2 295 A 295 ? 1.551  4.502  5.998  1.00 0.00 1
+HETATM 44 O  "O3'" . DHZ L2 L2 295 A 295 ? 2.950  4.623  6.083  1.00 0.00 1
+HETATM 45 C  "C4'" . DHZ L2 L2 295 A 295 ? 0.978  3.491  7.135  1.00 0.00 1
+HETATM 46 O  "O4'" . DHZ L2 L2 295 A 295 ? 1.114  2.138  6.555  1.00 0.00 1
+HETATM 47 C  "C5'" . DHZ L2 L2 295 A 295 ? -0.432 3.561  7.518  1.00 0.00 1
+HETATM 48 O  "O5'" . DHZ L2 L2 295 A 295 ? -1.144 3.908  6.295  1.00 0.00 1
+#

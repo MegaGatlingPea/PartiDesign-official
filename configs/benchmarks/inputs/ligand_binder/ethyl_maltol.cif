@@ -1,0 +1,55 @@
+data_ethyl_maltol
+#
+loop_
+_atom_site.group_PDB 
+_atom_site.id 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.pdbx_PDB_model_num 
+HETATM 1  C C1 . LIG01 L 1 . . -2.434673 0.750245  -0.371102 1
+HETATM 2  C C2 . LIG01 L 1 . . -1.555956 0.354592  0.817695  1
+HETATM 3  C C3 . LIG01 L 1 . . -0.132057 0.167666  0.392637  1
+HETATM 4  C C4 . LIG01 L 1 . . 0.451823  -1.032935 0.158476  1
+HETATM 5  C C5 . LIG01 L 1 . . 1.847586  -1.139011 -0.284034 1
+HETATM 6  O O1 . LIG01 L 1 . . 2.332669  -2.252024 -0.474193 1
+HETATM 7  C C6 . LIG01 L 1 . . 2.500774  0.136518  -0.448056 1
+HETATM 8  C C7 . LIG01 L 1 . . 1.823444  1.272466  -0.189408 1
+HETATM 9  O O2 . LIG01 L 1 . . 0.558672  1.322670  0.218293  1
+HETATM 10 O O3 . LIG01 L 1 . . -0.190156 -2.208783 0.318307  1
+#
+_entity.id     1
+_entity.type   non-polymer
+#
+_struct_asym.id          L
+_struct_asym.entity_id   1
+#
+_chem_comp.id              LIG01
+_chem_comp.type            non-polymer
+_chem_comp.mon_nstd_flag   no
+#
+loop_
+_chem_comp_bond.comp_id 
+_chem_comp_bond.atom_id_1 
+_chem_comp_bond.atom_id_2 
+_chem_comp_bond.value_order 
+_chem_comp_bond.pdbx_aromatic_flag 
+LIG01 C1 C2 sing ?
+LIG01 C2 C3 sing ?
+LIG01 C3 C4 arom Y
+LIG01 C3 O2 arom Y
+LIG01 C4 C5 arom Y
+LIG01 C4 O3 sing ?
+LIG01 C5 O1 doub ?
+LIG01 C5 C6 arom Y
+LIG01 C6 C7 arom Y
+LIG01 C7 O2 arom Y
+#

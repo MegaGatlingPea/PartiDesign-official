@@ -1,0 +1,41 @@
+# General validation defaults.  Benchmark profiles under configs/benchmarks/*/validate.yaml
+# provide explicit method/source/criteria settings for each retained protocol.
+methods: [af3]
+sequence:
+  seed: 101
+  # Runtime selects NA-MPNN for nucleic-acid design chains; protein/cyclic
+  # protocols use the explicit SolubleMPNN source below.
+  sources:
+    - {source: gt, label: self, count: 1}
+    - {source: soluble_mpnn, label: soluble, count: 1, settings: {temperature: 0.1}}
+af2:
+  models: [1]
+  samples: 1
+  recycles: 3
+  seed: 101
+esmfold2:
+  samples: 1
+  mode: fast
+  loops: 20
+  steps: 100
+  lm_dropout: 0.3
+  seed: 101
+af3:
+  samples: 1
+  recycles: 10
+  seed: 101
+  msa:
+    mode: auto
+    search_workers: 2
+    templates: true
+    max_template_date: "2021-09-30"
+scorer:
+  enabled: false
+  original: true
+  refold: true
+  checkpoint: ./ckpts/partiscore.ckpt
+  weights: raw
+  batch_size: 32
+  num_workers: 0
+structure_stage: base
+criteria: []

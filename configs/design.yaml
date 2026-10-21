@@ -1,0 +1,93 @@
+defaults:
+  - _self_
+  - search: null
+  - reward: null
+
+# Standalone design defaults copied from the fully composed c997b40 source.
+# Task YAML is the only required runtime overlay; CLI scalar overrides apply last.
+route: true
+route_ckpt: null
+task_names: null
+tasks_file: null
+tasks: {}
+seed: 2026
+batch_size: 16
+num_workers: 4
+pin_memory: false
+run_name: design
+output_dir: ./inference/${run_name}
+output_format: cif
+ccd_path: null
+
+# The model and sampling blocks are inlined so plain YAML loading preserves the
+# fully composed source values and field types.
+model:
+  checkpoint: ./ckpts/partidesign.ckpt
+  precision: bf16-mixed
+  context_constraint_mode: auto
+  compile:
+    enabled: true
+    backend: inductor
+    mode: default
+    dynamic: true
+    fullgraph: true
+
+sampling:
+  args:
+    nsteps: 400
+    self_cond: true
+  model:
+    token_center:
+      schedule: {mode: log, p: 2.0}
+      gt: {mode: 1/t, p: 1.0, clamp_val: null}
+      simulation_step_params:
+        sampling_mode: {polymer: sc, ligand: sc}
+        sc_scale_noise: 0.1
+        sc_scale_score: 1.0
+        t_lim_ode: 0.98
+        t_lim_ode_below: 0.02
+        tsr_k: 1.0
+        tsr_sigma: 1.0
+        center_every_step: false
+    local_latents:
+      schedule: {mode: power, p: 2.0}
+      gt: {mode: tan, p: 1.0, clamp_val: null}
+      simulation_step_params:
+        sampling_mode: {polymer: sc, ligand: sc}
+        sc_scale_noise: 0.1
+        sc_scale_score: 1.0
+        t_lim_ode: 0.98
+        t_lim_ode_below: 0.02
+        tsr_k: 1.0
+        tsr_sigma: 1.0
+        center_every_step: false
+  ligand_graph:
+    method: obabel
+
+# Search and reward are disabled until explicitly selected by the caller.
+search:
+  algorithm: null
+  selection_scope: task_length_plan
+  max_batch_size: null
+  best_of_n:
+    replicas: 1
+reward:
+  _target_: null
+
+# Shared PartiScore definition; validated only when requested by a task/reward.
+scorer:
+  checkpoint: ./ckpts/partiscore.ckpt
+  weights: raw
+  device: auto
+  batch_size: 32
+  max_pair_elements: 2097152
+  num_workers: 16
+
+postprocess:
+  force_field: amber19sb
+  charge_method: gasteiger
+  platform: CUDA
+  use_ray: true
+
+# null keeps the task-level [CYS] omission policy; explicit lists override it.
+rm_token_type: [CYS]

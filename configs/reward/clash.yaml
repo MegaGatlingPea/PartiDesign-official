@@ -1,0 +1,3 @@
+_target_: src.design.rewards.clash.ClashReward
+design_design_weight: 1.0
+design_context_weight: 1.0

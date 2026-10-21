@@ -1,0 +1,102 @@
+data_M0904_1qgx
+#
+loop_
+_atom_site.group_PDB 
+_atom_site.id 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.auth_asym_id 
+_atom_site.auth_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.occupancy 
+_atom_site.B_iso_or_equiv 
+_atom_site.pdbx_PDB_model_num 
+ATOM   1  N  N     . ASP A  A  49  A 49  ? -7.680 -0.976 -0.975 1.00 0.00 1
+ATOM   2  C  CA    . ASP A  A  49  A 49  ? -6.788 0.010  -0.356 1.00 0.00 1
+ATOM   3  C  C     . ASP A  A  49  A 49  ? -7.603 1.022  0.448  1.00 0.00 1
+ATOM   4  O  O     . ASP A  A  49  A 49  ? -7.322 1.333  1.613  1.00 0.00 1
+ATOM   5  C  CB    . ASP A  A  49  A 49  ? -5.943 0.816  -1.370 1.00 0.00 1
+ATOM   6  C  CG    . ASP A  A  49  A 49  ? -5.100 -0.114 -2.241 1.00 0.00 1
+ATOM   7  O  OD1   . ASP A  A  49  A 49  ? -5.592 -0.815 -3.157 1.00 0.00 1
+ATOM   8  O  OD2   . ASP A  A  49  A 49  ? -3.868 -0.197 -1.991 1.00 0.00 1
+ATOM   9  N  N     . GLU A  A  72  A 72  ? -1.403 6.654  3.142  1.00 0.00 1
+ATOM   10 C  CA    . GLU A  A  72  A 72  ? -1.074 6.820  1.693  1.00 0.00 1
+ATOM   11 C  C     . GLU A  A  72  A 72  ? -2.190 7.406  0.865  1.00 0.00 1
+ATOM   12 O  O     . GLU A  A  72  A 72  ? -1.903 8.167  -0.078 1.00 0.00 1
+ATOM   13 C  CB    . GLU A  A  72  A 72  ? -0.820 5.404  1.190  1.00 0.00 1
+ATOM   14 C  CG    . GLU A  A  72  A 72  ? -0.382 5.608  -0.286 1.00 0.00 1
+ATOM   15 C  CD    . GLU A  A  72  A 72  ? -0.201 4.303  -0.924 1.00 0.00 1
+ATOM   16 O  OE1   . GLU A  A  72  A 72  ? -0.139 3.310  -0.232 1.00 0.00 1
+ATOM   17 O  OE2   . GLU A  A  72  A 72  ? -0.011 4.273  -2.141 1.00 0.00 1
+ATOM   18 N  N     . ASP A  A  142 A 142 ? -0.010 2.352  5.641  1.00 0.00 1
+ATOM   19 C  CA    . ASP A  A  142 A 142 ? -0.101 1.876  4.235  1.00 0.00 1
+ATOM   20 C  C     . ASP A  A  142 A 142 ? -1.208 0.825  4.299  1.00 0.00 1
+ATOM   21 O  O     . ASP A  A  142 A 142 ? -1.013 -0.293 4.824  1.00 0.00 1
+ATOM   22 C  CB    . ASP A  A  142 A 142 ? 1.262  1.306  3.839  1.00 0.00 1
+ATOM   23 C  CG    . ASP A  A  142 A 142 ? 1.314  0.983  2.363  1.00 0.00 1
+ATOM   24 O  OD1   . ASP A  A  142 A 142 ? 0.160  1.002  1.836  1.00 0.00 1
+ATOM   25 O  OD2   . ASP A  A  142 A 142 ? 2.387  0.765  1.808  1.00 0.00 1
+ATOM   26 N  N     . ILE A  A  144 A 144 ? -2.838 -1.008 2.035  1.00 0.00 1
+ATOM   27 C  CA    . ILE A  A  144 A 144 ? -2.425 -2.217 1.342  1.00 0.00 1
+ATOM   28 C  C     . ILE A  A  144 A 144 ? -0.983 -1.948 0.878  1.00 0.00 1
+ATOM   29 O  O     . ILE A  A  144 A 144 ? -0.872 -1.183 -0.089 1.00 0.00 1
+ATOM   30 C  CB    . ILE A  A  144 A 144 ? -3.232 -2.629 0.115  1.00 0.00 1
+ATOM   31 C  CG1   . ILE A  A  144 A 144 ? -4.620 -3.072 0.574  1.00 0.00 1
+ATOM   32 C  CG2   . ILE A  A  144 A 144 ? -2.502 -3.734 -0.636 1.00 0.00 1
+ATOM   33 C  CD1   . ILE A  A  144 A 144 ? -5.483 -3.637 -0.538 1.00 0.00 1
+ATOM   34 N  N     . ASP A  A  145 A 145 ? 0.030  -2.463 1.467  1.00 0.00 1
+ATOM   35 C  CA    . ASP A  A  145 A 145 ? 1.434  -2.236 1.040  1.00 0.00 1
+ATOM   36 C  C     . ASP A  A  145 A 145 ? 1.704  -3.370 0.089  1.00 0.00 1
+ATOM   37 O  O     . ASP A  A  145 A 145 ? 1.555  -4.555 0.330  1.00 0.00 1
+ATOM   38 C  CB    . ASP A  A  145 A 145 ? 2.229  -2.322 2.324  1.00 0.00 1
+ATOM   39 C  CG    . ASP A  A  145 A 145 ? 3.713  -2.159 2.307  1.00 0.00 1
+ATOM   40 O  OD1   . ASP A  A  145 A 145 ? 4.414  -3.158 2.071  1.00 0.00 1
+ATOM   41 O  OD2   . ASP A  A  145 A 145 ? 4.168  -1.024 2.579  1.00 0.00 1
+ATOM   42 N  N     . THR A  A  147 A 147 ? 0.300  -3.145 -3.425 1.00 0.00 1
+ATOM   43 C  CA    . THR A  A  147 A 147 ? -0.983 -3.305 -4.184 1.00 0.00 1
+ATOM   44 C  C     . THR A  A  147 A 147 ? -0.766 -4.121 -5.456 1.00 0.00 1
+ATOM   45 O  O     . THR A  A  147 A 147 ? -1.637 -4.884 -5.857 1.00 0.00 1
+ATOM   46 C  CB    . THR A  A  147 A 147 ? -1.553 -1.933 -4.461 1.00 0.00 1
+ATOM   47 O  OG1   . THR A  A  147 A 147 ? -1.766 -1.283 -3.189 1.00 0.00 1
+ATOM   48 C  CG2   . THR A  A  147 A 147 ? -2.891 -2.018 -5.202 1.00 0.00 1
+ATOM   49 N  N     . ASP A  A  294 A 294 ? 6.264  2.707  3.753  1.00 0.00 1
+ATOM   50 C  CA    . ASP A  A  294 A 294 ? 6.729  1.454  3.216  1.00 0.00 1
+ATOM   51 C  C     . ASP A  A  294 A 294 ? 7.770  0.782  4.127  1.00 0.00 1
+ATOM   52 O  O     . ASP A  A  294 A 294 ? 8.187  -0.333 3.881  1.00 0.00 1
+ATOM   53 C  CB    . ASP A  A  294 A 294 ? 7.407  1.721  1.837  1.00 0.00 1
+ATOM   54 C  CG    . ASP A  A  294 A 294 ? 6.371  1.917  0.747  1.00 0.00 1
+ATOM   55 O  OD1   . ASP A  A  294 A 294 ? 5.227  1.447  0.951  1.00 0.00 1
+ATOM   56 O  OD2   . ASP A  A  294 A 294 ? 6.675  2.521  -0.299 1.00 0.00 1
+HETATM 57 MG MG    . MG  L1 L1 401 A 401 ? -0.259 1.079  -0.301 1.00 0.00 1
+HETATM 58 P  P     . AMP L2 L2 405 A 405 ? 7.649  -3.957 -2.627 1.00 0.00 1
+HETATM 59 O  O1P   . AMP L2 L2 405 A 405 ? 6.442  -4.805 -2.553 1.00 0.00 1
+HETATM 60 O  O2P   . AMP L2 L2 405 A 405 ? 8.245  -3.976 -4.025 1.00 0.00 1
+HETATM 61 O  O3P   . AMP L2 L2 405 A 405 ? 8.675  -4.401 -1.738 1.00 0.00 1
+HETATM 62 O  "O5'" . AMP L2 L2 405 A 405 ? 7.419  -2.460 -2.235 1.00 0.00 1
+HETATM 63 C  "C5'" . AMP L2 L2 405 A 405 ? 6.067  -1.843 -2.320 1.00 0.00 1
+HETATM 64 C  "C4'" . AMP L2 L2 405 A 405 ? 6.220  -0.317 -2.327 1.00 0.00 1
+HETATM 65 O  "O4'" . AMP L2 L2 405 A 405 ? 7.069  0.007  -3.506 1.00 0.00 1
+HETATM 66 C  "C3'" . AMP L2 L2 405 A 405 ? 4.917  0.441  -2.542 1.00 0.00 1
+HETATM 67 O  "O3'" . AMP L2 L2 405 A 405 ? 4.181  0.523  -1.330 1.00 0.00 1
+HETATM 68 C  "C2'" . AMP L2 L2 405 A 405 ? 5.356  1.723  -3.252 1.00 0.00 1
+HETATM 69 O  "O2'" . AMP L2 L2 405 A 405 ? 5.304  2.890  -2.390 1.00 0.00 1
+HETATM 70 C  "C1'" . AMP L2 L2 405 A 405 ? 6.823  1.391  -3.483 1.00 0.00 1
+HETATM 71 N  N9    . AMP L2 L2 405 A 405 ? 7.331  1.963  -4.780 1.00 0.00 1
+HETATM 72 C  C8    . AMP L2 L2 405 A 405 ? 6.598  2.396  -5.884 1.00 0.00 1
+HETATM 73 N  N7    . AMP L2 L2 405 A 405 ? 7.398  2.854  -6.850 1.00 0.00 1
+HETATM 74 C  C5    . AMP L2 L2 405 A 405 ? 8.663  2.730  -6.357 1.00 0.00 1
+HETATM 75 C  C6    . AMP L2 L2 405 A 405 ? 9.961  3.068  -6.893 1.00 0.00 1
+HETATM 76 N  N6    . AMP L2 L2 405 A 405 ? 10.120 3.643  -8.079 1.00 0.00 1
+HETATM 77 N  N1    . AMP L2 L2 405 A 405 ? 11.002 2.789  -6.096 1.00 0.00 1
+HETATM 78 C  C2    . AMP L2 L2 405 A 405 ? 10.894 2.211  -4.839 1.00 0.00 1
+HETATM 79 N  N3    . AMP L2 L2 405 A 405 ? 9.724  1.903  -4.303 1.00 0.00 1
+HETATM 80 C  C4    . AMP L2 L2 405 A 405 ? 8.668  2.193  -5.056 1.00 0.00 1
+#

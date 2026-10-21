@@ -1,0 +1,19 @@
+path: h-NbBCII10.cif
+include:
+- chain:
+    id: H
+design:
+- chain:
+    id: H
+    res_index: 26..35,55..60,102..117
+structure_groups:
+- group:
+    id: H
+    visibility: 2
+- group:
+    id: H
+    res_index: 26..35,55..60,102..117
+    visibility: 0
+reset_res_index:
+- chain:
+    id: H

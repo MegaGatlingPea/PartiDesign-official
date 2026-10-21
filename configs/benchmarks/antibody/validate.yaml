@@ -1,0 +1,20 @@
+# Antibody benchmark validation: framework/CDR and antigen roles are read from
+# the task scaffold; only AF3 geometry is evaluated here.
+methods: [af3]
+sequence:
+  seed: 101
+  sources:
+    - {source: gt, label: self, count: 1}
+criteria: [af3_antibody]
+scorer:
+  enabled: false
+structure_stage: base
+af3:
+  samples: 1
+  recycles: 10
+  seed: 101
+  msa:
+    mode: auto
+    search_workers: 2
+    templates: true
+    max_template_date: "2021-09-30"

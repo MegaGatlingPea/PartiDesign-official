@@ -1,0 +1,66 @@
+data_M0630_1j79
+#
+loop_
+_atom_site.group_PDB 
+_atom_site.id 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.auth_asym_id 
+_atom_site.auth_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.occupancy 
+_atom_site.B_iso_or_equiv 
+_atom_site.pdbx_PDB_model_num 
+ATOM   1  N  N   . ASP A  A  250 A 250 ? -0.486 -0.069 3.895  1.00 0.00 1
+ATOM   2  C  CA  . ASP A  A  250 A 250 ? -0.705 0.024  2.475  1.00 0.00 1
+ATOM   3  C  C   . ASP A  A  250 A 250 ? -2.157 0.425  2.206  1.00 0.00 1
+ATOM   4  O  O   . ASP A  A  250 A 250 ? -2.736 0.052  1.183  1.00 0.00 1
+ATOM   5  C  CB  . ASP A  A  250 A 250 ? -0.243 -1.116 1.541  1.00 0.00 1
+ATOM   6  C  CG  . ASP A  A  250 A 250 ? -0.035 -0.599 0.136  1.00 0.00 1
+ATOM   7  O  OD1 . ASP A  A  250 A 250 ? 0.035  0.599  -0.136 1.00 0.00 1
+ATOM   8  O  OD2 . ASP A  A  250 A 250 ? 0.080  -1.542 -0.781 1.00 0.00 1
+HETATM 9  N  N1  . ORO L1 L1 410 A 410 ? -2.639 0.288  -4.548 1.00 0.00 1
+HETATM 10 C  C2  . ORO L1 L1 410 A 410 ? -2.059 -1.056 -4.360 1.00 0.00 1
+HETATM 11 O  O2  . ORO L1 L1 410 A 410 ? -2.726 -2.084 -4.269 1.00 0.00 1
+HETATM 12 N  N3  . ORO L1 L1 410 A 410 ? -0.684 -1.076 -4.348 1.00 0.00 1
+HETATM 13 C  C4  . ORO L1 L1 410 A 410 ? 0.090  -0.060 -4.927 1.00 0.00 1
+HETATM 14 O  O4  . ORO L1 L1 410 A 410 ? 1.264  -0.294 -5.167 1.00 0.00 1
+HETATM 15 C  C5  . ORO L1 L1 410 A 410 ? -0.458 1.153  -5.032 1.00 0.00 1
+HETATM 16 C  C6  . ORO L1 L1 410 A 410 ? -1.689 1.443  -4.310 1.00 0.00 1
+HETATM 17 C  C7  . ORO L1 L1 410 A 410 ? -2.389 2.718  -4.783 1.00 0.00 1
+HETATM 18 O  O71 . ORO L1 L1 410 A 410 ? -1.795 3.813  -4.657 1.00 0.00 1
+HETATM 19 O  O72 . ORO L1 L1 410 A 410 ? -3.560 2.565  -5.212 1.00 0.00 1
+HETATM 20 ZN ZN  . ZN  L2 L2 411 A 411 ? 1.711  1.504  -1.423 1.00 0.00 1
+#
+loop_
+_struct_conn.id 
+_struct_conn.conn_type_id 
+_struct_conn.pdbx_value_order 
+_struct_conn.ptnr1_label_asym_id 
+_struct_conn.ptnr1_label_seq_id 
+_struct_conn.ptnr1_label_comp_id 
+_struct_conn.ptnr1_label_atom_id 
+_struct_conn.ptnr2_label_asym_id 
+_struct_conn.ptnr2_label_seq_id 
+_struct_conn.ptnr2_label_comp_id 
+_struct_conn.ptnr2_label_atom_id 
+1  covale ? L1 410 ORO N1 L1 410 ORO C2
+2  covale ? L1 410 ORO N1 L1 410 ORO C6
+3  covale ? L1 410 ORO C2 L1 410 ORO O2
+4  covale ? L1 410 ORO C2 L1 410 ORO N3
+5  covale ? L1 410 ORO N3 L1 410 ORO C4
+6  covale ? L1 410 ORO C4 L1 410 ORO O4
+7  covale ? L1 410 ORO C4 L1 410 ORO C5
+8  covale ? L1 410 ORO C5 L1 410 ORO C6
+9  covale ? L1 410 ORO C6 L1 410 ORO C7
+10 covale ? L1 410 ORO C7 L1 410 ORO O71
+11 covale ? L1 410 ORO C7 L1 410 ORO O72
+#

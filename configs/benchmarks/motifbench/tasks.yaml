@@ -1,0 +1,452 @@
+# Design benchmark: OpenMM postprocess and PartiScore disabled.
+# MotifBench v1.0 official 30 cases; source motifs normalized to one design chain P.
+motifbench_01_1ldb:
+  input: ./configs/benchmarks/inputs/motifbench/01_1LDB_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-100/P1-21/0-100
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_02_1itu:
+  input: ./configs/benchmarks/inputs/motifbench/02_1ITU_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-100/P1-24/0-100
+        motif_min_length: 150
+        motif_max_length: 150
+        polymer_atom: null
+  hotspot: null
+motifbench_03_2cga:
+  input: ./configs/benchmarks/inputs/motifbench/03_2CGA_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-100/P1-11/0-100
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_04_5wn9:
+  input: ./configs/benchmarks/inputs/motifbench/04_5WN9_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 10-40/P1-20/10-40
+        motif_min_length: 75
+        motif_max_length: 75
+        polymer_atom: null
+  hotspot: null
+motifbench_05_5ze9:
+  input: ./configs/benchmarks/inputs/motifbench/05_5ZE9_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-100/P1-15/0-100
+        motif_min_length: 100
+        motif_max_length: 100
+        polymer_atom: null
+  hotspot: null
+motifbench_06_6e6r:
+  input: ./configs/benchmarks/inputs/motifbench/06_6E6R_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-65/P1-13/0-65
+        motif_min_length: 75
+        motif_max_length: 75
+        polymer_atom: null
+  hotspot: null
+motifbench_07_6e6r:
+  input: ./configs/benchmarks/inputs/motifbench/07_6E6R_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-190/P1-13/0-190
+        motif_min_length: 200
+        motif_max_length: 200
+        polymer_atom: null
+  hotspot: null
+motifbench_08_7ad5:
+  input: ./configs/benchmarks/inputs/motifbench/08_7AD5_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-100/P1-15/0-100
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_09_7cg5:
+  input: ./configs/benchmarks/inputs/motifbench/09_7CG5_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-100/P1-15/0-100
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_10_7wrk:
+  input: ./configs/benchmarks/inputs/motifbench/10_7WRK_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-100/P1-15/0-100
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_11_3tqb:
+  input: ./configs/benchmarks/inputs/motifbench/11_3TQB_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-60/P1-15/30-60/P101-115/0-60
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_12_4jhw:
+  input: ./configs/benchmarks/inputs/motifbench/12_4JHW_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 10-25/P1-17/40-80/P101-107/10-25
+        motif_min_length: 100
+        motif_max_length: 100
+        polymer_atom: null
+  hotspot: null
+motifbench_13_4jhw:
+  input: ./configs/benchmarks/inputs/motifbench/13_4JHW_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 10-100/P1-17/40-80/P101-107/10-100
+        motif_min_length: 200
+        motif_max_length: 200
+        polymer_atom: null
+  hotspot: null
+motifbench_14_5ius:
+  input: ./configs/benchmarks/inputs/motifbench/14_5IUS_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-30/P1-22/15-40/P101-120/0-30
+        motif_min_length: 100
+        motif_max_length: 100
+        polymer_atom: null
+  hotspot: null
+motifbench_15_7a8s:
+  input: ./configs/benchmarks/inputs/motifbench/15_7A8S_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-60/P1-15/30-60/P101-115/0-60
+        motif_min_length: 100
+        motif_max_length: 100
+        polymer_atom: null
+  hotspot: null
+motifbench_16_7bny:
+  input: ./configs/benchmarks/inputs/motifbench/16_7BNY_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-60/P1-15/30-60/P101-115/0-60
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_17_7dgw:
+  input: ./configs/benchmarks/inputs/motifbench/17_7DGW_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-60/P1-15/30-60/P101-115/0-60
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_18_7mqq:
+  input: ./configs/benchmarks/inputs/motifbench/18_7MQQ_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-60/P1-15/30-60/P101-115/0-60
+        motif_min_length: 100
+        motif_max_length: 100
+        polymer_atom: null
+  hotspot: null
+motifbench_19_7mqq:
+  input: ./configs/benchmarks/inputs/motifbench/19_7MQQ_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-140/P1-15/30-60/P101-115/0-140
+        motif_min_length: 200
+        motif_max_length: 200
+        polymer_atom: null
+  hotspot: null
+motifbench_20_7uwl:
+  input: ./configs/benchmarks/inputs/motifbench/20_7UWL_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-130/P1-11/25-35/P101-111/0-130
+        motif_min_length: 175
+        motif_max_length: 175
+        polymer_atom: null
+  hotspot: null
+motifbench_21_1b73:
+  input: ./configs/benchmarks/inputs/motifbench/21_1B73_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-25/P1-2/20-50/P101-101/20-75/P201-203/0-25
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_22_1bcf:
+  input: ./configs/benchmarks/inputs/motifbench/22_1BCF_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 8-15/P1-8/16-30/P101-108/16-30/P201-208/16-30/P301-308/8-15
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_23_1mpy:
+  input: ./configs/benchmarks/inputs/motifbench/23_1MPY_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-20/P1-1/40-50/P101-101/10-15/P201-201/25-30/P301-301/5-15/P401-401/5-15/P501-501/0-20
+        motif_min_length: 125
+        motif_max_length: 125
+        polymer_atom: null
+  hotspot: null
+motifbench_24_1qy3:
+  input: ./configs/benchmarks/inputs/motifbench/24_1QY3_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-65/P1-14/20-30/P101-101/120-130/P201-201/0-65
+        motif_min_length: 225
+        motif_max_length: 225
+        polymer_atom: null
+  hotspot: null
+motifbench_25_2rkx:
+  input: ./configs/benchmarks/inputs/motifbench/25_2RKX_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-20/P1-3/30-40/P101-103/45-55/P201-201/20-30/P301-301/35-45/P401-401/5-15/P501-501/20-30/P601-601/15-25/P701-703/0-20
+        motif_min_length: 225
+        motif_max_length: 225
+        polymer_atom: null
+  hotspot: null
+motifbench_26_3b5v:
+  input: ./configs/benchmarks/inputs/motifbench/26_3B5V_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-30/P1-3/25-35/P101-101/25-35/P201-201/15-25/P301-301/25-35/P401-401/15-25/P501-505/20-30/P601-602/15-25/P701-703/0-30
+        motif_min_length: 200
+        motif_max_length: 200
+        polymer_atom: null
+  hotspot: null
+motifbench_27_4xoj:
+  input: ./configs/benchmarks/inputs/motifbench/27_4XOJ_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-50/P1-1/40-50/P101-101/50-80/P201-203/0-50
+        motif_min_length: 150
+        motif_max_length: 150
+        polymer_atom: null
+  hotspot: null
+motifbench_28_5yui:
+  input: ./configs/benchmarks/inputs/motifbench/28_5YUI_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 5-30/P1-5/5-20/P101-103/10-35/P201-203/10-30
+        motif_min_length: 75
+        motif_max_length: 75
+        polymer_atom: null
+  hotspot: null
+motifbench_29_6cpa:
+  input: ./configs/benchmarks/inputs/motifbench/29_6CPA_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-20/P1-4/30-55/P101-101/50-70/P201-201/40-55/P301-301/20-25/P401-401/0-20
+        motif_min_length: 200
+        motif_max_length: 200
+        polymer_atom: null
+  hotspot: null
+motifbench_30_7uwl:
+  input: ./configs/benchmarks/inputs/motifbench/30_7UWL_prepared.pdb
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - P: protein
+  condition:
+    contig:
+      P:
+        token: 0-80/P1-11/25-35/P101-111/15-25/P201-211/20-30/P301-310/0-80
+        motif_min_length: 175
+        motif_max_length: 175
+        polymer_atom: null
+  hotspot: null

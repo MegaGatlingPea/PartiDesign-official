@@ -1,0 +1,28 @@
+defaults:
+  - /sequence@sequence
+  - _self_
+
+_target_: src.design.rewards.esmfold2.ESMFold2Reward
+structure_source: fold
+
+# ``auto`` routes antibody candidates with mutable residues through the
+# paired/single-chain ProteinMPNN adapter.  Users may select ligandmpnn for
+# antigen-atom context with a Hydra override; the backend remains explicit.
+sequence:
+  source: design
+  fixed_positions: []
+esmfold2:
+  mode: fast
+  loops: 20
+  steps: 100
+  lm_dropout: 0.3
+  lm_mask_pct: null
+  attention_backend: sdpa
+  context_embedding_cache: null
+  timeout_seconds: 7200
+
+score:
+  method: confidence
+  monomer_plddt_weight: 1.0
+  complex_plddt_weight: 0.25
+  complex_iptm_weight: 0.75

@@ -1,0 +1,332 @@
+# RFAntibody-inspired panel: 7 VHH settings and 2 paired VH/VL settings.
+# Native sequences are evaluated with ESMFold2-fast; frameworks stay fixed.
+antibody_hiv_env:
+  format: antibody
+  sample_num: 200
+  antibody:
+    scaffold:
+      path: ./configs/benchmarks/inputs/antibody/scaffolds/h-NbBCII10.yaml
+      roles: &id001
+        VHH: H
+      numbering: label_seq_id
+    chains: *id001
+    template: true
+    design:
+      VHH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: 7
+          CDR2: 6
+          CDR3:
+            min: 5
+            max: 13
+        framework: false
+  antigen:
+    input: ./configs/benchmarks/inputs/antibody/targets/hiv_env.cif
+    crop:
+      include:
+      - A
+    hotspot: A65/A69/A129/A169
+  score: false
+  postprocess: false
+  override: true
+antibody_sars_cov2_rbd:
+  format: antibody
+  sample_num: 200
+  antibody:
+    scaffold:
+      path: ./configs/benchmarks/inputs/antibody/scaffolds/h-NbBCII10.yaml
+      roles: &id002
+        VHH: H
+      numbering: label_seq_id
+    chains: *id002
+    template: true
+    design:
+      VHH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: 7
+          CDR2: 6
+          CDR3:
+            min: 5
+            max: 13
+        framework: false
+  antigen:
+    input: ./configs/benchmarks/inputs/antibody/targets/sars_cov2_rbd.cif
+    crop:
+      include:
+      - A
+    hotspot: A65/A66/A67/A68/A69/A70
+  score: false
+  postprocess: false
+  override: true
+antibody_rsv_site1:
+  format: antibody
+  sample_num: 200
+  antibody:
+    scaffold:
+      path: ./configs/benchmarks/inputs/antibody/scaffolds/h-NbBCII10.yaml
+      roles: &id003
+        VHH: H
+      numbering: label_seq_id
+    chains: *id003
+    template: true
+    design:
+      VHH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: 7
+          CDR2: 6
+          CDR3:
+            min: 5
+            max: 13
+        framework: false
+  antigen:
+    input: ./configs/benchmarks/inputs/antibody/targets/rsv_site1.cif
+    crop:
+      include:
+      - A
+    hotspot: A150/A65
+  score: false
+  postprocess: false
+  override: true
+antibody_rsv_site3:
+  format: antibody
+  sample_num: 200
+  antibody:
+    scaffold:
+      path: ./configs/benchmarks/inputs/antibody/scaffolds/h-NbBCII10.yaml
+      roles: &id004
+        VHH: H
+      numbering: label_seq_id
+    chains: *id004
+    template: true
+    design:
+      VHH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: 7
+          CDR2: 6
+          CDR3:
+            min: 5
+            max: 13
+        framework: false
+  antigen:
+    input: ./configs/benchmarks/inputs/antibody/targets/rsv_site3.cif
+    crop:
+      include:
+      - A
+      - B
+      - C
+      - D
+      - E
+    hotspot: A53/B56
+  score: false
+  postprocess: false
+  override: true
+antibody_influenza_ha:
+  format: antibody
+  sample_num: 200
+  antibody:
+    scaffold:
+      path: ./configs/benchmarks/inputs/antibody/scaffolds/h-NbBCII10.yaml
+      roles: &id005
+        VHH: H
+      numbering: label_seq_id
+    chains: *id005
+    template: true
+    design:
+      VHH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: 7
+          CDR2: 6
+          CDR3:
+            min: 5
+            max: 13
+        framework: false
+  antigen:
+    input: ./configs/benchmarks/inputs/antibody/targets/influenza_ha.cif
+    crop:
+      include:
+      - A
+    hotspot: A21/A45/A52
+  score: false
+  postprocess: false
+  override: true
+antibody_tcdb:
+  format: antibody
+  sample_num: 200
+  antibody:
+    scaffold:
+      path: ./configs/benchmarks/inputs/antibody/scaffolds/h-NbBCII10.yaml
+      roles: &id006
+        VHH: H
+      numbering: label_seq_id
+    chains: *id006
+    template: true
+    design:
+      VHH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: 7
+          CDR2: 6
+          CDR3:
+            min: 5
+            max: 13
+        framework: false
+  antigen:
+    input: ./configs/benchmarks/inputs/antibody/targets/tcdb.cif
+    crop:
+      include: &id010
+      - A
+    hotspot: A65/A67/A69/A70/A125
+  score: false
+  postprocess: false
+  override: true
+antibody_il7ra:
+  format: antibody
+  sample_num: 200
+  antibody:
+    scaffold:
+      path: ./configs/benchmarks/inputs/antibody/scaffolds/h-NbBCII10.yaml
+      roles: &id007
+        VHH: H
+      numbering: label_seq_id
+    chains: *id007
+    template: true
+    design:
+      VHH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: 7
+          CDR2: 6
+          CDR3:
+            min: 5
+            max: 13
+        framework: false
+  antigen:
+    input: ./configs/benchmarks/inputs/antibody/targets/il7ra.cif
+    crop:
+      include:
+      - A
+    hotspot: A65/A123/A176
+  score: false
+  postprocess: false
+  override: true
+antibody_tcdb_unique_fv:
+  format: antibody
+  sample_num: 200
+  antibody:
+    scaffold:
+      path: ./configs/benchmarks/inputs/antibody/scaffolds/hu-4D5-8_Fv.yaml
+      roles: &id008
+        VH: H
+        VL: L
+      numbering: label_seq_id
+    chains: *id008
+    template: true
+    design:
+      VH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: 7
+          CDR2: 6
+          CDR3:
+            min: 5
+            max: 13
+        framework: false
+      VL:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1:
+            min: 8
+            max: 13
+          CDR2: 7
+          CDR3:
+            min: 9
+            max: 11
+        framework: false
+  antigen:
+    input: ./configs/benchmarks/inputs/antibody/targets/tcdb_unique.cif
+    crop:
+      include:
+      - A
+    hotspot: A65/A67/A68/A72/A80
+  score: false
+  postprocess: false
+  override: true
+antibody_tcdb_combinatorial_fv:
+  format: antibody
+  sample_num: 200
+  antibody:
+    scaffold:
+      path: ./configs/benchmarks/inputs/antibody/scaffolds/hu-4D5-8_Fv.yaml
+      roles: &id009
+        VH: H
+        VL: L
+      numbering: label_seq_id
+    chains: *id009
+    template: true
+    design:
+      VH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: 7
+          CDR2: 6
+          CDR3:
+            min: 5
+            max: 13
+        framework: false
+      VL:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1:
+            min: 8
+            max: 13
+          CDR2: 7
+          CDR3:
+            min: 9
+            max: 11
+        framework: false
+  antigen:
+    input: ./configs/benchmarks/inputs/antibody/targets/tcdb.cif
+    crop:
+      include: *id010
+    hotspot: A65/A67/A69/A70/A125
+  score: false
+  postprocess: false
+  override: true

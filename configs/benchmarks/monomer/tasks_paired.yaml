@@ -1,0 +1,39 @@
+# Coarse-paired RNA/DNA variant of tasks.yaml; all original sampling settings are retained.
+# This adds no token-level or explicit base-pair endpoint constraints.
+# Reuse validate_na.yaml; keep outputs separate from the baseline run.
+rna_monomer_benchmark:
+  input: null
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 15
+    - 24
+    - 32
+    - 48
+    - 60
+  condition:
+    secondary_structure:
+      coarse:
+        R: paired
+dna_monomer_benchmark:
+  input: null
+  sample_num: 100
+  postprocess: false
+  score: false
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 12
+    - 24
+    - 32
+    - 48
+    - 60
+  condition:
+    secondary_structure:
+      coarse:
+        D: paired

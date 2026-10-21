@@ -1,0 +1,22 @@
+# Closed DesignRunner overlay for retrying existing CIF postprocessing.
+# The relax CLI supplies tasks_file/output_dir and marks selected tasks with
+# postprocess: true; these are the live DesignRunner postprocess fields.
+route: true
+route_ckpt: null
+task_names: null
+tasks_file: null
+tasks: {}
+seed: 2026
+batch_size: 1
+num_workers: 0
+pin_memory: false
+run_name: relax
+output_dir: ./inference/${run_name}
+output_format: cif
+ccd_path: null
+rm_token_type: null
+postprocess:
+  force_field: amber19sb
+  charge_method: gasteiger
+  platform: CUDA
+  use_ray: true

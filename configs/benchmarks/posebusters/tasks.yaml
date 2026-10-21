@@ -1,0 +1,3697 @@
+# Docking benchmark: 40 samples per case; OpenMM postprocess and PartiScore enabled.
+pb_5SAK_ZRY:
+  input: ./configs/benchmarks/inputs/posebusters/5SAK_ZRY.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N=C1NC(=NNc2ccccc2)c2ccccc21'
+  score: true
+  postprocess: true
+pb_5SB2_1K2:
+  input: ./configs/benchmarks/inputs/posebusters/5SB2_1K2.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(N[C@@H]1C[C@H]1c1ccccc1)c1cc(Cl)cc(COc2cnc3[nH]ccc3c2)c1'
+  score: true
+  postprocess: true
+pb_5SD5_HWI:
+  input: ./configs/benchmarks/inputs/posebusters/5SD5_HWI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCc1nc(N)nc(N)c1OCCCOc1cc(C)ccc1N1CC(C(=O)O)C1'
+  score: true
+  postprocess: true
+pb_5SIS_JSM:
+  input: ./configs/benchmarks/inputs/posebusters/5SIS_JSM.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CNCCN(C)C(=O)c1cnn(C)c1C(=O)Nc1ccn2cc(-c3ccccc3)nc2c1'
+  score: true
+  postprocess: true
+pb_6M2B_EZO:
+  input: ./configs/benchmarks/inputs/posebusters/6M2B_EZO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CN(N=Cc1ccccc1C(=O)O)c1nc(-c2ccccc2Cl)cs1'
+  score: true
+  postprocess: true
+pb_6M73_FNR:
+  input: ./configs/benchmarks/inputs/posebusters/6M73_FNR.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc2c(cc1C)N(C[C@H](O)[C@H](O)[C@H](O)COP(=O)(O)O)c1[nH]c(=O)[nH]c(=O)c1N2'
+  score: true
+  postprocess: true
+pb_6T88_MWQ:
+  input: ./configs/benchmarks/inputs/posebusters/6T88_MWQ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)CCc1cnc[nH]1'
+  score: true
+  postprocess: true
+pb_6TW5_9M2:
+  input: ./configs/benchmarks/inputs/posebusters/6TW5_9M2.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1nn(C)c(C)c1CCOc1cc(F)ccc1-c1ccc2n[nH]c(CN(C)C)c2c1'
+  score: true
+  postprocess: true
+pb_6TW7_NZB:
+  input: ./configs/benchmarks/inputs/posebusters/6TW7_NZB.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CN(C)Cc1[nH]nc2ccc(-c3ccc(F)cc3OCCc3cccnc3)cc12'
+  score: true
+  postprocess: true
+pb_6VTA_AKN:
+  input: ./configs/benchmarks/inputs/posebusters/6VTA_AKN.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NCC[C@H](O)C(=O)N[C@@H]1C[C@H](N)[C@@H](O[C@H]2O[C@H](CN)[C@@H](O)[C@H](O)[C@H]2O)[C@H](O)[C@H]1O[C@H]1O[C@H](CO)[C@@H](O)[C@H](N)[C@H]1O'
+  score: true
+  postprocess: true
+pb_6WTN_RXT:
+  input: ./configs/benchmarks/inputs/posebusters/6WTN_RXT.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N#CC[C@H](C1CCCC1)n1cc(-c2ncnc3[nH]ccc23)cn1'
+  score: true
+  postprocess: true
+pb_6XBO_5MC:
+  input: ./configs/benchmarks/inputs/posebusters/6XBO_5MC.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cn([C@@H]2O[C@H](COP(=O)(O)O)[C@@H](O)[C@H]2O)c(=O)nc1N'
+  score: true
+  postprocess: true
+pb_6XCT_478:
+  input: ./configs/benchmarks/inputs/posebusters/6XCT_478.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)CN(C[C@@H](O)[C@H](Cc1ccccc1)NC(=O)O[C@H]1CCOC1)S(=O)(=O)c1ccc(N)cc1'
+  score: true
+  postprocess: true
+pb_6XG5_TOP:
+  input: ./configs/benchmarks/inputs/posebusters/6XG5_TOP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1cc(Cc2cnc(N)nc2N)cc(OC)c1OC'
+  score: true
+  postprocess: true
+pb_6XHT_V2V:
+  input: ./configs/benchmarks/inputs/posebusters/6XHT_V2V.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ccn([C@@H]2O[C@H](CO[P@](=O)(O)O[P@@](=O)(O)OC[C@@H](O)[C@@H](O)[C@@H](O)CO)[C@@H](O)[C@H]2O)c(=O)n1'
+  score: true
+  postprocess: true
+pb_6XM9_V55:
+  input: ./configs/benchmarks/inputs/posebusters/6XM9_V55.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1cc(C=O)ccc1O'
+  score: true
+  postprocess: true
+pb_6YJA_2BA:
+  input: ./configs/benchmarks/inputs/posebusters/6YJA_2BA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@@H]2CO[P@@](=O)(O)O[C@H]3[C@@H](O)[C@H](n4cnc5c(N)ncnc54)O[C@@H]3CO[P@](=O)(O)O[C@H]2[C@H]1O'
+  score: true
+  postprocess: true
+pb_6YMS_OZH:
+  input: ./configs/benchmarks/inputs/posebusters/6YMS_OZH.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)C[C@H](NC(=O)CN[P@@](=O)(O)[C@@H](Cc1ccccc1)NC(=O)OCc1ccccc1)C(=O)O'
+  score: true
+  postprocess: true
+pb_6YQV_8K2:
+  input: ./configs/benchmarks/inputs/posebusters/6YQV_8K2.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NS(=O)(=O)c1ccc(Cl)s1'
+  score: true
+  postprocess: true
+pb_6YQW_82I:
+  input: ./configs/benchmarks/inputs/posebusters/6YQW_82I.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CNc1cnn(C)c(=O)c1Cl'
+  score: true
+  postprocess: true
+pb_6YR2_T1C:
+  input: ./configs/benchmarks/inputs/posebusters/6YR2_T1C.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[NH+](C)c1cc(NC(=O)CNC(C)(C)C)c(O)c2c1C[C@H]1C[C@H]3[C@H]([NH+](C)C)C(O)=C(C(N)=O)C(=O)[C@@]3(O)C(O)=C1C2=O'
+  score: true
+  postprocess: true
+pb_6YRV_PJ8:
+  input: ./configs/benchmarks/inputs/posebusters/6YRV_PJ8.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCCCCCCCCCCCCCCC'
+  score: true
+  postprocess: true
+pb_6YSP_PAL:
+  input: ./configs/benchmarks/inputs/posebusters/6YSP_PAL.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)C[C@H](NC(=O)CP(=O)(O)O)C(=O)O'
+  score: true
+  postprocess: true
+pb_6YT6_PKE:
+  input: ./configs/benchmarks/inputs/posebusters/6YT6_PKE.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CN(c1ncccc1CNc1ccnc(Nc2ccc3c(c2)CC(=O)N3)n1)S(C)(=O)=O'
+  score: true
+  postprocess: true
+pb_6YYO_Q1K:
+  input: ./configs/benchmarks/inputs/posebusters/6YYO_Q1K.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CS(=O)(=O)N1CCN(c2ccc3nncn3n2)CC1'
+  score: true
+  postprocess: true
+pb_6Z0R_Q4H:
+  input: ./configs/benchmarks/inputs/posebusters/6Z0R_Q4H.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N#Cc1cncnc1N'
+  score: true
+  postprocess: true
+pb_6Z14_Q4Z:
+  input: ./configs/benchmarks/inputs/posebusters/6Z14_Q4Z.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC1=[NH+][C@H]2[C@@H](O1)O[C@H](COS(=O)(=O)[O-])[C@@H](O)[C@@H]2O'
+  score: true
+  postprocess: true
+pb_6Z1C_7EY:
+  input: ./configs/benchmarks/inputs/posebusters/6Z1C_7EY.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ccc(-c2csc3ncnc(SCCC(=O)O)c23)cc1'
+  score: true
+  postprocess: true
+pb_6Z2C_Q5E:
+  input: ./configs/benchmarks/inputs/posebusters/6Z2C_Q5E.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)CCCCCN1C(=O)[C@@H]2[C@H](C1=O)[C@]1(Cl)C(Cl)=C(Cl)[C@@]2(Cl)C1(Cl)Cl'
+  score: true
+  postprocess: true
+pb_6Z4N_Q7B:
+  input: ./configs/benchmarks/inputs/posebusters/6Z4N_Q7B.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ccc(C[C@@]2(C(=O)O)C[C@H]2c2ccccc2)cc1'
+  score: true
+  postprocess: true
+pb_6ZAE_ACV:
+  input: ./configs/benchmarks/inputs/posebusters/6ZAE_ACV.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)[C@@H](NC(=O)[C@H](C[S-])NC(=O)CCC[C@H](N)C(=O)O)C(=O)O'
+  score: true
+  postprocess: true
+pb_6ZC3_JOR:
+  input: ./configs/benchmarks/inputs/posebusters/6ZC3_JOR.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CS(=O)(=O)Nc1ccc(F)cc1C(=O)O'
+  score: true
+  postprocess: true
+pb_6ZCY_QF8:
+  input: ./configs/benchmarks/inputs/posebusters/6ZCY_QF8.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CNC(=O)c1nn(C)c2ccc(Nc3nccc(-n4cc(N[C@@H]5CCNC5)c(C)n4)n3)cc12'
+  score: true
+  postprocess: true
+pb_6ZK5_IMH:
+  input: ./configs/benchmarks/inputs/posebusters/6ZK5_IMH.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'OC[C@H]1N[C@@H](c2c[nH]c3c(O)ncnc23)[C@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_6ZPB_3D1:
+  input: ./configs/benchmarks/inputs/posebusters/6ZPB_3D1.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@H]1C[C@H](O)[C@@H](CO)O1'
+  score: true
+  postprocess: true
+pb_7A1P_QW2:
+  input: ./configs/benchmarks/inputs/posebusters/7A1P_QW2.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCC[C@@H](CC(=O)C(=O)O)C(=O)O'
+  score: true
+  postprocess: true
+pb_7A9E_R4W:
+  input: ./configs/benchmarks/inputs/posebusters/7A9E_R4W.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCS(C)(=O)=O'
+  score: true
+  postprocess: true
+pb_7A9H_TPP:
+  input: ./configs/benchmarks/inputs/posebusters/7A9H_TPP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ncc(C[n+]2csc(CCO[P@](=O)(O)OP(=O)(O)O)c2C)c(N)n1'
+  score: true
+  postprocess: true
+pb_7AFX_R9K:
+  input: ./configs/benchmarks/inputs/posebusters/7AFX_R9K.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cccc2c(-c3ccccc3Cl)c(C(=O)O)[nH]c12'
+  score: true
+  postprocess: true
+pb_7AKL_RK5:
+  input: ./configs/benchmarks/inputs/posebusters/7AKL_RK5.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1oc2ccc(-c3cc(N)nc(N)c3)cc2c1C'
+  score: true
+  postprocess: true
+pb_7AN5_RDH:
+  input: ./configs/benchmarks/inputs/posebusters/7AN5_RDH.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C=C(Oc1cccc(C(=O)O)c1)C(=O)O'
+  score: true
+  postprocess: true
+pb_7B2C_TP7:
+  input: ./configs/benchmarks/inputs/posebusters/7B2C_TP7.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@@H](OP(=O)(O)O)[C@H](NC(=O)CCCCCCS)C(=O)O'
+  score: true
+  postprocess: true
+pb_7B94_ANP:
+  input: ./configs/benchmarks/inputs/posebusters/7B94_ANP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@@](=O)(O)O[P@](=O)(O)NP(=O)(O)O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7BCP_GCO:
+  input: ./configs/benchmarks/inputs/posebusters/7BCP_GCO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)[C@H](O)[C@@H](O)[C@H](O)[C@H](O)CO'
+  score: true
+  postprocess: true
+pb_7BJJ_TVW:
+  input: ./configs/benchmarks/inputs/posebusters/7BJJ_TVW.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2n[nH]cc12'
+  score: true
+  postprocess: true
+pb_7BKA_4JC:
+  input: ./configs/benchmarks/inputs/posebusters/7BKA_4JC.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCc1ccc(S(N)(=O)=O)cc1'
+  score: true
+  postprocess: true
+pb_7BMI_U4B:
+  input: ./configs/benchmarks/inputs/posebusters/7BMI_U4B.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)c1ccnc(C(=O)O)c1F'
+  score: true
+  postprocess: true
+pb_7BNH_BEZ:
+  input: ./configs/benchmarks/inputs/posebusters/7BNH_BEZ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)c1ccccc1'
+  score: true
+  postprocess: true
+pb_7BTT_F8R:
+  input: ./configs/benchmarks/inputs/posebusters/7BTT_F8R.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1cc2c(cc1Nc1nc(Nc3ccccc3S(=O)(=O)C(C)C)c3[nH]ccc3n1)N(C(=O)CN(C)C)CC2'
+  score: true
+  postprocess: true
+pb_7C0U_FGO:
+  input: ./configs/benchmarks/inputs/posebusters/7C0U_FGO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c(ncn2[C@@H]2O[C@H](CO[P@](=O)(O)O[C@H]3[C@@H](O)[C@H](n4ccc(=O)[nH]c4=O)O[C@@H]3CO)[C@H]3CC(O)(O)C[C@H]32)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7C3U_AZG:
+  input: ./configs/benchmarks/inputs/posebusters/7C3U_AZG.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc(O)c2[nH]nnc2n1'
+  score: true
+  postprocess: true
+pb_7C8Q_DSG:
+  input: ./configs/benchmarks/inputs/posebusters/7C8Q_DSG.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NC(=O)C[C@@H](N)C(=O)O'
+  score: true
+  postprocess: true
+pb_7CD9_FVR:
+  input: ./configs/benchmarks/inputs/posebusters/7CD9_FVR.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CN1C[C@H](Nc2nc3cc[nH]c3c(=O)n2C)C[C@H](c2ccc(OCc3ccccc3)cc2)C1'
+  score: true
+  postprocess: true
+pb_7CIJ_G0C:
+  input: ./configs/benchmarks/inputs/posebusters/7CIJ_G0C.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CSCCCN=Cc1c(COP(=O)(O)O)cnc(C)c1O'
+  score: true
+  postprocess: true
+pb_7CL8_TES:
+  input: ./configs/benchmarks/inputs/posebusters/7CL8_TES.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@]12CC[C@H]3[C@@H](CCC4=CC(=O)CC[C@@]43C)[C@@H]1CC[C@@H]2O'
+  score: true
+  postprocess: true
+pb_7CNQ_G8X:
+  input: ./configs/benchmarks/inputs/posebusters/7CNQ_G8X.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)[C@H]1NCC[C@H]1O'
+  score: true
+  postprocess: true
+pb_7CNS_PMV:
+  input: ./configs/benchmarks/inputs/posebusters/7CNS_PMV.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@@](O)(CCOP(=O)(O)O)CC(=O)O'
+  score: true
+  postprocess: true
+pb_7CTM_BDP:
+  input: ./configs/benchmarks/inputs/posebusters/7CTM_BDP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)[C@H]1O[C@@H](O)[C@H](O)[C@@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7CUO_PHB:
+  input: ./configs/benchmarks/inputs/posebusters/7CUO_PHB.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)c1ccc(O)cc1'
+  score: true
+  postprocess: true
+pb_7D5C_GV6:
+  input: ./configs/benchmarks/inputs/posebusters/7D5C_GV6.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC[C@H](C)[C@H](N)C(=O)O[P@](=O)(O)OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7D6O_MTE:
+  input: ./configs/benchmarks/inputs/posebusters/7D6O_MTE.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c(c(=O)[nH]1)N[C@H]1C([S-])=C([S-])[C@@H](COP(=O)(O)O)O[C@H]1N2'
+  score: true
+  postprocess: true
+pb_7DKT_GLF:
+  input: ./configs/benchmarks/inputs/posebusters/7DKT_GLF.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'OC[C@H]1O[C@H](F)[C@H](O)[C@@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7DQL_4CL:
+  input: ./configs/benchmarks/inputs/posebusters/7DQL_4CL.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Oc1ccc(Cl)cc1O'
+  score: true
+  postprocess: true
+pb_7DUA_HJ0:
+  input: ./configs/benchmarks/inputs/posebusters/7DUA_HJ0.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc(NC(=O)c2cn(C3(C)CC3)c3ncnc(N)c23)n[nH]1'
+  score: true
+  postprocess: true
+pb_7E4L_MDN:
+  input: ./configs/benchmarks/inputs/posebusters/7E4L_MDN.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=P(O)(O)CP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7EBG_J0L:
+  input: ./configs/benchmarks/inputs/posebusters/7EBG_J0L.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CNc1cccc2c1NC(=O)C2(C)C'
+  score: true
+  postprocess: true
+pb_7ECR_SIN:
+  input: ./configs/benchmarks/inputs/posebusters/7ECR_SIN.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)CCC(=O)O'
+  score: true
+  postprocess: true
+pb_7ED2_A3P:
+  input: ./configs/benchmarks/inputs/posebusters/7ED2_A3P.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](COP(=O)(O)O)[C@@H](OP(=O)(O)O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7ELT_TYM:
+  input: ./configs/benchmarks/inputs/posebusters/7ELT_TYM.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@@](=O)(O)OC(=O)[C@@H](N)Cc2c[nH]c3ccccc23)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7EPV_FDA:
+  input: ./configs/benchmarks/inputs/posebusters/7EPV_FDA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc2c(cc1C)N(C[C@H](O)[C@H](O)[C@H](O)CO[P@@](=O)(O)O[P@@](=O)(O)OC[C@H]1O[C@@H](n3cnc4c(N)ncnc43)[C@H](O)[C@@H]1O)c1[nH]c(=O)[nH]c(=O)c1N2'
+  score: true
+  postprocess: true
+pb_7ES1_UDP:
+  input: ./configs/benchmarks/inputs/posebusters/7ES1_UDP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=c1ccn([C@@H]2O[C@H](CO[P@](=O)(O)OP(=O)(O)O)[C@@H](O)[C@H]2O)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7F51_BA7:
+  input: ./configs/benchmarks/inputs/posebusters/7F51_BA7.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@](=O)(O)O[P@](=O)(O)OC[C@H]2O[C@@H](O)[C@H](OC(=O)c3ccccc3)[C@@H]2O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7F5D_EUO:
+  input: ./configs/benchmarks/inputs/posebusters/7F5D_EUO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CNc1cc(-c2ccc3[nH]ccc3c2)nc(S(C)(=O)=O)n1'
+  score: true
+  postprocess: true
+pb_7F8T_FAD:
+  input: ./configs/benchmarks/inputs/posebusters/7F8T_FAD.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc2nc3c(=O)[nH]c(=O)nc-3n(C[C@H](O)[C@H](O)[C@H](O)CO[P@@](=O)(O)O[P@](=O)(O)OC[C@H]3O[C@@H](n4cnc5c(N)ncnc54)[C@H](O)[C@@H]3O)c2cc1C'
+  score: true
+  postprocess: true
+pb_7FB7_8NF:
+  input: ./configs/benchmarks/inputs/posebusters/7FB7_8NF.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc(C)c(N)cn1'
+  score: true
+  postprocess: true
+pb_7FHA_ADX:
+  input: ./configs/benchmarks/inputs/posebusters/7FHA_ADX.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@@](=O)(O)OS(=O)(=O)O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7FRX_O88:
+  input: ./configs/benchmarks/inputs/posebusters/7FRX_O88.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=S(=O)(NCc1ccc(S(=O)(=O)c2ccc(O)c(O)c2)cc1)c1ccc(O)c(O)c1'
+  score: true
+  postprocess: true
+pb_7FT9_4MB:
+  input: ./configs/benchmarks/inputs/posebusters/7FT9_4MB.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CS(=O)(=O)Nc1ccc(C(=O)O)cc1'
+  score: true
+  postprocess: true
+pb_7JG0_GAR:
+  input: ./configs/benchmarks/inputs/posebusters/7JG0_GAR.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NCC(=O)N[C@@H]1O[C@H](COP(=O)([O-])[O-])[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7JHQ_VAJ:
+  input: ./configs/benchmarks/inputs/posebusters/7JHQ_VAJ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)c1ccc(-c2cccc(C(=O)O)c2)cc1'
+  score: true
+  postprocess: true
+pb_7JMV_4NC:
+  input: ./configs/benchmarks/inputs/posebusters/7JMV_4NC.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=[N+]([O-])c1ccc(O)c(O)c1'
+  score: true
+  postprocess: true
+pb_7JXX_VP7:
+  input: ./configs/benchmarks/inputs/posebusters/7JXX_VP7.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)(O)C#Cc1ccc2[nH]c3c(c2c1)-c1nc(N)ncc1CCC3'
+  score: true
+  postprocess: true
+pb_7JY3_VUD:
+  input: ./configs/benchmarks/inputs/posebusters/7JY3_VUD.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@H](Oc1cc2cc(F)ccc2nc1N)c1[nH]c(=O)ccc1-n1cccn1'
+  score: true
+  postprocess: true
+pb_7K0V_VQP:
+  input: ./configs/benchmarks/inputs/posebusters/7K0V_VQP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc(F)c(NC(=O)NCCC(C)(C)C)cc1Nc1ccc2ncn(C)c(=O)c2c1F'
+  score: true
+  postprocess: true
+pb_7KB1_WBJ:
+  input: ./configs/benchmarks/inputs/posebusters/7KB1_WBJ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C=CC(=NCc1c(COP(=O)(O)O)cnc(C)c1O)C(=O)O'
+  score: true
+  postprocess: true
+pb_7KC5_BJZ:
+  input: ./configs/benchmarks/inputs/posebusters/7KC5_BJZ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CN1C(=O)N(c2cc(Cl)cc(Cl)c2)C(=O)[C@]12CN(c1ccc(C(=O)O)cn1)C[C@H]2c1ccc(C#N)cc1'
+  score: true
+  postprocess: true
+pb_7KM8_WPD:
+  input: ./configs/benchmarks/inputs/posebusters/7KM8_WPD.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCc1nc(N)nc(N)c1OCCCOc1cccc(C[C@@H](C(=O)O)C(F)F)c1'
+  score: true
+  postprocess: true
+pb_7KQU_YOF:
+  input: ./configs/benchmarks/inputs/posebusters/7KQU_YOF.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N[C@@H](Cc1ccc(O)c(F)c1)C(=O)O'
+  score: true
+  postprocess: true
+pb_7KRU_ATP:
+  input: ./configs/benchmarks/inputs/posebusters/7KRU_ATP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@@](=O)(O)O[P@](=O)(O)OP(=O)(O)O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7KZ9_XN7:
+  input: ./configs/benchmarks/inputs/posebusters/7KZ9_XN7.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(CNCCO)NCCO'
+  score: true
+  postprocess: true
+pb_7L00_XCJ:
+  input: ./configs/benchmarks/inputs/posebusters/7L00_XCJ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CS(=O)(=O)c1ccc2nc(NC(=O)Cc3csc(-n4cccc4)n3)sc2c1'
+  score: true
+  postprocess: true
+pb_7L03_F9F:
+  input: ./configs/benchmarks/inputs/posebusters/7L03_F9F.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=P(O)(O)OCCNS(=O)(=O)c1ccc(OC(F)(F)F)cc1'
+  score: true
+  postprocess: true
+pb_7L5F_XNG:
+  input: ./configs/benchmarks/inputs/posebusters/7L5F_XNG.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCCCCCCCC(=O)NCCCC(=O)O'
+  score: true
+  postprocess: true
+pb_7L7C_XQ1:
+  input: ./configs/benchmarks/inputs/posebusters/7L7C_XQ1.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1cccc(-c2ccc3c(CC(=O)O)coc3c2)c1'
+  score: true
+  postprocess: true
+pb_7LCU_XTA:
+  input: ./configs/benchmarks/inputs/posebusters/7LCU_XTA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CN1CCN(c2ncc(Oc3cc(CN4CCC(CC(=O)O)CC4)cc(-c4cc(Cl)cc(Cl)c4)n3)cn2)CC1'
+  score: true
+  postprocess: true
+pb_7LEV_0JO:
+  input: ./configs/benchmarks/inputs/posebusters/7LEV_0JO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C=C(N=Cc1c(COP(=O)(O)O)cnc(C)c1O)C(=O)O'
+  score: true
+  postprocess: true
+pb_7LJN_GTP:
+  input: ./configs/benchmarks/inputs/posebusters/7LJN_GTP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c(ncn2[C@@H]2O[C@H](CO[P@](=O)(O)O[P@](=O)(O)OP(=O)(O)O)[C@@H](O)[C@H]2O)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7LMO_NYO:
+  input: ./configs/benchmarks/inputs/posebusters/7LMO_NYO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCN(CC)c1ccc2c(C)c(CCN3C(=O)N[C@@]4(CCN(C(=O)c5c[nH]cn5)C4)C3=O)c(=O)oc2c1'
+  score: true
+  postprocess: true
+pb_7LOE_Y84:
+  input: ./configs/benchmarks/inputs/posebusters/7LOE_Y84.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Fc1cccc2ccccc12'
+  score: true
+  postprocess: true
+pb_7LOU_IFM:
+  input: ./configs/benchmarks/inputs/posebusters/7LOU_IFM.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'OC[C@H]1CNC[C@@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7LT0_ONJ:
+  input: ./configs/benchmarks/inputs/posebusters/7LT0_ONJ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ccc(Sc2cc(C(=O)N3Cc4ccccc4C3)ccc2O)cc1C'
+  score: true
+  postprocess: true
+pb_7LZD_YHY:
+  input: ./configs/benchmarks/inputs/posebusters/7LZD_YHY.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ccc(F)c2cc(C(=O)Nc3cccc(N4CCC(N(C)C)CC4)c3)[nH]c12'
+  score: true
+  postprocess: true
+pb_7M31_TDR:
+  input: ./configs/benchmarks/inputs/posebusters/7M31_TDR.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1c[nH]c(=O)[nH]c1=O'
+  score: true
+  postprocess: true
+pb_7M3H_YPV:
+  input: ./configs/benchmarks/inputs/posebusters/7M3H_YPV.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCCc1ccc(NS(=O)(=O)c2ccc(O)c(C(=O)O)c2)cc1'
+  score: true
+  postprocess: true
+pb_7M6K_YRJ:
+  input: ./configs/benchmarks/inputs/posebusters/7M6K_YRJ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(NCc1ccc[n+]([C@@H]2O[C@H](COP(=O)(O)O)[C@@H](O)[C@H]2O)c1)Nc1ccc([N+](=O)[O-])cc1'
+  score: true
+  postprocess: true
+pb_7MFP_Z7P:
+  input: ./configs/benchmarks/inputs/posebusters/7MFP_Z7P.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ncc(COP(=O)(O)O)c(C=N[C@H]2[C@H](O)[C@@H](O)[C@@H](O[P@](=O)(O)O[P@](=O)(O)OC[C@H]3O[C@@H](n4ccc(=O)[nH]c4=O)[C@H](O)[C@@H]3O)O[C@@H]2C)c1O'
+  score: true
+  postprocess: true
+pb_7MGT_ZD4:
+  input: ./configs/benchmarks/inputs/posebusters/7MGT_ZD4.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc(Cl)nc2c1ncn2[C@@H]1O[C@H](CO[P@](=O)(O)OP(=O)(O)O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7MGY_ZD1:
+  input: ./configs/benchmarks/inputs/posebusters/7MGY_ZD1.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N[C@H]1C=C(CO)[C@@H](O[C@H]2O[C@H](CO)[C@@H](O)[C@H](O)[C@H]2O)[C@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7MMH_ZJY:
+  input: ./configs/benchmarks/inputs/posebusters/7MMH_ZJY.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1ccc2nc(C)c(O[C@@H]3C[C@H]4C(=O)N[C@]5(C(=O)NS(=O)(=O)C6(C)CC6)C[C@H]5C=CCCCCC[C@H](NC(=O)OCC5(C(F)(F)F)CC5)C(=O)N4C3)nc2c1'
+  score: true
+  postprocess: true
+pb_7MOI_HPS:
+  input: ./configs/benchmarks/inputs/posebusters/7MOI_HPS.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=P(O)(O)Oc1ccccc1'
+  score: true
+  postprocess: true
+pb_7MSR_DCA:
+  input: ./configs/benchmarks/inputs/posebusters/7MSR_DCA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCNC(=O)CCNC(=O)[C@H](O)C(C)(C)CO[P@@](=O)(O)O[P@@](=O)(O)OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1OP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7MWN_WI5:
+  input: ./configs/benchmarks/inputs/posebusters/7MWN_WI5.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1c(C(=O)c2cccc3ccccc23)c2cccc3c2n1[C@H](CN1CCOCC1)CO3'
+  score: true
+  postprocess: true
+pb_7MWU_ZPM:
+  input: ./configs/benchmarks/inputs/posebusters/7MWU_ZPM.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)C1CCC1'
+  score: true
+  postprocess: true
+pb_7MY1_IPE:
+  input: ./configs/benchmarks/inputs/posebusters/7MY1_IPE.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C=C(C)CCO[P@@](=O)(O)OP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7MYU_ZR7:
+  input: ./configs/benchmarks/inputs/posebusters/7MYU_ZR7.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1cnc(C(=O)Nc2ccc(F)c([C@]34CN(c5ncc(F)cn5)C[C@H]3CSC(N)=N4)c2)cn1'
+  score: true
+  postprocess: true
+pb_7N03_ZRP:
+  input: ./configs/benchmarks/inputs/posebusters/7N03_ZRP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCCCCNc1ccc2ncc(C(=O)NC)c(Nc3ccccc3)c2c1'
+  score: true
+  postprocess: true
+pb_7N4N_0BK:
+  input: ./configs/benchmarks/inputs/posebusters/7N4N_0BK.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1cc(C(=O)Nc2ccc(F)c([C@]3(CF)CC[C@@](C)(S(C)(=O)=O)C(N)=N3)c2)ncn1'
+  score: true
+  postprocess: true
+pb_7N4W_P4V:
+  input: ./configs/benchmarks/inputs/posebusters/7N4W_P4V.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1cc2c(cc1OC)[C@H]1Cc3ccc(OC)c(OC)c3CN1CC2'
+  score: true
+  postprocess: true
+pb_7N6F_0I1:
+  input: ./configs/benchmarks/inputs/posebusters/7N6F_0I1.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(C1CCN(c2cncnc2-c2ccc(F)cc2)CC1)N1CC(F)C1'
+  score: true
+  postprocess: true
+pb_7N7B_T3F:
+  input: ./configs/benchmarks/inputs/posebusters/7N7B_T3F.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cn([C@H]2C[C@H](O)[C@@H](CO[P@@](=O)(O)O[P@](=O)(O)O[C@H]3O[C@H](C)[C@H](O)[C@H](N)[C@H]3O)O2)c(=O)[nH]c1=O'
+  score: true
+  postprocess: true
+pb_7N7H_CTP:
+  input: ./configs/benchmarks/inputs/posebusters/7N7H_CTP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ccn([C@@H]2O[C@H](CO[P@](=O)(O)O[P@@](=O)(O)OP(=O)(O)O)[C@@H](O)[C@H]2O)c(=O)n1'
+  score: true
+  postprocess: true
+pb_7NF0_BYN:
+  input: ./configs/benchmarks/inputs/posebusters/7NF0_BYN.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc2c3c(c1C)C(C)(C)C[C@@H](O)N3c1c(nc(O)[nH]c1=O)N2C[C@H](O)[C@H](O)[C@H](O)COP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7NF3_4LU:
+  input: ./configs/benchmarks/inputs/posebusters/7NF3_4LU.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc2c3c(c1C)C(C)(C)CC=[N+]3c1c([nH]c(=O)[nH]c1=O)N2C[C@H](O)[C@H](O)[C@H](O)COP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7NFB_GEN:
+  input: ./configs/benchmarks/inputs/posebusters/7NFB_GEN.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=c1c(-c2ccc(O)cc2)coc2cc(O)cc(O)c12'
+  score: true
+  postprocess: true
+pb_7NGW_UAW:
+  input: ./configs/benchmarks/inputs/posebusters/7NGW_UAW.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC1CCN(C(=O)Nc2ccc(O)cc2)CC1'
+  score: true
+  postprocess: true
+pb_7NLV_UJE:
+  input: ./configs/benchmarks/inputs/posebusters/7NLV_UJE.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(CCCC[C@@H]1SC[C@@H]2NC(=O)N[C@@H]21)N[C@H]1CCNC1'
+  score: true
+  postprocess: true
+pb_7NP6_UK8:
+  input: ./configs/benchmarks/inputs/posebusters/7NP6_UK8.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)c1ccc(OCc2c(-c3c(Cl)cccc3C(F)(F)F)noc2-c2cn[nH]c2)cc1'
+  score: true
+  postprocess: true
+pb_7NPL_UKZ:
+  input: ./configs/benchmarks/inputs/posebusters/7NPL_UKZ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCC[C@@H](NC(=O)c1cccc2c1CC(=O)N2)[C@@H](O)c1cccc(Cl)c1C'
+  score: true
+  postprocess: true
+pb_7NR8_UOE:
+  input: ./configs/benchmarks/inputs/posebusters/7NR8_UOE.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@H](C(=O)N[C@H](CO)c1cccc(N2CCN(C)CC2)n1)N1Cc2ccc(-c3nc(NC4CCOCC4)ncc3Cl)cc2C1=O'
+  score: true
+  postprocess: true
+pb_7NSW_HC4:
+  input: ./configs/benchmarks/inputs/posebusters/7NSW_HC4.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)C=Cc1ccc(O)cc1'
+  score: true
+  postprocess: true
+pb_7NU0_DCL:
+  input: ./configs/benchmarks/inputs/posebusters/7NU0_DCL.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)C[C@H](N)CO'
+  score: true
+  postprocess: true
+pb_7NUT_GLP:
+  input: ./configs/benchmarks/inputs/posebusters/7NUT_GLP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N[C@@H]1[C@@H](O)[C@H](O)[C@@H](COP(=O)(O)O)O[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7NXO_UU8:
+  input: ./configs/benchmarks/inputs/posebusters/7NXO_UU8.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ccccc1Oc1cc(-n2c(=O)cc(S(=O)(=O)c3ccccc3)[nH]c2=O)c(F)cc1C#N'
+  score: true
+  postprocess: true
+pb_7O0N_CDP:
+  input: ./configs/benchmarks/inputs/posebusters/7O0N_CDP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ccn([C@@H]2O[C@H](CO[P@@](=O)(O)OP(=O)(O)O)[C@@H](O)[C@H]2O)c(=O)n1'
+  score: true
+  postprocess: true
+pb_7O1T_5X8:
+  input: ./configs/benchmarks/inputs/posebusters/7O1T_5X8.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CSC[C@H](N)C(=O)O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7ODY_DGI:
+  input: ./configs/benchmarks/inputs/posebusters/7ODY_DGI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c(ncn2[C@H]2C[C@H](O)[C@@H](CO[P@@](=O)(O)OP(=O)(O)O)O2)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7OEO_V9Z:
+  input: ./configs/benchmarks/inputs/posebusters/7OEO_V9Z.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CNC(=O)CN(CC(c1ccccc1)c1ccccc1)C(=O)c1cc(C)c(OC)c(C)c1'
+  score: true
+  postprocess: true
+pb_7OFF_VCB:
+  input: ./configs/benchmarks/inputs/posebusters/7OFF_VCB.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(N[C@@H](C(=O)O)c1ccccc1)c1cccc2c1-c1ccccc1C2=O'
+  score: true
+  postprocess: true
+pb_7OFK_VCH:
+  input: ./configs/benchmarks/inputs/posebusters/7OFK_VCH.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(=O)N1Cc2cc(S(C)(=O)=O)ccc2[C@@H]1C(=O)Nc1ccc(C(O)(C(F)(F)F)C(F)(F)F)cc1'
+  score: true
+  postprocess: true
+pb_7OLI_8HG:
+  input: ./configs/benchmarks/inputs/posebusters/7OLI_8HG.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c([nH]c(=O)n2[C@H]2C[C@H](O)[C@@H](CO)O2)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7OMX_CNA:
+  input: ./configs/benchmarks/inputs/posebusters/7OMX_CNA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NC(=O)c1ccc[n+]([C@@H]2C[C@H](CO[P@](=O)(O)O[P@](=O)(O)OC[C@H]3O[C@@H](n4cnc5c(N)ncnc54)[C@H](O)[C@@H]3O)[C@@H](O)[C@H]2O)c1'
+  score: true
+  postprocess: true
+pb_7OP9_06K:
+  input: ./configs/benchmarks/inputs/posebusters/7OP9_06K.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Clc1nc(Cl)c2[nH]cnc2n1'
+  score: true
+  postprocess: true
+pb_7OPG_06N:
+  input: ./configs/benchmarks/inputs/posebusters/7OPG_06N.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCNc1nn2c(-c3ccc(O)cc3)cnc2s1'
+  score: true
+  postprocess: true
+pb_7OSO_0V1:
+  input: ./configs/benchmarks/inputs/posebusters/7OSO_0V1.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'OCC[C@H](O)CO'
+  score: true
+  postprocess: true
+pb_7OZ9_NGK:
+  input: ./configs/benchmarks/inputs/posebusters/7OZ9_NGK.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(=O)N[C@@H]1[C@@H](O)[C@@H](OS(=O)(=O)O)[C@@H](CO)O[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7OZC_G6S:
+  input: ./configs/benchmarks/inputs/posebusters/7OZC_G6S.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=S(=O)(O)OC[C@H]1O[C@@H](O)[C@H](O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7P1F_KFN:
+  input: ./configs/benchmarks/inputs/posebusters/7P1F_KFN.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)C1=C[C@H](O)[C@@H](O)[C@H]([C@H](O)[C@H](O)CO)O1'
+  score: true
+  postprocess: true
+pb_7P1M_4IU:
+  input: ./configs/benchmarks/inputs/posebusters/7P1M_4IU.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cn1c(CO[C@@H]2C=CO[C@H](CO)[C@@H]2O)nc2ccc(C(=O)O)cc21'
+  score: true
+  postprocess: true
+pb_7P2I_MFU:
+  input: ./configs/benchmarks/inputs/posebusters/7P2I_MFU.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CO[C@@H]1O[C@@H](C)[C@@H](O)[C@@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7P4C_5OV:
+  input: ./configs/benchmarks/inputs/posebusters/7P4C_5OV.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=S1(=O)N[C@@H]2[C@H](O)[C@@H](O)[C@H](O)[C@@H](CO)[C@@H]2O1'
+  score: true
+  postprocess: true
+pb_7P5T_5YG:
+  input: ./configs/benchmarks/inputs/posebusters/7P5T_5YG.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1ccc(CNc2ccc(Cc3ccncc3)cc2)cc1'
+  score: true
+  postprocess: true
+pb_7PGX_FMN:
+  input: ./configs/benchmarks/inputs/posebusters/7PGX_FMN.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc2nc3c(=O)[nH]c(=O)nc-3n(C[C@H](O)[C@H](O)[C@H](O)COP(=O)(O)O)c2cc1C'
+  score: true
+  postprocess: true
+pb_7PIH_7QW:
+  input: ./configs/benchmarks/inputs/posebusters/7PIH_7QW.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N[C@@H]1CCN(Cc2cccc(-c3ccc4c(O)nccc4c3)c2)C1'
+  score: true
+  postprocess: true
+pb_7PJQ_OWH:
+  input: ./configs/benchmarks/inputs/posebusters/7PJQ_OWH.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CNC(=S)c1cccnc1'
+  score: true
+  postprocess: true
+pb_7PK0_BYC:
+  input: ./configs/benchmarks/inputs/posebusters/7PK0_BYC.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)(CO[P@@](=O)(O)O[P@](=O)(O)OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1OP(=O)(O)O)[C@@H](O)C(=O)NCCC(=O)NCCSC(=O)c1ccccc1'
+  score: true
+  postprocess: true
+pb_7PL1_SFG:
+  input: ./configs/benchmarks/inputs/posebusters/7PL1_SFG.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](C[C@@H](N)CC[C@H](N)C(=O)O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7POM_7VZ:
+  input: ./configs/benchmarks/inputs/posebusters/7POM_7VZ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COC(=O)c1cc(S(N)(=O)=O)c(SC2CCCCC2)cc1Cl'
+  score: true
+  postprocess: true
+pb_7PRI_7TI:
+  input: ./configs/benchmarks/inputs/posebusters/7PRI_7TI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1cc(C(Cl)=C(Cl)Cl)c(S(N)(=O)=O)cc1S(N)(=O)=O'
+  score: true
+  postprocess: true
+pb_7PRM_81I:
+  input: ./configs/benchmarks/inputs/posebusters/7PRM_81I.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(c1ccco1)N1CCN([C@@H]2CC(=O)N(c3ccc(-c4ccc(F)cc4)cc3)C2)CC1'
+  score: true
+  postprocess: true
+pb_7PT3_3KK:
+  input: ./configs/benchmarks/inputs/posebusters/7PT3_3KK.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)(O)C(=O)SCCNC(=O)CCNC(=O)[C@H](O)C(C)(C)CO[P@@](=O)(O)O[P@](=O)(O)OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1OP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7PUV_84Z:
+  input: ./configs/benchmarks/inputs/posebusters/7PUV_84Z.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COC(=O)c1cc(S(N)(=O)=O)c(Cl)cc1S(=O)(=O)c1ccccc1'
+  score: true
+  postprocess: true
+pb_7Q25_8J9:
+  input: ./configs/benchmarks/inputs/posebusters/7Q25_8J9.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCC[C@H](N[C@@H](CCc1ccccc1)C(=O)O)C(=O)N[C@@H](Cc1ccc(O)cc1)C(=O)O'
+  score: true
+  postprocess: true
+pb_7Q27_8KC:
+  input: ./configs/benchmarks/inputs/posebusters/7Q27_8KC.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCC[C@H](N[C@@H](CCc1ccccc1)C(=O)O)C(=O)N[C@@H](Cc1c[nH]c2ccccc12)C(=O)O'
+  score: true
+  postprocess: true
+pb_7Q2B_M6H:
+  input: ./configs/benchmarks/inputs/posebusters/7Q2B_M6H.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'c1ccc(CC2NCCN2)cc1'
+  score: true
+  postprocess: true
+pb_7Q5I_I0F:
+  input: ./configs/benchmarks/inputs/posebusters/7Q5I_I0F.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CN(C)c1ccc(C=C(C#N)C(=O)N[C@@H]2O[C@H](CO)[C@@H](O)[C@H](O)[C@H]2O)cc1'
+  score: true
+  postprocess: true
+pb_7QE4_NGA:
+  input: ./configs/benchmarks/inputs/posebusters/7QE4_NGA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(=O)N[C@@H]1[C@@H](O)[C@@H](O)[C@@H](CO)O[C@H]1O'
+  score: true
+  postprocess: true
+pb_7QF4_RBF:
+  input: ./configs/benchmarks/inputs/posebusters/7QF4_RBF.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc2nc3c(=O)[nH]c(=O)nc-3n(C[C@H](O)[C@H](O)[C@H](O)CO)c2cc1C'
+  score: true
+  postprocess: true
+pb_7QFM_AY3:
+  input: ./configs/benchmarks/inputs/posebusters/7QFM_AY3.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C1Nc2ccccc2C1=Cc1ccc(C(=O)O)cc1'
+  score: true
+  postprocess: true
+pb_7QGP_DJ8:
+  input: ./configs/benchmarks/inputs/posebusters/7QGP_DJ8.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc(Cl)ccc1CNC(=O)Nc1ccc2cc1OCCOCCNc1ccn3ncc-2c3n1'
+  score: true
+  postprocess: true
+pb_7QHG_T3B:
+  input: ./configs/benchmarks/inputs/posebusters/7QHG_T3B.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)C(=O)Nc1ncc(C(=O)NCCN(Cc2ccccc2)C(=O)c2ccc(S(=O)(=O)Nc3ccccc3)cc2)s1'
+  score: true
+  postprocess: true
+pb_7QHL_D5P:
+  input: ./configs/benchmarks/inputs/posebusters/7QHL_D5P.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NCCSc1nc(NCc2ccc(-n3cccn3)cc2)c2[nH]nc(C3CCC3)c2n1'
+  score: true
+  postprocess: true
+pb_7QPP_VDX:
+  input: ./configs/benchmarks/inputs/posebusters/7QPP_VDX.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C=C1C(=CC=C2CCC[C@]3(C)[C@@H]([C@H](C)CCCC(C)(C)O)CC[C@@H]23)C[C@@H](O)C[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7QTA_URI:
+  input: ./configs/benchmarks/inputs/posebusters/7QTA_URI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=c1ccn([C@@H]2O[C@H](CO)[C@@H](O)[C@H]2O)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7R3D_APR:
+  input: ./configs/benchmarks/inputs/posebusters/7R3D_APR.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@](=O)(O)O[P@@](=O)(O)OC[C@H]2O[C@@H](O)[C@H](O)[C@@H]2O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7R59_I5F:
+  input: ./configs/benchmarks/inputs/posebusters/7R59_I5F.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Oc1ccc2c(c1)sc1nncn12'
+  score: true
+  postprocess: true
+pb_7R6J_2I7:
+  input: ./configs/benchmarks/inputs/posebusters/7R6J_2I7.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cc(NCc2cccc(CN3C[C@H](O)[C@@H](O)[C@H](O)[C@H]3CO)c2)cc(-c2ncccn2)c1'
+  score: true
+  postprocess: true
+pb_7R7R_AWJ:
+  input: ./configs/benchmarks/inputs/posebusters/7R7R_AWJ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1nc([C@](C)(O)CO)sc1-c1cnc(N)c(O[C@H](C)c2cc(F)ccc2N2NC=CN2)c1'
+  score: true
+  postprocess: true
+pb_7R9N_F97:
+  input: ./configs/benchmarks/inputs/posebusters/7R9N_F97.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)n1ncc2cnc(Nc3cc([C@@H]4CCNC4)nc(N4CCC(F)(F)C4)n3)cc21'
+  score: true
+  postprocess: true
+pb_7RC3_SAH:
+  input: ./configs/benchmarks/inputs/posebusters/7RC3_SAH.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CSCC[C@H](N)C(=O)O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7RH3_59O:
+  input: ./configs/benchmarks/inputs/posebusters/7RH3_59O.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CO[C@@H]1O[C@H](CO)[C@H](O)[C@H](OC(=O)c2ccc(C)cc2)[C@@H]1OC(=O)c1ccc(Cl)cc1[N+](=O)[O-]'
+  score: true
+  postprocess: true
+pb_7RKW_5TV:
+  input: ./configs/benchmarks/inputs/posebusters/7RKW_5TV.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O[C@H](Cn1ccnc1)c1ccc(F)cc1)c1cc(Cl)cc(Cl)c1'
+  score: true
+  postprocess: true
+pb_7RNI_60I:
+  input: ./configs/benchmarks/inputs/posebusters/7RNI_60I.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1nn(C)c(C)c1C(=O)N1CCN(Cc2nc3ccccc3n2CC(C)(C)C)CC1'
+  score: true
+  postprocess: true
+pb_7ROR_69X:
+  input: ./configs/benchmarks/inputs/posebusters/7ROR_69X.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@](=O)(O)OC(=O)[C@@H](N)Cc2ccc(O)cc2)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7ROU_66I:
+  input: ./configs/benchmarks/inputs/posebusters/7ROU_66I.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1c(OC(F)F)nn2[C@@H]1O[C@H](COS(=O)(=O)NC(=O)[C@@H](N)Cc2ccc(O)cc2)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7RSV_7IQ:
+  input: ./configs/benchmarks/inputs/posebusters/7RSV_7IQ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@@H]1COCCN1c1cc2n(n1)[C@@H]1CCC[C@@H]1NC2=O'
+  score: true
+  postprocess: true
+pb_7RWS_4UR:
+  input: ./configs/benchmarks/inputs/posebusters/7RWS_4UR.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c(ncn2[C@@H]2O[C@@H]3CO[P@@](=O)(O)O[C@@H]4[C@H](O)[C@@H](CO[P@](=O)(O)O[C@H]3[C@H]2O)O[C@H]4n2cnc3c(N)ncnc32)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7RZL_NPO:
+  input: ./configs/benchmarks/inputs/posebusters/7RZL_NPO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=[N+]([O-])c1ccc(O)cc1'
+  score: true
+  postprocess: true
+pb_7SCW_GSP:
+  input: ./configs/benchmarks/inputs/posebusters/7SCW_GSP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c(ncn2[C@@H]2O[C@H](CO[P@](=O)(O)O[P@](=O)(O)OP(O)(O)=S)[C@@H](O)[C@H]2O)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7SDD_4IP:
+  input: ./configs/benchmarks/inputs/posebusters/7SDD_4IP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=P(O)(O)O[C@H]1[C@H](O)[C@@H](OP(=O)(O)O)[C@H](OP(=O)(O)O)[C@@H](OP(=O)(O)O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7SFO_98L:
+  input: ./configs/benchmarks/inputs/posebusters/7SFO_98L.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Oc1cccc(CNc2nc(Cl)nc3scc(-c4ccccc4)c23)c1'
+  score: true
+  postprocess: true
+pb_7SIU_9ID:
+  input: ./configs/benchmarks/inputs/posebusters/7SIU_9ID.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cn1cc(Nc2ncc(C3=CCC[C@@H](NC(=O)c4ccccc4)C3)nc2C(N)=O)cn1'
+  score: true
+  postprocess: true
+pb_7SUC_COM:
+  input: ./configs/benchmarks/inputs/posebusters/7SUC_COM.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=S(=O)(O)CC[S-]'
+  score: true
+  postprocess: true
+pb_7SZA_DUI:
+  input: ./configs/benchmarks/inputs/posebusters/7SZA_DUI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1cccc2c1C(=O)N([C@@H]1CCC(=O)NC1=O)C2=O'
+  score: true
+  postprocess: true
+pb_7T0D_FPP:
+  input: ./configs/benchmarks/inputs/posebusters/7T0D_FPP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)=CCCC(C)=CCCC(C)=CCO[P@](=O)(O)OP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7T1D_E7K:
+  input: ./configs/benchmarks/inputs/posebusters/7T1D_E7K.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cn(-c2ccc3c(c2)CN(c2ncc(Cc4ccc(-n5cccn5)cc4)s2)CC3)c(C)n1'
+  score: true
+  postprocess: true
+pb_7T3E_SLB:
+  input: ./configs/benchmarks/inputs/posebusters/7T3E_SLB.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(=O)N[C@H]1[C@H]([C@H](O)[C@H](O)CO)O[C@](O)(C(=O)O)C[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7TB0_UD1:
+  input: ./configs/benchmarks/inputs/posebusters/7TB0_UD1.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(=O)N[C@H]1[C@@H](O[P@@](=O)(O)O[P@@](=O)(O)OC[C@H]2O[C@@H](n3ccc(=O)[nH]c3=O)[C@H](O)[C@@H]2O)O[C@H](CO)[C@@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7TBU_S3P:
+  input: ./configs/benchmarks/inputs/posebusters/7TBU_S3P.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)C1=C[C@@H](OP(=O)(O)O)[C@@H](O)[C@H](O)C1'
+  score: true
+  postprocess: true
+pb_7TE8_P0T:
+  input: ./configs/benchmarks/inputs/posebusters/7TE8_P0T.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C=C(C)[C@@H]1CCC(C)=C[C@H]1c1c(O)cc(CCCCC)cc1O'
+  score: true
+  postprocess: true
+pb_7TH4_FFO:
+  input: ./configs/benchmarks/inputs/posebusters/7TH4_FFO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c(c(=O)[nH]1)N(C=O)[C@@H](CNc1ccc(C(=O)N[C@@H](CCC(=O)O)C(=O)O)cc1)CN2'
+  score: true
+  postprocess: true
+pb_7THI_PGA:
+  input: ./configs/benchmarks/inputs/posebusters/7THI_PGA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)COP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7TM6_GPJ:
+  input: ./configs/benchmarks/inputs/posebusters/7TM6_GPJ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)C[NH2+]CP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7TOM_5AD:
+  input: ./configs/benchmarks/inputs/posebusters/7TOM_5AD.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7TS6_KMI:
+  input: ./configs/benchmarks/inputs/posebusters/7TS6_KMI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CNCc1cccc(-c2cc(C)cc(N)n2)c1'
+  score: true
+  postprocess: true
+pb_7TSF_H4B:
+  input: ./configs/benchmarks/inputs/posebusters/7TSF_H4B.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@H](O)[C@H](O)[C@H]1CNc2nc(N)[nH]c(=O)c2N1'
+  score: true
+  postprocess: true
+pb_7TUO_KL9:
+  input: ./configs/benchmarks/inputs/posebusters/7TUO_KL9.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1cnc2c(N)c(C(=O)NCCc3ccc([C@@H]4C[C@H]5CC[C@@H](C4)N5)cc3)sc2n1'
+  score: true
+  postprocess: true
+pb_7TXK_LW8:
+  input: ./configs/benchmarks/inputs/posebusters/7TXK_LW8.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[N+](C)(C)[C@@H](Cc1c[nH]c(=S)[nH]1)C(=O)O'
+  score: true
+  postprocess: true
+pb_7TYP_KUR:
+  input: ./configs/benchmarks/inputs/posebusters/7TYP_KUR.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1nccnc1-c1nn2c(=O)cc(-c3ccc(C4CCCCC4)cc3)[nH]c2c1C(=O)N1CC(CF)C1'
+  score: true
+  postprocess: true
+pb_7U0U_FK5:
+  input: ./configs/benchmarks/inputs/posebusters/7U0U_FK5.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C=CC[C@@H]1C=C(C)C[C@H](C)C[C@H](OC)[C@H]2O[C@@](O)(C(=O)C(=O)N3CCCC[C@H]3C(=O)O[C@H](C(C)=C[C@@H]3CC[C@@H](O)[C@H](OC)C3)[C@H](C)[C@@H](O)CC1=O)[C@H](C)C[C@@H]2OC'
+  score: true
+  postprocess: true
+pb_7U3J_L6U:
+  input: ./configs/benchmarks/inputs/posebusters/7U3J_L6U.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CNC(=O)[C@H](CCc1ccccc1)NC(=O)[C@H](NC(=O)CNCc1ccc(OC)cc1OC)c1cccs1'
+  score: true
+  postprocess: true
+pb_7UAS_MBU:
+  input: ./configs/benchmarks/inputs/posebusters/7UAS_MBU.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCn1cc(-c2cc(Cn3ccnc3C)cc3c2CCN([C@H](c2cc(C)ccn2)C2CC2)C3=O)c(C(F)(F)F)n1'
+  score: true
+  postprocess: true
+pb_7UAW_MF6:
+  input: ./configs/benchmarks/inputs/posebusters/7UAW_MF6.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@@H]2CO[P@](=O)(O)O[P@](=O)(O)OC[C@H]3O[C@@H](O[C@@H]1[C@@H]2O)[C@H](O)[C@@H]3O'
+  score: true
+  postprocess: true
+pb_7UJ4_OQ4:
+  input: ./configs/benchmarks/inputs/posebusters/7UJ4_OQ4.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCN(C(=O)c1cc(F)ccc1Oc1cncnc1N1CC2(CCN(C[C@H]3CC[C@H](NS(=O)(=O)CC)CC3)CC2)C1)C(C)C'
+  score: true
+  postprocess: true
+pb_7UJ5_DGL:
+  input: ./configs/benchmarks/inputs/posebusters/7UJ5_DGL.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N[C@H](CCC(=O)O)C(=O)O'
+  score: true
+  postprocess: true
+pb_7UJF_R3V:
+  input: ./configs/benchmarks/inputs/posebusters/7UJF_R3V.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@H]1CCN(CCOc2ccc([C@@H]3c4ccc(O)cc4CC[C@@H]3c3ccccc3)cc2)C1'
+  score: true
+  postprocess: true
+pb_7ULC_56B:
+  input: ./configs/benchmarks/inputs/posebusters/7ULC_56B.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c(c(CN[C@H]3C=C[C@H](O)[C@@H]3O)cn2[C@@H]2O[C@H](COP(=O)(O)O)[C@@H](O)[C@H]2O)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7UMW_NAD:
+  input: ./configs/benchmarks/inputs/posebusters/7UMW_NAD.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NC(=O)c1ccc[n+]([C@@H]2O[C@H](CO[P@@](=O)([O-])O[P@](=O)(O)OC[C@H]3O[C@@H](n4cnc5c(N)ncnc54)[C@H](O)[C@@H]3O)[C@@H](O)[C@H]2O)c1'
+  score: true
+  postprocess: true
+pb_7UQ3_O2U:
+  input: ./configs/benchmarks/inputs/posebusters/7UQ3_O2U.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)C[C@@H]1CC(=O)N(O)C1=O'
+  score: true
+  postprocess: true
+pb_7USH_82V:
+  input: ./configs/benchmarks/inputs/posebusters/7USH_82V.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=c1cc(N2CCOCC2)oc2c(-c3ccc4c(c3)OCCO4)csc12'
+  score: true
+  postprocess: true
+pb_7UTW_NAI:
+  input: ./configs/benchmarks/inputs/posebusters/7UTW_NAI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NC(=O)C1=CN([C@@H]2O[C@H](CO[P@](=O)(O)O[P@@](=O)(O)OC[C@H]3O[C@@H](n4cnc5c(N)ncnc54)[C@H](O)[C@@H]3O)[C@@H](O)[C@H]2O)C=CC1'
+  score: true
+  postprocess: true
+pb_7UXS_OJC:
+  input: ./configs/benchmarks/inputs/posebusters/7UXS_OJC.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@@H]2CO[P@](=O)(O)O[P@](=O)(O)OC[C@H]3O[C@@H](O[C@H]2[C@H]1O)[C@H](O)[C@@H]3O'
+  score: true
+  postprocess: true
+pb_7UY4_SMI:
+  input: ./configs/benchmarks/inputs/posebusters/7UY4_SMI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CN[C@@H]1[C@H](O)[C@H](NC)[C@H]2O[C@]3(O)[C@H](O[C@@H]2[C@H]1O)O[C@H](C)CC3(O)O'
+  score: true
+  postprocess: true
+pb_7UYB_OK0:
+  input: ./configs/benchmarks/inputs/posebusters/7UYB_OK0.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NS(=O)(=O)c1c(C(F)(F)F)ccc(-c2ccc(C3CCNCC3)cc2)c1-c1nnn[nH]1'
+  score: true
+  postprocess: true
+pb_7V14_ORU:
+  input: ./configs/benchmarks/inputs/posebusters/7V14_ORU.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: '[O-][n+]1cc(-c2c(-n3cnnn3)ccc(Cl)c2F)ccc1[C@@H](CC1CC1)n1cc(-c2cncs2)cn1'
+  score: true
+  postprocess: true
+pb_7V3N_AKG:
+  input: ./configs/benchmarks/inputs/posebusters/7V3N_AKG.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)CCC(=O)C(=O)O'
+  score: true
+  postprocess: true
+pb_7V3S_5I9:
+  input: ./configs/benchmarks/inputs/posebusters/7V3S_5I9.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(Nc1ccc(F)cc1)C1(C(=O)Nc2ccc(Oc3ccnc4c3Oc3ccccc3N4)c(F)c2)CC1'
+  score: true
+  postprocess: true
+pb_7V43_C4O:
+  input: ./configs/benchmarks/inputs/posebusters/7V43_C4O.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ccc(Cl)cc1'
+  score: true
+  postprocess: true
+pb_7VB8_STL:
+  input: ./configs/benchmarks/inputs/posebusters/7VB8_STL.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Oc1ccc(C=Cc2cc(O)cc(O)c2)cc1'
+  score: true
+  postprocess: true
+pb_7VBU_6I4:
+  input: ./configs/benchmarks/inputs/posebusters/7VBU_6I4.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ccc2c(n1)[nH]c1c(C3CC3)cccc12'
+  score: true
+  postprocess: true
+pb_7VC5_9SF:
+  input: ./configs/benchmarks/inputs/posebusters/7VC5_9SF.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(C[C@H]1NCCC[C@@H]1O)Cn1cnc2ccccc2c1=O'
+  score: true
+  postprocess: true
+pb_7VKZ_NOJ:
+  input: ./configs/benchmarks/inputs/posebusters/7VKZ_NOJ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'OC[C@H]1NC[C@H](O)[C@@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7VQ9_ISY:
+  input: ./configs/benchmarks/inputs/posebusters/7VQ9_ISY.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C=C(C)CCS[P@@](=O)(O)OP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7VWF_K55:
+  input: ./configs/benchmarks/inputs/posebusters/7VWF_K55.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCCOc1ccc(C[C@H](CC)C(=O)O)cc1CNC(=O)c1ccc(C(F)(F)F)cc1F'
+  score: true
+  postprocess: true
+pb_7VYJ_CA0:
+  input: ./configs/benchmarks/inputs/posebusters/7VYJ_CA0.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NC(=O)O[P@](=O)(O)OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7W05_GMP:
+  input: ./configs/benchmarks/inputs/posebusters/7W05_GMP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c(ncn2[C@@H]2O[C@H](CO)[C@@H](O)[C@H]2O)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7W06_ITN:
+  input: ./configs/benchmarks/inputs/posebusters/7W06_ITN.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C=C(CC(=O)O)C(=O)O'
+  score: true
+  postprocess: true
+pb_7WCF_ACP:
+  input: ./configs/benchmarks/inputs/posebusters/7WCF_ACP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@@](=O)(O)O[P@@](=O)(O)CP(=O)(O)O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7WDT_NGS:
+  input: ./configs/benchmarks/inputs/posebusters/7WDT_NGS.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(=O)N[C@@H]1[C@@H](O)[C@H](O)[C@@H](COS(=O)(=O)O)O[C@H]1O'
+  score: true
+  postprocess: true
+pb_7WJB_BGC:
+  input: ./configs/benchmarks/inputs/posebusters/7WJB_BGC.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'OC[C@H]1O[C@@H](O)[C@H](O)[C@@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7WKL_CAQ:
+  input: ./configs/benchmarks/inputs/posebusters/7WKL_CAQ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Oc1ccccc1O'
+  score: true
+  postprocess: true
+pb_7WL4_JFU:
+  input: ./configs/benchmarks/inputs/posebusters/7WL4_JFU.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCN1C(=O)c2cc(N3CCN(C)CC3)nc3c(NS(=O)(=O)c4ccc(F)cc4F)ccc1c23'
+  score: true
+  postprocess: true
+pb_7WPW_F15:
+  input: ./configs/benchmarks/inputs/posebusters/7WPW_F15.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCCCCCCCCCCCCC(=O)O'
+  score: true
+  postprocess: true
+pb_7WQQ_5Z6:
+  input: ./configs/benchmarks/inputs/posebusters/7WQQ_5Z6.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)(C)c1cc(C(=O)C=Cc2ccc(C(=O)O)cc2)cc(C(C)(C)C)c1'
+  score: true
+  postprocess: true
+pb_7WUX_6OI:
+  input: ./configs/benchmarks/inputs/posebusters/7WUX_6OI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N[C@@H](CC[C@H](O)[C@@H](N)COS(=O)(=O)O)C(=O)O'
+  score: true
+  postprocess: true
+pb_7WUY_76N:
+  input: ./configs/benchmarks/inputs/posebusters/7WUY_76N.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@@H]1C=C[C@@H]2CCCC[C@@H]2[C@H]1C(=O)c1c(O)c([C@]2(O)CC[C@H](O)[C@@H]3O[C@@H]32)c[nH]c1=O'
+  score: true
+  postprocess: true
+pb_7WY1_D0L:
+  input: ./configs/benchmarks/inputs/posebusters/7WY1_D0L.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCCCCCN1CCC[C@H]1C(=O)N[C@@H](Cc1ccccc1)C(=O)O'
+  score: true
+  postprocess: true
+pb_7X5N_5M5:
+  input: ./configs/benchmarks/inputs/posebusters/7X5N_5M5.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1n[nH]c2c1[C@](c1cc(CO)cc(-c3ccccc3)c1)(C(C)C)C(C#N)=C(N)O2'
+  score: true
+  postprocess: true
+pb_7X9K_8OG:
+  input: ./configs/benchmarks/inputs/posebusters/7X9K_8OG.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1nc2c([nH]c(=O)n2[C@H]2C[C@H](O)[C@@H](COP(=O)(O)O)O2)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7XBV_APC:
+  input: ./configs/benchmarks/inputs/posebusters/7XBV_APC.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@](=O)(O)C[P@](=O)(O)OP(=O)(O)O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7XFA_D9J:
+  input: ./configs/benchmarks/inputs/posebusters/7XFA_D9J.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1nc([C@@H]2O[C@H](CO)[C@H](O)[C@H](n3cc(-c4cc(F)c(Cl)c(F)c4)nn3)[C@H]2O)n(-c2cc(Cl)ccc2C(F)(F)F)n1'
+  score: true
+  postprocess: true
+pb_7XG5_PLP:
+  input: ./configs/benchmarks/inputs/posebusters/7XG5_PLP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ncc(COP(=O)(O)O)c(C=O)c1O'
+  score: true
+  postprocess: true
+pb_7XI7_4RI:
+  input: ./configs/benchmarks/inputs/posebusters/7XI7_4RI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCCCCCc1nc(N)nc(N)c1-c1ccccc1'
+  score: true
+  postprocess: true
+pb_7XJN_NSD:
+  input: ./configs/benchmarks/inputs/posebusters/7XJN_NSD.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NCCCNCCCN'
+  score: true
+  postprocess: true
+pb_7XPO_UPG:
+  input: ./configs/benchmarks/inputs/posebusters/7XPO_UPG.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=c1ccn([C@@H]2O[C@H](CO[P@](=O)(O)O[P@](=O)(O)O[C@H]3O[C@H](CO)[C@@H](O)[C@H](O)[C@H]3O)[C@@H](O)[C@H]2O)c(=O)[nH]1'
+  score: true
+  postprocess: true
+pb_7XQZ_FPF:
+  input: ./configs/benchmarks/inputs/posebusters/7XQZ_FPF.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)=CCCC(C)=CCCC(C)=C(F)CO[P@@](=O)(O)OP(=O)(O)O'
+  score: true
+  postprocess: true
+pb_7XRL_FWK:
+  input: ./configs/benchmarks/inputs/posebusters/7XRL_FWK.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_7YZU_DO7:
+  input: ./configs/benchmarks/inputs/posebusters/7YZU_DO7.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CO[C@H]1O[C@H](CS(=O)(=O)O)[C@@H](O)[C@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7Z1Q_NIO:
+  input: ./configs/benchmarks/inputs/posebusters/7Z1Q_NIO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)c1cccnc1'
+  score: true
+  postprocess: true
+pb_7Z2O_IAJ:
+  input: ./configs/benchmarks/inputs/posebusters/7Z2O_IAJ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1cccc2sc3nncn3c12'
+  score: true
+  postprocess: true
+pb_7Z7F_IF3:
+  input: ./configs/benchmarks/inputs/posebusters/7Z7F_IF3.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CNc1nc(NC)c2ncn(C)c2n1'
+  score: true
+  postprocess: true
+pb_7ZCC_OGA:
+  input: ./configs/benchmarks/inputs/posebusters/7ZCC_OGA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)CNC(=O)C(=O)O'
+  score: true
+  postprocess: true
+pb_7ZDY_6MJ:
+  input: ./configs/benchmarks/inputs/posebusters/7ZDY_6MJ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CO[C@@H]1OC[C@@H](O)[C@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_7ZF0_DHR:
+  input: ./configs/benchmarks/inputs/posebusters/7ZF0_DHR.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N#C[C@@H](O)c1ccc(O)cc1'
+  score: true
+  postprocess: true
+pb_7ZHP_IQY:
+  input: ./configs/benchmarks/inputs/posebusters/7ZHP_IQY.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCC(O)(C#Cc1ccc2[nH]c3c(c2c1)-c1nc(N)ncc1CCC3)CC'
+  score: true
+  postprocess: true
+pb_7ZL5_IWE:
+  input: ./configs/benchmarks/inputs/posebusters/7ZL5_IWE.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NS(=O)(=O)c1cc(-c2nnn[nH]2)c(NCc2cccs2)cc1Cl'
+  score: true
+  postprocess: true
+pb_7ZOC_T8E:
+  input: ./configs/benchmarks/inputs/posebusters/7ZOC_T8E.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(=O)c1ccc(NC(=O)[C@H](C)[S-])cc1'
+  score: true
+  postprocess: true
+pb_7ZTL_BCN:
+  input: ./configs/benchmarks/inputs/posebusters/7ZTL_BCN.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)CN(CCO)CCO'
+  score: true
+  postprocess: true
+pb_7ZU2_DHT:
+  input: ./configs/benchmarks/inputs/posebusters/7ZU2_DHT.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C[C@]12CCC(=O)C[C@@H]1CC[C@@H]1[C@@H]2CC[C@]2(C)[C@@H](O)CC[C@@H]12'
+  score: true
+  postprocess: true
+pb_7ZXV_45D:
+  input: ./configs/benchmarks/inputs/posebusters/7ZXV_45D.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C=CC=C(C)C=CC1=C(C)C(=O)CCC1(C)C)=CC=CC=C(C)C=CC=C(C)C=CC1=C(C)C(=O)CCC1(C)C'
+  score: true
+  postprocess: true
+pb_7ZZW_KKW:
+  input: ./configs/benchmarks/inputs/posebusters/7ZZW_KKW.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C([C@H]1C[C@@H](c2cccc(Cl)c2)CN1)N1CCN(c2nccc3ccsc23)CC1'
+  score: true
+  postprocess: true
+pb_8A1H_DLZ:
+  input: ./configs/benchmarks/inputs/posebusters/8A1H_DLZ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1nc2c(=O)[nH]c(=O)nc-2n(C[C@H](O)[C@H](O)[C@H](O)CO)c1C'
+  score: true
+  postprocess: true
+pb_8A2D_KXY:
+  input: ./configs/benchmarks/inputs/posebusters/8A2D_KXY.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1c(C#Cc2ccc(CN3CCC(CO)CC3)cc2)cc(C(F)F)c2cn([C@@H](C(=O)Nc3nccs3)c3ncn4c3CCC43CC3)nc12'
+  score: true
+  postprocess: true
+pb_8AAU_LH0:
+  input: ./configs/benchmarks/inputs/posebusters/8AAU_LH0.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(C)C(=O)Nc1ncc(-c2cc(C(F)F)nn2-c2c(Cl)cccc2Cl)s1'
+  score: true
+  postprocess: true
+pb_8AEM_LVF:
+  input: ./configs/benchmarks/inputs/posebusters/8AEM_LVF.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N#CCc1c[nH]c2ccc(Cl)cc12'
+  score: true
+  postprocess: true
+pb_8AIE_M7L:
+  input: ./configs/benchmarks/inputs/posebusters/8AIE_M7L.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ncc(COP(=O)(O)O)c(CN=C(CON)C(=O)O)c1O'
+  score: true
+  postprocess: true
+pb_8AP0_PRP:
+  input: ./configs/benchmarks/inputs/posebusters/8AP0_PRP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=P(O)(O)OC[C@H]1O[C@H](O[P@@](=O)(O)OP(=O)(O)O)[C@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_8AQL_PLG:
+  input: ./configs/benchmarks/inputs/posebusters/8AQL_PLG.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ncc(COP(=O)(O)O)c(CNCC(=O)O)c1O'
+  score: true
+  postprocess: true
+pb_8AUH_L9I:
+  input: ./configs/benchmarks/inputs/posebusters/8AUH_L9I.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCOC(=O)C(=NO)C(C)=O'
+  score: true
+  postprocess: true
+pb_8AY3_OE3:
+  input: ./configs/benchmarks/inputs/posebusters/8AY3_OE3.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCn1c(=O)cc(C)c2cc(CNS(=O)(=O)c3ccccc3)ccc21'
+  score: true
+  postprocess: true
+pb_8B8H_OJQ:
+  input: ./configs/benchmarks/inputs/posebusters/8B8H_OJQ.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ncc(COP(=O)(O)O)c(C[NH2+]c2conc2O)c1O'
+  score: true
+  postprocess: true
+pb_8BOM_QU6:
+  input: ./configs/benchmarks/inputs/posebusters/8BOM_QU6.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1cccc(NC(=O)c2ccc(C)c(Nc3nc(-c4cccnc4)nc4c3cnn4C)c2)c1'
+  score: true
+  postprocess: true
+pb_8BTI_RFO:
+  input: ./configs/benchmarks/inputs/posebusters/8BTI_RFO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COCC(=O)n1ccc2c(Cl)cccc21'
+  score: true
+  postprocess: true
+pb_8C3N_ADP:
+  input: ./configs/benchmarks/inputs/posebusters/8C3N_ADP.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ncnc2c1ncn2[C@@H]1O[C@H](CO[P@](=O)(O)OP(=O)(O)O)[C@@H](O)[C@H]1O'
+  score: true
+  postprocess: true
+pb_8C5M_MTA:
+  input: ./configs/benchmarks/inputs/posebusters/8C5M_MTA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CSC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_8CNH_V6U:
+  input: ./configs/benchmarks/inputs/posebusters/8CNH_V6U.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COC(=O)c1ccccc1Cc1cn(C)nc1-c1cc(Cl)nc(N)n1'
+  score: true
+  postprocess: true
+pb_8CSD_C5P:
+  input: ./configs/benchmarks/inputs/posebusters/8CSD_C5P.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Nc1ccn([C@@H]2O[C@H](COP(=O)(O)O)[C@@H](O)[C@H]2O)c(=O)n1'
+  score: true
+  postprocess: true
+pb_8D19_GSH:
+  input: ./configs/benchmarks/inputs/posebusters/8D19_GSH.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N[C@@H](CCC(=O)N[C@@H](C[S-])C(=O)NCC(=O)O)C(=O)O'
+  score: true
+  postprocess: true
+pb_8D39_QDB:
+  input: ./configs/benchmarks/inputs/posebusters/8D39_QDB.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)c1ccc(C(=O)c2ccccc2)cc1'
+  score: true
+  postprocess: true
+pb_8D5D_5DK:
+  input: ./configs/benchmarks/inputs/posebusters/8D5D_5DK.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1ncc(COP(=O)(O)O)c(C=N[C@H](CCCNC(=N)N)C(=O)O)c1O'
+  score: true
+  postprocess: true
+pb_8DHG_T78:
+  input: ./configs/benchmarks/inputs/posebusters/8DHG_T78.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CCn1c(CO)nn(-c2nc(O[C@@H](C)C(F)(F)F)c(C(=O)Nc3c(C)ccnc3Cl)cc2F)c1=O'
+  score: true
+  postprocess: true
+pb_8DKO_TFB:
+  input: ./configs/benchmarks/inputs/posebusters/8DKO_TFB.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)[C@@H]1CCCO1'
+  score: true
+  postprocess: true
+pb_8DP2_UMA:
+  input: ./configs/benchmarks/inputs/posebusters/8DP2_UMA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(=O)N[C@H]1[C@@H](O[P@@](=O)(O)O[P@](=O)(O)OC[C@H]2O[C@@H](n3ccc(=O)[nH]c3=O)[C@H](O)[C@@H]2O)O[C@H](CO)[C@@H](O)[C@@H]1O[C@H](C)C(=O)N[C@@H](C)C(=O)O'
+  score: true
+  postprocess: true
+pb_8DSC_NCA:
+  input: ./configs/benchmarks/inputs/posebusters/8DSC_NCA.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NC(=O)c1cccnc1'
+  score: true
+  postprocess: true
+pb_8EAB_VN2:
+  input: ./configs/benchmarks/inputs/posebusters/8EAB_VN2.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(N[C@H](C(=O)Nc1cnccc1-c1ccc(C(F)(F)F)cc1)c1cccc(C(F)(F)F)c1)c1cnccc1-c1ccc(C(F)(F)F)cc1'
+  score: true
+  postprocess: true
+pb_8EX2_Q2Q:
+  input: ./configs/benchmarks/inputs/posebusters/8EX2_Q2Q.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C1CC(c2ccccc2)=Nc2c(-c3ccccc3)c(C(F)(F)F)nn21'
+  score: true
+  postprocess: true
+pb_8EXL_799:
+  input: ./configs/benchmarks/inputs/posebusters/8EXL_799.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'Cc1nc(-c2cn3c(n2)-c2ccc(-c4cnn(C(C)(C)C(N)=O)c4)cc2OCC3)n(C(C)C)n1'
+  score: true
+  postprocess: true
+pb_8EYE_X4I:
+  input: ./configs/benchmarks/inputs/posebusters/8EYE_X4I.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(CNc1cc(F)cc(F)c1)N[C@@H](C(=O)NO)c1ccc(-c2cc(F)c(F)c(F)c2)cc1'
+  score: true
+  postprocess: true
+pb_8F4J_PHO:
+  input: ./configs/benchmarks/inputs/posebusters/8F4J_PHO.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C=Cc1c(C)c2cc3nc(c4c5[nH]c(cc6nc(cc1[nH]2)C(C)=C6CC)c(C)c5C(=O)[C@@H]4C(=O)OC)[C@@H](CCC(=O)OCC=C(C)CCC[C@H](C)CCC[C@H](C)CCCC(C)C)[C@@H]3C'
+  score: true
+  postprocess: true
+pb_8F8E_XJI:
+  input: ./configs/benchmarks/inputs/posebusters/8F8E_XJI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NC(=O)C[C@H](NC(=O)c1c[nH]nc1-c1ccc(Cl)cc1F)c1ccc(F)c(Cl)c1'
+  score: true
+  postprocess: true
+pb_8FAV_4Y5:
+  input: ./configs/benchmarks/inputs/posebusters/8FAV_4Y5.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C(O)c1ccc(-c2nn(C(=O)c3c(Cl)cccc3C(F)(F)F)c3cccc(F)c23)c(F)c1'
+  score: true
+  postprocess: true
+pb_8FLV_ZB9:
+  input: ./configs/benchmarks/inputs/posebusters/8FLV_ZB9.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CN(c1ncnc2[nH]ccc12)[C@@H]1CCCN(C(=O)CNc2cc(Cl)cc(Cl)c2)C1'
+  score: true
+  postprocess: true
+pb_8FO5_Y4U:
+  input: ./configs/benchmarks/inputs/posebusters/8FO5_Y4U.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(=O)c1ccn(S(=O)(=O)c2ccccc2)c1'
+  score: true
+  postprocess: true
+pb_8G0V_YHT:
+  input: ./configs/benchmarks/inputs/posebusters/8G0V_YHT.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'C#CCO[P@](=O)(O)OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_8G6P_API:
+  input: ./configs/benchmarks/inputs/posebusters/8G6P_API.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'N[C@H](CCC[C@H](N)C(=O)O)C(=O)O'
+  score: true
+  postprocess: true
+pb_8GFD_ZHR:
+  input: ./configs/benchmarks/inputs/posebusters/8GFD_ZHR.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'CC(=O)N[C@H]1[C@H](OCCc2ccc3occc3c2)O[C@H](CO)[C@@H](O)[C@@H]1O'
+  score: true
+  postprocess: true
+pb_8HFN_XGC:
+  input: ./configs/benchmarks/inputs/posebusters/8HFN_XGC.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'COc1ccc(-c2cccc(S(=O)(=O)NC(=O)[C@@H](N)C[S-])c2)cn1'
+  score: true
+  postprocess: true
+pb_8HO0_3ZI:
+  input: ./configs/benchmarks/inputs/posebusters/8HO0_3ZI.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'O=C1N[C@@H](Cc2c[nH]c3c(F)cccc23)C(=O)N2CCC[C@@H]12'
+  score: true
+  postprocess: true
+pb_8SLG_G5A:
+  input: ./configs/benchmarks/inputs/posebusters/8SLG_G5A.pdb
+  sample_num: 40
+  design_chains:
+  - L: ligand
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: 'NCC(=O)NS(=O)(=O)OC[C@H]1O[C@@H](n2cnc3c(N)ncnc32)[C@H](O)[C@@H]1O'
+  score: true
+  postprocess: true

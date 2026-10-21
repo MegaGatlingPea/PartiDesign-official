@@ -1,0 +1,22 @@
+defaults:
+  - /sequence@sequence
+  - _self_
+
+_target_: src.design.rewards.af2.AF2Reward
+structure_source: fold
+
+sequence:
+  source: design
+  fixed_positions: []
+af2:
+  model: multimer
+  model_num: 1
+  num_recycles: 3
+  use_initial_guess: true
+  msa_policy: none
+  timeout_seconds: 7200
+
+score:
+  monomer_plddt_weight: 1.0
+  complex_plddt_weight: 0.25
+  complex_iptm_weight: 0.75

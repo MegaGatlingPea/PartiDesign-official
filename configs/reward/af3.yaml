@@ -1,0 +1,32 @@
+defaults:
+  - /sequence@sequence
+  - _self_
+
+_target_: src.design.rewards.af3.AF3Reward
+structure_source: fold
+sequence:
+  source: design
+  fixed_positions: []
+score:
+  method: confidence
+  plddt_weight: 0.0
+  ptm_weight: 0.2
+  iptm_weight: 0.8
+af3:
+  model: af3
+  mode: complex
+  samples: 1
+  recycles: 10
+  seed: 101
+  attention_backend: triton
+  buckets:
+  - 256
+  - 512
+  - 768
+  - 1024
+  - 1536
+  - 2048
+  - 3072
+  - 4096
+  - 5120
+  timeout_seconds: 1800

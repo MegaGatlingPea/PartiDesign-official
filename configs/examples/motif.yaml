@@ -1,0 +1,16 @@
+motif_fixture:
+  input: ./configs/examples/structures/protein_design/prot_monomer_motif_aa.pdb
+  sample_num: 5
+  design_chains:
+  - B: protein
+  condition:
+    contig:
+      B:
+        token: 10-40/B19-27/10-40
+        polymer_atom:
+          B19:
+          - CA
+          - C
+          - O
+  score: false
+  postprocess: false

@@ -1,0 +1,70 @@
+data_imidacloprid_ring_imine
+#
+loop_
+_atom_site.group_PDB 
+_atom_site.id 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.pdbx_PDB_model_num 
+HETATM 1  C  A1  . LIG01 L 1 . . -3.027454 2.291016  0.700965  1
+HETATM 2  C  A2  . LIG01 L 1 . . -1.624923 2.866138  0.381907  1
+HETATM 3  N  A3  . LIG01 L 1 . . -0.876821 1.666693  0.033223  1
+HETATM 4  C  A4  . LIG01 L 1 . . -1.804731 0.648896  -0.089165 1
+HETATM 5  N  A5  . LIG01 L 1 . . -2.989486 0.907794  0.283411  1
+HETATM 6  N  A6  . LIG01 L 1 . . -1.369342 -0.576221 -0.555857 1
+HETATM 7  N  A7  . LIG01 L 1 . . -2.118856 -1.720768 -0.683859 1
+HETATM 8  O  A8  . LIG01 L 1 . . -1.469074 -2.675374 -1.032476 1
+HETATM 9  O  A9  . LIG01 L 1 . . -3.287158 -1.674521 -0.464344 1
+HETATM 10 C  A10 . LIG01 L 1 . . 0.356808  1.740106  -0.711715 1
+HETATM 11 C  A11 . LIG01 L 1 . . 1.361121  0.722322  -0.231288 1
+HETATM 12 C  A12 . LIG01 L 1 . . 2.185853  0.035572  -1.115235 1
+HETATM 13 N  A13 . LIG01 L 1 . . 3.089567  -0.846787 -0.730724 1
+HETATM 14 C  A14 . LIG01 L 1 . . 3.215310  -1.097043 0.555008  1
+HETATM 15 C  A15 . LIG01 L 1 . . 2.446370  -0.480472 1.539463  1
+HETATM 16 C  A16 . LIG01 L 1 . . 1.508597  0.445795  1.128595  1
+HETATM 17 CL A17 . LIG01 L 1 . . 4.404216  -2.253147 0.992091  1
+#
+_entity.id     1
+_entity.type   non-polymer
+#
+_struct_asym.id          L
+_struct_asym.entity_id   1
+#
+_chem_comp.id              LIG01
+_chem_comp.type            non-polymer
+_chem_comp.mon_nstd_flag   no
+#
+loop_
+_chem_comp_bond.comp_id 
+_chem_comp_bond.atom_id_1 
+_chem_comp_bond.atom_id_2 
+_chem_comp_bond.value_order 
+_chem_comp_bond.pdbx_aromatic_flag 
+LIG01 A1  A2  sing ?
+LIG01 A2  A3  sing ?
+LIG01 A3  A4  sing ?
+LIG01 A4  A5  doub ?
+LIG01 A4  A6  sing ?
+LIG01 A6  A7  sing ?
+LIG01 A7  A8  doub ?
+LIG01 A7  A9  sing ?
+LIG01 A10 A3  sing ?
+LIG01 A10 A11 sing ?
+LIG01 A11 A12 arom Y
+LIG01 A12 A13 arom Y
+LIG01 A13 A14 arom Y
+LIG01 A14 A15 arom Y
+LIG01 A15 A16 arom Y
+LIG01 A14 A17 sing ?
+LIG01 A1  A5  sing ?
+LIG01 A11 A16 arom Y
+#

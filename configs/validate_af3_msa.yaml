@@ -1,0 +1,24 @@
+# Standard AF3 validation with native protein/RNA MSA search and templates.
+methods: [af3]
+sequence:
+  seed: 101
+  # Leave sources unset: original + one modality-appropriate MPNN sequence.
+af3:
+  samples: 1
+  recycles: 10
+  seed: 101
+  msa:
+    mode: auto
+    search_workers: 2
+    templates: true
+    max_template_date: "2021-09-30"
+scorer:
+  enabled: false
+  original: true
+  refold: true
+  checkpoint: ./ckpts/partiscore.ckpt
+  weights: raw
+  batch_size: 32
+  num_workers: 0
+structure_stage: base
+criteria: []

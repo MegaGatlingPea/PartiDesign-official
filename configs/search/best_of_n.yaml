@@ -1,0 +1,6 @@
+# Explicit Best-of-N design overlay.  Search is opt-in.
+algorithm: best_of_n
+selection_scope: task_length_plan
+max_batch_size: null
+best_of_n:
+  replicas: 1
