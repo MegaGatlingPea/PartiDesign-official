@@ -29,8 +29,8 @@ length ranges, budgets, chemistry, fixed identities and bonds stay identical.
 
 The manifest's `additional_sampling` section adds **7,400 structures** to the
 baseline configuration budget: **45,840** overall, or **25,760** when only normal
-ProtDBench/PepDBench is counted. This is configuration preparation, not a pending
-job count or evidence of completed sampling.
+ProtDBench/PepDBench is counted. These numbers describe configured sample
+budgets; completion must be checked in the run results.
 
 | Added comparison | Task file | Structures | Shared AF3 validation |
 | --- | --- | ---: | --- |
@@ -96,7 +96,7 @@ AF3 predicts once per sequence. Context MSA stays `auto`, templates enabled,
 cache `.cache/af3_msa`, two search workers; design chains do not search MSA.
 Existing temperatures, recycles, performance optimizations and persistent model
 cache remain. Criteria contain executable methods/reductions/rules; sources,
-units and missing-value semantics are in [validation.md](../../docs/validation.md).
+units and missing-value semantics are in the [validation guide](../../docs/validate.md).
 
 PepDBench linear/disulfide uses `validate.yaml`; head-tail cyclic uses
 `validate_cyclic.yaml` and the supplied CyclicMPNN checkpoint. Both use model1
@@ -120,8 +120,8 @@ Report Original, FI and their union independently.
 
 Formal protein–ligand benchmarking has four tasks only. Five additional
 runnable tasks are in [protein_ligand_additional.yaml](../examples/protein_ligand_additional.yaml),
-with inputs retained. Historical 13/9 source inventory counts in the manifest
-are provenance; the current formal protein–ligand count is four.
+with inputs retained. The historical 13/9 counts in the manifest describe source
+inventories; the current formal protein–ligand count is four.
 
 Docking, antibody, external MotifBench and unlisted suites are outside this
 round; their configurations and assets remain. Nuc monomer selects only
@@ -129,7 +129,6 @@ round; their configurations and assets remain. Nuc monomer selects only
 monomer remains separately available. Its helical counterpart is in the added
 condition comparisons above.
 
-Before formal submission, complete AF3 source-break/index mapping acceptance.
-CPU configuration compilation proves expansion and compiler compatibility,
-not GPU inference or scientific success rates. This update launches no formal
-sampling or validation. See [commands and provenance](../../docs/benchmarks.md).
+See the [validation command](../../docs/validate.md) to
+preview and run these profiles. Task sources and budgets are recorded in
+[manifest.yaml](manifest.yaml).

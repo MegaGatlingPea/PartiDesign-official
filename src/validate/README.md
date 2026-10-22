@@ -1,7 +1,7 @@
 # Validation runtime
 
 The maintained user interface is `partidesign validate`. See the
-[user guide](../../docs/inference/validation.md) for methods, sequence sources,
+[user guide](../../docs/validate.md) for methods, sequence sources,
 criteria, threshold overrides, workers, resume, and result files.
 
 ```bash
@@ -17,8 +17,9 @@ Normal and antibody generation retain their result.csv/structure contracts.
 
 Protein/cyclic fold validation defaults to GT1+SolubleMPNN1. Nucleic sequence
 validation defaults to GT1+NA-MPNN1. Explicit source counts, settings and labels
-preserve benchmark budgets. AF2 uses model1 by default; AF3/AF3-LA do not search
-MSA/templates and do not preallocate JAX GPU memory by default. GPU-backed
+preserve benchmark budgets. AF2 uses model1 by default. AF3/AF3-LA use automatic
+context MSA cache/search with templates enabled by default; select `--msa off`
+to disable these searches. They do not preallocate JAX GPU memory by default. GPU-backed
 validation uses persistent Ray owners; neural backends stay resident for the
 owner lifetime. Missing/unsupported metrics cannot silently satisfy a preset.
 

@@ -1,0 +1,6 @@
+interface:
+  display_name: "PartiDesign MilkyFrog"
+  short_description: "Run PartiDesign workflows and answer usage questions"
+  default_prompt: "Use $partidesign-milkyfrog to turn my molecular design request into a checked task and workflow."
+policy:
+  allow_implicit_invocation: true

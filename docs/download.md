@@ -1,66 +1,137 @@
-# Model downloads
+# `partidesign download`
 
-From the repository root, open the interactive model-selection dialog:
+[Command index](commands.md)
 
-```bash
-partidesign download
-```
+List available model resources and prepare the weights needed by a workflow.
+The command manages model assets; the [main installation guide](../README.md#installation)
+covers the Python environment and bundled backend code.
 
-Use Up/Down to move, Space to toggle, Enter to continue, or Esc to cancel.
-`a` selects all available entries; `n` clears the selection. No model is selected
-by default. An empty selection keeps the dialog open. Ctrl-C interrupts with exit
-130. Cancel/EOF exit without downloading or creating the selected model root.
+## Usage
 
-The dialog shows ready/download/manual states and resource origin separately.
-Ready resources are kept; missing resources with configured URLs can be fetched.
-Manual rows cannot be selected when required download URLs are absent. Git-supplied
-files need to be copied/restored from the repository. This menu does not make a
-missing weight URL available; PartiDesign weights still need a local authorized copy.
-
-Weights go under `ROOT/ckpts` and `ROOT/community_models`, where ROOT is the checkout
-unless `--model-dir PATH` or `PARTIDESIGN_MODEL_DIR` overrides it. Static source and
-`configs/resources` stay with the installed package.
-
-## Explicit and scripted commands
+Run from the repository root with the `partidesign` environment active:
 
 ```bash
 partidesign download --list
-partidesign download proteinmpnn solublempnn
-partidesign download esmfold2-fast --model-dir /path/to/model-root
-partidesign download --all
-partidesign check --model proteinmpnn --load
+partidesign download esmfold2-fast
+partidesign check --model esmfold2-fast
 ```
 
-Explicit targets, `--all` and `--list` never open the dialog. A no-target invocation
-with redirected input/output or `TERM=dumb` fails promptly and suggests these
-commands. `NO_COLOR` removes color; in a real terminal the selection dialog still
-works in monochrome. `--list` is read-only; local presence does not prove a model
-strict-loads, which is what `check --load` verifies.
+`--list` inspects the inventory without network access. Name one or more targets
+to download them. In an interactive terminal, `partidesign download` opens a
+model selector. Noninteractive jobs must specify targets, `--list`, or `--all`.
 
-`--force` stages and validates replacement downloads before publishing them. An
-interactive forced download disables entries that cannot be refreshed from a URL.
-aria2c uses up to eight connections per file; if unavailable or failing, fetching
-falls back to built-in HTTP. Unknown transfer sizes remain indeterminate until
-completion, and publication failures stay failures in the final summary.
+## Generation weights and bundled assets
 
-## Chemistry and ESMFold2 sources
+PartiScore weights, CyclicMPNN weights, and native chemistry resources come with
+the clone. Download the PartiDesign generation bundle from
+**[Google Drive](https://drive.google.com/file/d/19j8aaysxeQlT0RI5URrQm3A9uWdqSE5e/view?usp=sharing)**
+(4,909,825,762 bytes, about 4.91 GB). In the browser, choose **Download** and
+save it as `ckpts/partidesign.ckpt`, beside the Git-supplied `partiscore.ckpt`.
 
-`chemistry` is the single native `configs/resources/chemistry/ccd.json.gz`
-shipped with Git and the wheel. It stays with the code when `--model-dir` moves
-weights. It is not the ESMFold2 external CCD bundle.
+Alternatively, download from a terminal at the repository root:
 
-ESMFold2 fast/standard model weights, configs, ESMC-6B shards/tokenizer and
-`ccd.pkl` use pinned official Biohub Hugging Face sources. Their catalog reports
-`download URL`. The shared `components.cif` is fetched from the official wwPDB
-monomer source as gzip and decoded during staging. The downloader then builds the
-shared `ccd_bonds.sqlite3` cache from that CIF with the vendored CCD builder and
-validates it before publication. Fast and standard reuse the same common and ESMC
-files under the selected model root.
+```bash
+python -m pip install gdown
+gdown 'https://drive.google.com/file/d/19j8aaysxeQlT0RI5URrQm3A9uWdqSE5e/view?usp=sharing' \
+  -O ckpts/partidesign.ckpt
+```
 
-A fresh ESMFold2 target is selectable because both model assets and chemistry
-provisioning are automated. Existing complete installs are reused without fetches;
-a missing or invalid derived SQLite cache is rebuilt from the existing CIF, while a
-missing or refreshed CIF is fetched and causes the cache to be rebuilt. Files are
-staged and validated before publication; publication failures roll back the previous
-files. `--list` reports source origin separately from completeness; `check --load`
-verifies installed assets.
+The resulting directory should contain:
+
+```text
+ckpts/
+├── partidesign.ckpt
+└── partiscore.ckpt
+```
+
+Keep the `.ckpt` file intact rather than extracting it. The `partidesign download`
+CLI has no automatic source registered for this Drive release, so neither
+`download partidesign` nor `download --all` retrieves it yet. Use the link or
+`gdown` above. If Drive reports an access or download-quota error, use the browser
+link and retry after access is available; an HTML page is not a checkpoint.
+
+For a different location, select the file with `design --ckpt FILE` or use the
+[model directory](#use-a-separate-model-directory). A compatible release bundle
+includes the model, autoencoder, and experiment configuration; a flow-matching-only
+training checkpoint is insufficient.
+
+## Optional evaluation models
+
+Basic generation does not require a separate prediction or sequence-redesign
+model. Download only the backends used by your chosen validation workflow:
+
+| Workflow | Download command |
+| --- | --- |
+| Protein sequence redesign | `partidesign download proteinmpnn solublempnn ligandmpnn` |
+| Nucleic acid sequence redesign | `partidesign download nampnn` |
+| Fast ESMFold2 prediction | `partidesign download esmfold2-fast` |
+| Standard ESMFold2 evaluation | `partidesign download esmfold2-standard` |
+| AlphaFold2 initial-guess evaluation | `partidesign download af2` |
+| AlphaFold3 / AF3-LA evaluation | `partidesign download af3 af3-la` |
+
+The target name for NA-MPNN is `nampnn`. CyclicMPNN is already included. Each
+upstream model's access and usage terms apply to its source and parameters.
+
+Check only the backends you installed:
+
+```bash
+partidesign check --model proteinmpnn --model ligandmpnn
+partidesign check --model af3 --msa off
+```
+
+The AF3 command checks weights and chemistry without requiring MSA databases.
+Prepare databases or a cache separately for MSA-enabled validation. Downloads
+do not install the full MSA search databases. See [checks](check.md) and
+[validation](validate.md) for the next steps.
+
+## Use a separate model directory
+
+The model-root priority is `--model-dir`, then `PARTIDESIGN_MODEL_DIR`, then the
+detected PartiDesign checkout:
+
+```bash
+partidesign download --list --model-dir /path/to/partidesign-models
+partidesign download esmfold2-fast --model-dir /path/to/partidesign-models
+partidesign check --model esmfold2-fast --model-dir /path/to/partidesign-models
+```
+
+For repeated use, set the environment variable instead:
+
+```bash
+export PARTIDESIGN_MODEL_DIR=/path/to/partidesign-models
+partidesign download --list
+```
+
+This root contains `ckpts/` and `community_models/`. Copy the generation bundle
+and any needed Git-supplied PartiScore/CyclicMPNN weights into their matching
+locations there; the downloader cannot fetch missing Git-supplied files.
+Bundled code and static chemistry resources stay with the installed package.
+Task inputs, explicit checkpoint paths, and outputs still resolve from the
+invocation directory. Selecting a model root does not change that directory.
+
+## Options, output, and reuse
+
+| Option | Behavior |
+| --- | --- |
+| `TARGET ...` | Prepare the named resources; no targets opens the interactive selector in a terminal. |
+| `--list` | Print asset status and sources without downloading. Can be restricted to named targets. |
+| `--model-dir PATH` | Select the model root. |
+| `--all` | Attempt every registered target; cannot be combined with explicit targets. |
+| `--force` | Refresh downloadable assets, replacing them only after complete preparation. Cannot be combined with `--list`. |
+
+Files are placed at the paths shown by the inventory. Repeating a download
+reuses a complete installation and prepares missing assets. `--force` cannot
+refresh Git-supplied files or supply a resource without a registered source.
+The command returns a nonzero status if any selected target fails or remains
+unavailable; other independent targets can still complete.
+
+## Troubleshooting
+
+| Problem | Next step |
+| --- | --- |
+| A target is unavailable | Inspect `download --list`. Obtain the generation bundle from the [Drive link](#generation-weights-and-bundled-assets), or restore Git-supplied resources from a complete checkout. |
+| A download fails | Check the reported source and network access, then repeat the explicit target command. |
+| Files appear to be missing after using another disk | Check `--model-dir` and `PARTIDESIGN_MODEL_DIR`; copy needed Git-supplied weights into the selected root. |
+| AF3 reports missing MSA resources | Use `check --model af3 --msa off` for the weights-and-chemistry check, or prepare the intended MSA resources. |
+
+[Command index](commands.md) · [Check assets](check.md) · [Generate designs](design.md)

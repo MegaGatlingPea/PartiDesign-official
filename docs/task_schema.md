@@ -1,81 +1,115 @@
-# Task schema
+# Writing task YAML
 
-A normal task YAML is a closed mapping from a task name to one task dictionary.
-The task name may contain ASCII letters, digits, `_`, and `-`. Unknown keys,
-duplicate keys, duplicate chain names, invalid scalar types, and non-finite numeric
-values are errors before model loading.
+A task file describes **what to generate and what to retain**. Run settings such
+as the checkpoint, GPU batch size, and output directory belong to the
+[command line](commands.md). Run the bundled examples from the repository root.
+
+Start with a complete task:
 
 ```yaml
-protein_fixture:
-  input: ./configs/examples/structures/protein_design/prot_bind_prot.pdb
-  sample_num: 1
-  design_chains:
-    - {P: protein}
-  design_length:
-    P: [40]
-  hotspot: E64/E88/E96
-  score: false
-  postprocess: false
+my_protein:
+  sample_num: 2
+  design_chains: [{P: protein}]
+  design_length: {P: [100]}
 ```
 
-Use [Configuration](configuration.md) for run-wide options. This page defines the
-fields shared by [protein](tasks/protein.md), [peptide](tasks/peptide.md),
-[nucleic-acid](tasks/nucleic_acids.md), [ligand](tasks/ligand.md), and
-[motif](tasks/motif.md) tasks. Antibody tasks use `format: antibody` and the
-additional schema described in [Antibody](tasks/antibody.md).
+Save this as `my_tasks.yaml`. It requests two proteins of length 100, with no
+source structure or fixed sequence. A file can contain several named tasks;
+select one with `--task my_protein`, or omit `--task` to run all of them.
+Names may contain ASCII letters, digits, `_`, and `-`.
+
+## Choose an example
+
+Copy a task from the following files, then change its input, chain IDs, lengths,
+and conditions. The example files contain several tasks; select a name explicitly
+when you only want one. Their `*_fixture` tasks request **five samples** each.
+
+| Goal | Example file | Starting task |
+| --- | --- | --- |
+| Protein binder or monomer | [protein.yaml](../configs/examples/protein.yaml) | `protein_fixture` or `protein_monomer` |
+| Peptide with head-to-tail closure | [peptide.yaml](../configs/examples/peptide.yaml) | `peptide_fixture` |
+| RNA or DNA | [nucleic_acids.yaml](../configs/examples/nucleic_acids.yaml) | `rna_fixture` or `dna_fixture` |
+| New ligand chemistry or known-ligand pose | [ligand.yaml](../configs/examples/ligand.yaml) | `ligand_fixture` or `ligand_smiles_fixture` |
+| Preserve a source motif and generate its scaffold | [motif.yaml](../configs/examples/motif.yaml) | `motif_fixture` |
+| Antibody CDR design | [antibody.yaml](../configs/examples/antibody.yaml) | `antibody_fixture` |
+
+`protein_monomer` has five lengths and one sample per length. Most fixture tasks
+leave scoring and postprocessing off; the ligand fixtures enable both and need
+those additional assets. Inspect the copied task before running it.
 
 ## Top-level task fields
 
-| Field | Type | Meaning |
-| --- | --- | --- |
-| `format` | string, optional | `normal` (default) or `antibody`. Selected tasks must share one format. |
-| `input` | local `.pdb` or `.cif` path, optional | Source structure. Omit for de novo tasks. Paths are relative to the invocation directory. |
-| `sample_num` | positive integer | Number of samples for each expanded length plan. |
-| `design_chains` | non-empty list | One-entry maps such as `{P: protein}`. Modalities are `protein`, `peptide`, `rna`, `dna`, and `ligand`. `peptide` is an authoring alias for protein chemistry. |
-| `design_length` | mapping, optional | One-chain length list/grid, an explicit multi-chain `joint` table, or ligand `from_distribution`. Conditions can provide the length instead. |
-| `condition` | mapping, optional | Sequence, backbone, contig, secondary-structure, ligand, and bond constraints. |
-| `hotspot` | selector string, optional | Context residues exposed as the target interface. It does not redesign or freeze the selected context. |
-| `crop` | mapping, optional | Context selection by `include`, `exclude`, and/or residue `proximity`. |
-| `score` | boolean, optional | Write a final PartiScore result for successful structures. Default `false`. |
-| `postprocess` | boolean, optional | Run the configured OpenMM postprocess for successful structures. Default `false`. |
-| `override` | boolean, optional | Allow the requested postprocess to replace the base structure. Default `true`. |
-| `cyclic_offset` | boolean, optional | Use the cyclic protein offset path. It does not create a ring by itself. CyclicMPNN eligibility can also come from a required-output head-to-tail single bond. Default `false`. |
-| `cyclic_offset_chains` | list of protein chain IDs, optional | Required when several design protein chains use `cyclic_offset`. |
-| `rm_token_type` | list of canonical token names or `null`, optional | Task-level free-polymer identity omission policy. Omitted or `null` uses `[CYS]`; `[]` disables it. See [Configuration](configuration.md). |
+Normal tasks use the fields below. [Antibody tasks](#antibody-tasks) use a
+separate schema.
 
-`sample_num` multiplies every explicit length plan. For example, two lengths and
-`sample_num: 3` create six base requests. Best-of-N replicas are added after task,
-length, and condition resolution. The runtime writes successful ranked replicas
-with rank-qualified filenames; replicas do not change the base task sample budget.
+| Field | Required/default | Meaning |
+| --- | --- | --- |
+| `sample_num` | Required, positive integer | Base samples **per length plan**. |
+| `design_chains` | Required, nonempty list | One-entry maps from chain ID to `protein`, `peptide`, `rna`, `dna`, or `ligand`. |
+| `input` | Optional; omitted/`null` for de novo | Local `.pdb` or `.cif` source. |
+| `design_length` | Needed unless conditions determine every chain's size | Polymer residue counts or ligand heavy-atom counts. |
+| `condition` | Optional | Sequence, backbone, contig, secondary structure, ligand chemistry, and bonds. |
+| `crop` | Optional | Select source context to retain. |
+| `hotspot` | Optional | Mark source context residues as the intended interface. |
+| `format` | `normal` | Use `antibody` only with its separate schema. |
+| `score` | `false` | Evaluate final structures with PartiScore; does not enable search or MPNN. |
+| `postprocess` | `false` | Request OpenMM processing of successful structures. |
+| `override` | `true` | Allow requested postprocessing to replace the base CIF; `false` skips that stage. |
+| `cyclic_offset` | `false` | Use cyclic relative-position encoding for protein/peptide chains; adds no bond by itself. |
+| `cyclic_offset_chains` | Optional | Required to select protein/peptide chains when several are designed and cyclic offsets are enabled. |
+| `rm_token_type` | Task default `[CYS]` | Omit identities at free polymer positions, subject to the global policy below. |
+
+Use YAML booleans and numbers, not quoted strings. Design chain IDs must be unique,
+nonempty strings of at most 32 characters. Unknown fields, duplicate YAML keys,
+and invalid types are errors. `--show-config` resolves configuration and basic
+task fields; source atoms and detailed conditions are checked during compilation.
 
 ## Design chains and source structures
 
-`design_chains` declares the output entities. A chain that exists in `input` is
-redesigned from its normalized source; a declared chain absent from the input is
-created de novo. Other source chains remain rigid or flexible context according to
-the selected model context mode. A normal task may declare several design chains,
-but mixed modalities require an explicit `design_length.joint` plan.
+Declared chains are generated; other input chains become context. A design chain
+absent from the input is de novo. If a design chain exists in the input, **its
+presence alone preserves neither sequence nor coordinates**. Add conditions to
+state what should be retained.
 
-PDB and mmCIF are read as the first model. Input paths are local, and the reader
-keeps the source topology and concrete bond orders it can read. Water and hydrogen
-rows may be dropped during normalization. A PDB `TER` boundary creates separate
-internal entities even when the author chain ID is repeated.
+```yaml
+design_chains: [{P: protein}]   # generate P; other input chains are context
+```
+
+`peptide` uses protein chemistry and the protein sequence alphabet, while recording
+explicit peptide intent for model routing. A short `protein` chain is not
+reclassified as a peptide by its length. RNA and DNA are separate modalities.
+
+Input paths are local and resolve from the directory where you invoke the
+command, **not the task YAML's directory**. Use absolute paths when moving a task
+file outside the repository. The reader uses the first PDB/mmCIF model.
+
+Source selectors use structural chain labels and residue identifiers. For mmCIF,
+use `label_asym_id` and `label_seq_id`; for PDB, use the source chain/residue
+identifiers. Insertion codes can disambiguate residues. A design chain matching
+several PDB `TER` segments is ambiguous; disambiguate its input chain IDs first.
+Context coordinates follow the checkpoint's rigid/flexible context mode.
 
 ## Length plans
 
-For one design chain, use an explicit list or an aligned inclusive grid:
+For one design chain, give a list:
 
 ```yaml
 design_length:
   P: [80, 100, 120]
+```
 
-# Equivalent grid form:
+Or use the equivalent aligned inclusive grid:
+
+```yaml
 design_length:
   P: {min: 80, max: 120, step: 20}
 ```
 
-For multiple design chains, every row must name every polymer design chain in the
-same declared order:
+Counts and step must be positive integers; `max - min` must be divisible by
+`step`. Three lengths with `sample_num: 2` request six base samples. Best-of-N
+replicas multiply this budget later.
+
+For several design chains, use explicit `joint` rows when specifying lengths:
 
 ```yaml
 design_chains: [{P: protein}, {R: rna}]
@@ -85,178 +119,104 @@ design_length:
     - {P: 100, R: 30}
 ```
 
-Joint rows are not a Cartesian product. Missing or extra chain keys are rejected.
-Ligand-only tasks use a separate public heavy-atom count. A single free ligand may
-request a sampled count with `L: from_distribution`; a fixed ligand mode (`smiles`,
-`ccd`, `type_bond`, or `backbone`) cannot also request a sampled atom count.
+Each row names every polymer design chain, in declaration order, with no extra
+keys. These are explicit combinations, not a Cartesian product. Ligands obtain
+counts from chemistry conditions and do not appear in `joint` rows. Multiple
+ligand-only design chains also need conditions to determine their counts.
 
-If a full sequence, backbone, or a contig fixes the final length, do not provide a
-conflicting `design_length`. A contig may instead use
-`motif_min_length`/`motif_max_length` to sample one feasible final length.
+Omit `design_length` when full sequences, source backbones, contigs, or fixed
+ligand graphs determine every chain's size. A sparse sequence does not determine
+length. If independent conditions provide lengths, they must agree.
 
 ## Conditions
 
-`condition` is additive, but two conditions that describe the same identity or
-coordinate fact must agree. The compiler resolves conditions before model execution
-and fails a contradictory task explicitly.
+`condition` accepts `sequence`, `backbone`, `contig`, `secondary_structure`,
+`ligand`, and `bond`. Combine compatible conditions to state identity, geometry,
+and topology separately. Contradictory conditions fail rather than silently
+replacing one another. The snippets below belong inside a normal task.
 
 ### Sequence identity
 
-Use a full string or a sparse list. Protein strings use the standard one-letter
-alphabet; RNA uses `A/C/G/U`; DNA uses `A/C/G/T`. A sparse row's `resid` is
-one-based, and negative positions count from the end of a design chain (`-1` is its
-last position):
+A complete string fixes sequence and determines length:
 
 ```yaml
 condition:
   sequence:
-    P: "ACDEFGHIKLMNPQRSTVWY"
-    # Or only fix two positions:
-    # P:
-    #   - {resid: 2, residue: C}
-    #   - {resid: -2, residue: C}
+    R: GGCUCUCACUGGCC
 ```
 
-Bracketed CCD identities such as `[MK8]` or `[BAL]` retain a known heavy-atom
-carrier when its chemistry is available. They are private chemical components, not
-extra model letters. A fixed sequence position is exempt from token omission and
-remains fixed even when its identity is omitted globally.
+Use standard one-letter amino acids for protein/peptide, `A/C/G/U` for RNA, and
+`A/C/G/T` for DNA. A sparse list fixes only the named positions:
+
+```yaml
+condition:
+  sequence:
+    P:
+      - {resid: 2, residue: C}
+      - {resid: -2, residue: C}
+```
+
+`resid` addresses the **final design chain**, starting at 1; `-1` is the last
+residue and `-2` the penultimate residue. Leave positions out of a sparse list
+when their identities should be generated. Fixing identity does not fix geometry.
+
+Bracketed CCD components, such as `A[MK8]G`, express known modified residues.
+Each bracketed component counts as **one residue**, and its required chemistry
+must be available locally. See the modified-residue examples in
+[peptide.yaml](../configs/examples/peptide.yaml).
 
 ### Backbone and contig
 
-`backbone: [P]` copies the source design chain's representative centers while
-leaving identity to the decoder. It requires that the design chain exists in the
-input and cannot be combined with a contig for that chain.
+A backbone condition requires an existing input design chain:
 
-`contig` copies selected source residues and samples the gap lengths. Each slash
-separates a gap (`N` or `N-M`) from a source segment (`P19-27` or `P19`). Source
-segments must belong to the same design chain:
+```yaml
+condition:
+  backbone: [B]
+```
+
+It retains representative centers (`CA` for protein, `C1'` for RNA/DNA) and
+allows standard residue identities to change. It does not retain every atom's
+coordinates. Source modified residues retain their known chemistry.
+
+Use a contig to copy selected source residues as coordinate motifs:
 
 ```yaml
 condition:
   contig:
-    P:
-      token: "10-40/P19-27/10-40"
-      polymer_atom: null
+    B:
+      token: "10-40/B19-27/10-40"
+      polymer_atom: {B19: [CA, C, O]}
 ```
 
-The copied segment is a hard coordinate motif. The `polymer_atom` field is either
-`null` or a mapping keyed by copied residue selectors; a scalar such as
-`polymer_atom: tip` is invalid. `polymer_atom: null` keeps all available copied
-atoms. A mapping such as `{P19: [CA, C, O]}` keeps only those atom names, while
-`{P19: tip}` uses the residue-specific side-chain tip preset. The source identity in a copied contig is
-also fixed. `motif_min_length` and `motif_max_length` constrain the final sampled
-length across all gaps.
+Segments separated by `/` are generated gaps (`10` or inclusive `10-40`) or
+source residues (`B19`, `B19-27`) from the same design chain. This example copies
+nine residues and adds 10–40 residues on either side, for a total of 29–89.
+To restrict the final length, add **both** `motif_min_length` and
+`motif_max_length` inside the chain's contig mapping.
 
-### Interactive task authoring
+`polymer_atom: null` keeps all available copied atoms. A mapping restricts only
+the named copied residues; other copied residues retain all available atoms.
+Each mapping key must identify one copied residue, and each atom must exist and
+have valid source coordinates. Protein residues may use `tip` as the mapping
+value for their side-chain tip preset; `polymer_atom: tip` by itself is invalid.
+Backbone and contig are mutually exclusive for one chain.
 
-The [notebook](../partidesign.ipynb) opens
-`peptide/peptide_bind_protein_betahairpin`, a 15-residue peptide task with fixed
-Cys2/Cys14, beta-sheet segments 1–6 and 10–15, adjacent strand pairing, and an
-explicit SG–SG bond. Its fixed **Nord Light** workbench has six steps:
-**1 Input & design**, **2 Motif**, **3 Hotspot**, **4 Advanced conditions**,
-**5 Save**, and **6 Runtime**. Mol* remains mounted throughout,
-including before loading Input and for **De novo** tasks. The first five
-steps keep source and applied-condition previews; all inference, validation,
-clustering, and result-opening controls are in **6 Runtime**.
-
-Choose a complete task preset in **1 Input & design**, before reviewing its
-conditions. All **46 non-antibody presets** under `configs/examples/` load the input,
-modality, lengths, Motif, Hotspots, and advanced settings together, update Mol*,
-and return to the first step. Loading another preset replaces the whole current
-task rather than adding conditions to it. Antibody examples are excluded from the notebook. Visual native forms expose
-existing joint design, legacy Motif, and context-ligand fields. Existing mapping
-and list values are editable while native source paths and chain IDs remain
-read-only. **Full task YAML** supports adding/removing entries and other
-structural changes; apply YAML edits before checking or saving.
-
-The original loaded structure, active authoring Input, and exported task input
-are separate files. Chain filters apply on Enter or when leaving the field,
-updating the active Input and viewer while preserving the original in `raw/`.
-A failed filter leaves the current Input unchanged. Review roles and applied
-marks after changing active chains.
-
-Active roles are **Context** (target/environment) and **Reference** (geometry
-for optional Motifs and contact selection). Assigning Reference does not
-select Motif residues. The entire retained Reference geometry can identify
-contacting Context residues independently of Motif selection. Preview candidates
-at an adjustable cutoff, default **6 Å**, then explicitly Merge or Replace
-applied Hotspots. A Reference used only for contact selection supplies no model
-coordinates and does not become Context.
-
-Motifs are optional, and **Selection**, **Contig**, and **Atoms** areas remain
-visible when disabled. A compact residue list shows the current atom restriction
-for each copied residue; only the focused residue's atom editor is displayed.
-List and editor appear side by side when space allows. A chain selector switches
-between multiple Contigs without changing their values. Loaded presets retain authored residues and atom restrictions.
-Newly applied residues default to all atoms observed in their source CIF;
-clearing a protein atom selection retains that full observed inventory.
-Protein subsets can only use observed atoms. Canonical RNA/DNA offer complete
-observed atoms or the supported combined base/non-backbone group. Modified
-nucleotides offer all observed atoms. Legacy nucleotide subsets stay visible
-and read-only until explicitly replaced with a supported group; the form does
-not offer arbitrary nucleotide atom subsets or rewrite native syntax on load.
-
-Mol* has **Chain**, **Residue**, and **Atom** scope controls in its upper-right
-corner. These select a whole chain, a whole residue, or an atom/bond's endpoint
-atoms, respectively. Picks follow the current page and the supported Motif
-atom choices above. Mol* and selection lists highlight the same residues or atoms. Motif and
-Context-only Hotspot picks have independent pending lists. Apply selections
-explicitly and check the applied summaries; later per-residue Motif atom edits
-update the current task directly. For a source containing B12–20,
-`10-20/B12-20/15` retains nine source residues and adds 10–20 plus 15 new
-residues, totaling 34–44. Source selectors use the displayed chain IDs and
-numbering. Contig source residues and per-residue atom restrictions must agree.
-
-Working normalized source is temporary under `.cache/`. Exported input omits
-unused References, retaining Context and complete source chains needed by
-active Motif, backbone, or source-graph conditions. Only selected Motif atoms
-supply Motif coordinates; visible reference-only atoms add no conditions.
-**4 Advanced conditions** contains sequence, fine secondary structure, RNA/DNA
-pairing, explicit bonds, native condition examples, and complete-YAML editing.
-**5 Save** checks and exports the current task. Free ligand length accepts an
-explicit count/range or `from_distribution`; supplied chemistry/backbone can
-determine the count instead.
-
-Question-circle help appears on hover or keyboard focus. Click the icon to pin
-the help while inspecting a field; press Esc to close it.
-
-**6 Runtime** prepares native commands and immutable task/input/custom scaffold
-snapshots under `.cache/`. Preparation never starts a job. **Execute** and
-**Modify command** default off; copy the selectable read-only command for manual
-use, or enable Execute and explicitly click **Execute command**. Modify enables
-editing of the actual command arguments. Editing, toggling, and preparing remain
-idle. There is no implicit shell pipeline; use an explicit `bash -lc '...'`
-command when shell syntax is needed. Owned tmux jobs expose logs, refresh,
-stop, and reconnect controls.
-
-Notebook model compilation defaults off, with an optional toggle for larger
-jobs. The output root defaults to `configs/customs/inference`; native generation
-adds `<task name>/` once. Validation takes an existing result directory, retains
-**Original · 1**, and exposes independent ordinary/FI MPNN counts and
-temperatures. FI also exposes its cutoff. AF3 defaults retain Context MSA
-**Auto / reuse cache**, templates on, and native cache settings. Empty notebook
-criteria enable unfiltered success for complete validation only; optional named
-criteria add thresholds. Clustering handles original successful backbones
-separately for each method/cohort, with TM threshold **0.5** and concurrency
-at most **16**. Runtime also selects raw samples and successful method/source/
-prediction slots for preview. Validated refolds retain native chain coloring
-and confidence values; those values are not interpreted as task-condition
-categories.
-
-Custom originals, exported structures, and task YAML default to ignored
-`configs/customs/raw/`, `input/`, and `tasks/`. See
-[notebook outputs and Runtime](outputs.md#notebook-runtime-and-result-preview)
-for prepared commands, result selection, and recovery.
+Motif coordinates guide generation; the selected motif atoms are written at
+the model-predicted positions in the source frame. They are not overwritten
+with exact source coordinates, so evaluate motif agreement in the results.
+Known copied identities are fixed even when only some atoms are conditioned.
+For a source `UNK` motif, the model predicts amino-acid identity while retaining
+its coordinate conditions. Coordinate retention does not fix identity to `UNK`.
+The [motif fixture](../configs/examples/motif.yaml) and
+[RNA motif examples](../configs/examples/nucleic_acids.yaml) show full task files.
 
 ### Secondary structure
 
-Secondary-structure guidance is split into a coarse chain label, token ranges, and
-pair relations. Protein/peptide coarse labels are `alpha` and `beta`; RNA/DNA
-coarse labels are `paired` and `unpaired`. `loop` is not a coarse label. Protein
-token labels are `helix`, `sheet`, and `loop`; RNA/DNA token labels are `paired`
-and `unpaired`. Ligands do not accept secondary-structure conditions. Token ranges
-use final one-based positions; pair entries use chain selectors and ranges:
+| Channel | Protein/peptide | RNA/DNA |
+| --- | --- | --- |
+| `coarse` | Whole-chain `alpha` or `beta` | Whole-chain `paired` or `unpaired` |
+| `token` | Final ranges labelled `helix`, `sheet`, `loop` | Final ranges labelled `paired`, `unpaired` |
+| `pair` | `adjacent`, `not_adjacent` between declared helix/sheet blocks | `paired`, `unpaired` between declared token ranges |
 
 ```yaml
 condition:
@@ -264,39 +224,44 @@ condition:
     coarse: {P: beta}
     token:
       P:
-        sheet: "1-8,12-19"
-        loop: "9-11"
+        sheet: "1-6,10-15"
+        loop: "7-9"
     pair:
-      adjacent: [["P1-8", "P12-19"]]
-      not_adjacent: [["P1-8", "P25-32"]]
+      adjacent: [["P1-6", "P10-15"]]
 ```
 
-Use the modality-specific examples in [Protein](tasks/protein.md) and [Nucleic
-acids](tasks/nucleic_acids.md) for paired/unpaired nucleic labels.
+Pair endpoints require compatible token conditions. Protein pair selectors must
+exactly match complete declared helix/sheet blocks on the same chain; loops
+cannot be pair endpoints. RNA/DNA paired relations may span chains, but
+`unpaired` relations stay within one chain. Ligands do not accept these conditions.
+These are fold guidance, not guarantees. See `rna_ss_guided` and `dna_ss_guided`
+in [nucleic_acids.yaml](../configs/examples/nucleic_acids.yaml).
 
 ### Ligand identity modes
 
-The public ligand modes are mutually exclusive per design ligand chain:
+Ligand lengths count **heavy atoms**, excluding hydrogens. Choose one condition
+per design ligand chain:
 
-| Mode | Effect |
-| --- | --- |
-| `smiles` | Fixes one connected molecular graph from a SMILES string and generates its pose. |
-| `ccd` | Uses one uppercase CCD component ID and its complete known heavy-atom graph. |
-| `backbone` | Keeps an existing ligand atom inventory and source positions while identity is hidden. |
-| `type_bond` | Keeps an existing ligand atom inventory, element types, internal graph, and source covalent facts. |
-| `atom_motif` | Keeps selected existing atom names as a hard motif and samples the remaining heavy-atom count. |
+| Goal | Authoring | Length requirement |
+| --- | --- | --- |
+| Generate chemistry and pose | No ligand condition | `L: [count]`, a grid, or `L: from_distribution`. |
+| Generate a known SMILES ligand's pose | `ligand: {L: {mode: smiles, smiles: "O=C(O)C1=CC=CC=C1"}}` | Graph determines count; omit `design_length`. SMILES must be connected. |
+| Generate a known CCD component's pose | `ligand: {L: {mode: ccd, ccd: WHL}}` | Graph determines count; chain must be absent from input. |
+| Regenerate a source ligand's pose | `ligand: {L: {mode: type_bond}}` | Retain source elements/graph; omit `design_length`. |
+| Retain source centers, generate chemistry | `backbone: [L]` | Source fixes count; omit `design_length`. |
+| Retain selected source atoms, generate the remainder | `ligand: {L: {mode: atom_motif, atoms: [C24, C21, O3]}}` | Final heavy-atom count, at least the selected atom count; use an explicit count. |
 
-SMILES must contain exactly one connected component. Public ligand lengths count
-heavy atoms; hydrogens in a SMILES are chemistry input and never model tokens. A
-source or supplied ligand graph is authoritative: reconstruction cannot overwrite
-its hard bonds. See [Ligand tasks](tasks/ligand.md).
+The last three require the design ligand in `input`. Ligand backbone is expressed
+through `condition.backbone`, not a ligand mode named `backbone`.
+`from_distribution` samples an unresolved count for exactly one ligand design
+chain and requires an input structure for pocket sizing. It cannot be combined
+with a fixed graph/backbone or multiple design chains. Source/supplied bonds
+remain authoritative during reconstruction. See
+[ligand.yaml](../configs/examples/ligand.yaml) for full tasks.
 
 ### Explicit bonds
 
-Use a list of atom endpoint mappings. Polymer endpoints require `chain`, `resid`,
-and `atom`; ligand endpoints use stable `chain` and `atom` names. Design-chain
-negative residue positions are allowed. Bond order is a concrete `single`,
-`double`, `triple`, or `aromatic` value supported by the input chemistry:
+Declare connections that must appear in output using addressable atoms:
 
 ```yaml
 condition:
@@ -306,50 +271,124 @@ condition:
       order: single
 ```
 
-An explicit bond is a hard output fact and must have addressable endpoint identity.
-Duplicate declarations with the same unordered endpoints and order collapse;
-conflicting orders fail. `omit_atoms` may remove non-representative atoms from a
-design polymer endpoint residue, or named atoms from a complete fixed design
-ligand (`ccd`/`type_bond`), to describe the product of a reaction. The omitted
-atom must belong to one of that bond's endpoint components. Context, bond
-endpoints, hard coordinate motifs, and free/partial ligand chemistry cannot be
-removed this way. Fixed ligand products are matched to their full CCD precursor
-before projection; a changed inventory uses a local CIF component ID and its
-actual internal graph rather than claiming the complete precursor CCD identity.
+Polymer endpoints need `chain`, `resid`, and `atom`; optional `ins_code`
+disambiguates source residues. Design positions use final numbering, including
+negative positions; context positions use positive source identifiers. Ligand
+endpoints use `chain` and a stable `atom` name, with no `resid`.
+
+Side-chain endpoints need known identity, usually fixed by `sequence` or a
+contig. Identity-independent design backbone atoms can be used without fixing
+sequence. Designed ligand endpoints must be known atoms in `type_bond`, `ccd`, or
+the selected part of `atom_motif`; generated atoms and SMILES indices are not
+stable endpoint names.
+
+Use `single`, `double`, `triple`, or `aromatic` for known order. Omitted order,
+`any`, or `unknown` asserts existence without choosing an exact order; unresolved
+order can be written as unknown in CIF. Identical endpoint/order declarations
+collapse; conflicting orders fail. Bond topology does not guarantee optimized
+geometry or stereochemistry.
+
+For head-to-tail peptides, the terminal C–N bond and `cyclic_offset: true` are
+independent settings. For disulfides, fix the cysteines and declare SG–SG bonds.
+The [peptide examples](../configs/examples/peptide.yaml) also show staples and
+bridges. Bond-local `omit_atoms` uses endpoint-style selectors for leaving atoms
+in eligible design endpoint components; context, bond endpoints, hard motif
+atoms, and free/partial ligand chemistry cannot be removed this way.
 
 ## Selectors, crop, and hotspots
 
-Context selectors use the source chain and source `label_seq_id`, with insertion
-codes when needed. Examples are `A33`, `A95-97`, `A10A`, and `[RNA1]9-16` for a
-multi-character chain. `hotspot` is a slash-separated union of residue selectors.
+Source selectors address chains (`A`), residues (`A33`), ranges (`A95-97`),
+insertion codes (`A10A`), or multi-character chains (`[RNA1]9-16`). `/` joins a
+union. `hotspot: A33/A95-97` marks the intended context interface without fixing
+coordinates or redesigning those residues.
 
 ```yaml
 crop:
   include: [A]
   proximity:
-    - {anchor: P1-20, radius: 12.0}
+    - {anchor: A33/A95-97, radius: 12.0}
   exclude: [W]
 hotspot: A33/A95-97
 ```
 
-`include` and `exclude` select context; `proximity` retains context around an
-anchor. Only retained context is used for routing and reward applicability. A
-hotspot marks the intended target interface and does not alter source coordinates.
+`include` selects the starting set; omitted `include` starts with the whole source.
+`proximity` **adds** residues within the radius in ångströms of source heavy atoms;
+it does not narrow an omitted include. `exclude` removes residues afterward.
+Existing design chains, hotspots, and context bond endpoints are mandatory.
+Connected chemistry may retain additional residues. Excluding mandatory residues
+or cutting required chemistry is an error. A de novo chain cannot be a source
+proximity anchor. Only retained context reaches the model.
 
-## Precedence and omission
+## Token omission policy
 
-The most specific hard fact wins only when it is compatible with the source graph:
-source topology and explicit bond declarations are retained, copied contig atoms
-retain their coordinates, and explicit sequence/ligand identity fixes the decoder
-identity. `rm_token_type` controls only free polymer identity decoding; it does not
-remove context, motif, fixed sequence, explicit identity, or explicit bond endpoint
-facts. An unknown motif identity still contributes its inferred motif coordinates
-when its token is omitted.
+The shipped **global** `rm_token_type: [CYS]` avoids cysteine at free protein
+positions and overrides task lists. RNA `C` and DNA `DC` are distinct tokens.
+Set global `rm_token_type: null` to respect each task's policy: an omitted/`null`
+task value then uses `[CYS]`, an explicit list replaces it, and `[]` disables
+omission. Global `[]` disables omission for every selected task.
 
-The task omission default is `[CYS]` when the field is omitted or `null`. An explicit
-task list, including `[]`, replaces that default; a non-null global list overrides
-every task. The default affects free protein CYS only: RNA C and DNA DC are distinct
-token names, and context, motifs, fixed sequences, explicit identities, and bond
-endpoints remain exempt. The full precedence and all 32 canonical names are
-centralized in [Configuration](configuration.md). Sequence-backend letter omission
-is separate; see [MPNN](mpnn.md).
+Names are canonical tokens, such as `CYS`, `MET`, `C`, and `DC`, and are
+case-insensitive. Fixed identities, context, modified components, and
+coordinate-conditioned positions are protected. Unknown motif identities remain
+predictions despite that exemption. MPNN redesign has a separate one-letter
+`rm_aa` policy; changing native token omission does not change MPNN omission.
+
+## Antibody tasks
+
+Antibodies use `format: antibody` and `antibody` instead of normal
+`design_chains`, `design_length`, and `condition` fields. Select antibody tasks
+in a separate command from normal tasks. This complete example designs VH CDR3
+on a built-in variable-domain scaffold:
+
+```yaml
+my_antibody:
+  format: antibody
+  sample_num: 2
+  antibody:
+    scaffold: adalimumab.6cr1
+    chains: {VH: VH, VL: VL}
+    template: true
+    design:
+      VH:
+        cdrs: [CDR3]
+        lengths: {CDR3: native}
+      VL: {}
+  antigen:
+    input: ./configs/examples/structures/antibody_design/7uxq.cif
+    crop: {include: [A]}
+    hotspot: A20/A30-32
+```
+
+`format`, `sample_num`, and `antibody.scaffold` are required. `antigen` is
+optional; crop/hotspot require its local `input`. Use the full built-in scaffold
+name, such as `adalimumab.6cr1`. Built-in paired scaffolds contain VH/VL variable
+domains; they do not add constant domains or a scFv linker.
+
+`chains` maps the scaffold's exact roles to unique output chain IDs. Paired
+scaffolds use `VH`/`VL`; single-domain scaffolds use `VHH`. If omitted, output IDs
+are `H` for VH/VHH and `L` for VL. They must not collide with retained antigen
+chains. Built-in scaffold definitions are in
+[`configs/resources/antibody/scaffolds/`](../configs/resources/antibody/scaffolds/).
+
+| Authoring choice | Effect |
+| --- | --- |
+| Omit `design` | All three CDRs of every role are mutable; framework identity stays fixed. |
+| `design: {}` | Fix all role sequences at native lengths. |
+| `VH: {cdrs: [CDR3]}` | Only VH CDR3 is mutable; unmentioned roles are fixed. |
+| `VL: {}` | Fix the full VL sequence. |
+| `framework: true` within a role | Also allow its framework identities to change. |
+| `framework: "5/10-12"` within a role | Open only these source framework positions; CDR positions cannot be selected here. |
+
+`lengths` applies only to selected CDRs. Values are `native` (default), `official`
+(the scaffold's insertion/deletion range), a positive final count, or an inclusive
+`{min: N, max: M}` interval sampled per candidate. Framework selectors use source
+`label_seq_id` within the selected role, not antibody numbering conventions or
+final output positions. Mutability allows a change; it does not require one.
+
+`template: true` (default) supplies framework geometry as a soft template;
+`false` removes it. Neither setting fixes framework coordinates. CDR coordinates
+are generated, including CDRs whose sequence is fixed. Top-level `score`,
+`postprocess`, `override`, and `rm_token_type` follow the normal task defaults.
+Normal contig, bond, and cyclic fields are not accepted by this schema. Compare
+`antibody_fixture`, `pdl1_adalimumab_selective_cdr3_official`, and
+`pdl1_adalimumab_reference` in [antibody.yaml](../configs/examples/antibody.yaml).

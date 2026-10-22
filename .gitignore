@@ -42,7 +42,6 @@ dist/
 
 # Downloaded model/chemistry state. Only curated Git assets are exceptions.
 /ckpts/*
-!/ckpts/partiscore.ckpt
 *.ckpt
 !/ckpts/partiscore.ckpt
 *.pt
@@ -73,26 +72,3 @@ dist/
 
 # User-created notebook inputs and task configurations.
 /configs/customs/
-
-# Curated examples, benchmark inputs and scaffolds are source assets.
-# Keep their CIF/PDB files and static runtime resources tracked under configs/.
-
-# Test-only relative log paths must never be committed.
-/task/
-
-# Local goals, acceptance scripts, and every runtime cache are private.
-/.goal-task/
-/.cache/
-/.pytest_cache/
-
-# The user-facing checkout only ships source/config/weights/backend/docs/license directories.
-/protenix/
-/benchmarks/
-/resources/
-/examples/
-/fixtures/
-/tests/
-/tools/
-/src/datasets/
-/src/networks/
-/src/utils/
