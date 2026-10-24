@@ -172,6 +172,24 @@ rna_motif_base_atoms:
           - N1
           - C2
           - N3
+rna_bind_protein:
+  input: ./configs/examples/structures/nuc_design/nuc_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 20
+  hotspot: E64/E88/E96
+dna_bind_protein:
+  input: ./configs/examples/structures/nuc_design/nuc_bind_prot.pdb
+  sample_num: 5
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 20
+  hotspot: E64/E88/E96
 rna_bind_ligand:
   input: ./configs/examples/structures/nuc_design/nuc_bind_ligand.cif
   sample_num: 5

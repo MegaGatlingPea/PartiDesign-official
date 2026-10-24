@@ -63,6 +63,7 @@ Tasks in [nucleic_acids.yaml](nucleic_acids.yaml):
 | Task | Request |
 | --- | --- |
 | `rna_fixture`, `dna_fixture` | RNA or DNA aptamer design around a protein receptor with specified hotspots. |
+| `rna_bind_protein`, `dna_bind_protein` | Design 20-nucleotide RNA or DNA chains with protein chain E as context and specified hotspots. |
 | `rna_bind_ligand`, `dna_bind_ligand` | RNA or DNA aptamer design around a retained small molecule. |
 | `rna_monomer`, `dna_monomer` | De novo RNA or DNA generation at several requested lengths. |
 | `rna_monomer_folding`, `dna_monomer_folding` | Structure generation for a fully specified nucleotide sequence. |

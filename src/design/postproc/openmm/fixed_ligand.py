@@ -98,11 +98,50 @@ def _match_retained(atoms, rows, molecule):
             observed[tuple(sorted((local[int(i)], local[int(j)])))] = int(order)
     if set(expected) != set(observed):
         raise PostprocessPreparationError("retained fixed CCD edge inventory is inconsistent")
+    normalize_aromatic = False
     for pair, order in expected.items():
         raw = observed[pair]
         if raw != order and not (order == 9 and raw in {5, 6, 7, 9}):
+            if order != 9 or raw not in {1, 2}:
+                raise PostprocessPreparationError("retained fixed CCD bond order is inconsistent")
+            normalize_aromatic = True
+    if normalize_aromatic:
+        # Retained atoms may omit part of a ring, so compare complete private
+        # CCD graphs rather than sanitizing the incomplete public fragment.
+        # Both graphs use the same trusted charges/H inventory: a wrong ring
+        # pattern must not become valid by changing protonation or implicit H.
+        try:
+            equivalent = (_normalized_complete_bonds(molecule, observed)
+                          == _normalized_complete_bonds(molecule, {}))
+        except (ValueError, RuntimeError):
+            equivalent = False
+        if not equivalent:
             raise PostprocessPreparationError("retained fixed CCD bond order is inconsistent")
     return local
+
+
+def _normalized_complete_bonds(molecule, retained_orders):
+    rw = Chem.RWMol()
+    for source in molecule.GetAtoms():
+        atom = Chem.Atom(source)
+        atom.SetIsAromatic(False)
+        atom.SetNumExplicitHs(int(source.GetTotalNumHs()))
+        atom.SetNoImplicit(True)
+        rw.AddAtom(atom)
+    types = {1: Chem.BondType.SINGLE, 2: Chem.BondType.DOUBLE,
+             3: Chem.BondType.TRIPLE, 5: Chem.BondType.AROMATIC,
+             6: Chem.BondType.AROMATIC, 7: Chem.BondType.AROMATIC,
+             9: Chem.BondType.AROMATIC}
+    for bond in molecule.GetBonds():
+        i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        pair = tuple(sorted((i, j)))
+        order = retained_orders.get(pair, _ORDER[bond.GetBondType()])
+        rw.AddBond(i, j, types[order])
+    normalized = rw.GetMol()
+    Chem.SanitizeMol(normalized)
+    return tuple(sorted((min(b.GetBeginAtomIdx(), b.GetEndAtomIdx()),
+                         max(b.GetBeginAtomIdx(), b.GetEndAtomIdx()), b.GetBondType())
+                        for b in normalized.GetBonds()))
 
 
 def _completion_coordinates(molecule, known):
