@@ -15,7 +15,7 @@ the runtime without importing that CLI.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 import json
 from pathlib import Path
@@ -862,6 +862,115 @@ def _radius(element: str) -> float:
     return _VDW_RADII_ANGSTROM.get(element[:1], 1.70)
 
 
+_PAIR_DISTANCE_BLOCK_SIZE = 4096
+_PAIR_DISTANCE_TILE_SIZE = 65536
+
+
+def _atom_radii(atoms: Any) -> np.ndarray:
+    elements = _annotation(atoms, "element", "")
+    atom_names = _annotation(atoms, "atom_name", "")
+    radii = np.empty(len(atoms), dtype=np.float64)
+    for row in range(len(atoms)):
+        element = _as_text(elements[row]).strip().upper()
+        if not element:
+            atom_name = _as_text(atom_names[row]).strip().upper()
+            element = atom_name[:2] if atom_name[:2] in _VDW_RADII_ANGSTROM else atom_name[:1]
+        radii[row] = _radius(element)
+    return radii
+
+
+def _atom_pair_geometry_blocks(
+    coords: np.ndarray,
+    radii: np.ndarray,
+    first_rows: np.ndarray,
+    second_rows: np.ndarray,
+    excluded_by_row: Mapping[int, np.ndarray],
+    *,
+    upper_triangle: bool = False,
+    contact_threshold_angstrom: float | None,
+    clash_overlap_threshold_angstrom: float,
+) -> Iterator[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+    if not len(first_rows) or not len(second_rows):
+        return
+    # A tile spans the full second axis so flattening keeps first/second pair
+    # order.  For a longer second axis, process one first row at a time.
+    first_block_size = max(1, _PAIR_DISTANCE_TILE_SIZE // len(second_rows)) if len(second_rows) <= _PAIR_DISTANCE_BLOCK_SIZE else 1
+    first_coords, second_coords = coords[first_rows], coords[second_rows]
+    first_radii, second_radii = radii[first_rows], radii[second_rows]
+
+    # Map sparse exclusions to second-axis positions once.  Position lists
+    # preserve duplicate CDR rows; a row-to-single-position map would not.
+    second_positions: dict[int, list[int]] = defaultdict(list)
+    for position, row in enumerate(second_rows):
+        second_positions[int(row)].append(position)
+    excluded_columns_by_row: dict[int, list[int]] = {}
+    excluded_columns: list[int] = []
+    excluded_offsets = [0]
+    for raw_first in first_rows:
+        first = int(raw_first)
+        if first not in excluded_columns_by_row:
+            excluded_columns_by_row[first] = [
+                position
+                for second in excluded_by_row.get(first, ())
+                for position in second_positions.get(int(second), ())
+            ]
+        excluded_columns.extend(excluded_columns_by_row[first])
+        excluded_offsets.append(len(excluded_columns))
+    excluded_columns_array = np.asarray(excluded_columns, dtype=np.intp)
+    excluded_first_positions = np.repeat(np.arange(len(first_rows)), np.diff(excluded_offsets))
+
+    roundoff = 8.0 * np.finfo(np.float64).eps
+    for first_start in range(0, len(first_rows), first_block_size):
+        first_stop = min(first_start + first_block_size, len(first_rows))
+        excluded_start, excluded_stop = excluded_offsets[first_start], excluded_offsets[first_stop]
+        tile_excluded_first = excluded_first_positions[excluded_start:excluded_stop] - first_start
+        tile_excluded_second = excluded_columns_array[excluded_start:excluded_stop]
+        start = first_start + 1 if upper_triangle else 0
+        for offset in range(start, len(second_rows), _PAIR_DISTANCE_BLOCK_SIZE):
+            stop = min(offset + _PAIR_DISTANCE_BLOCK_SIZE, len(second_rows))
+            in_block = (tile_excluded_second >= offset) & (tile_excluded_second < stop)
+            if upper_triangle or in_block.any():
+                if upper_triangle:
+                    allowed = np.arange(offset, stop)[None, :] > np.arange(first_start, first_stop)[:, None]
+                else:
+                    allowed = np.ones((first_stop - first_start, stop - offset), dtype=bool)
+                allowed[tile_excluded_first[in_block], tile_excluded_second[in_block] - offset] = False
+                first_positions, positions = np.nonzero(allowed)
+                if not len(first_positions):
+                    continue
+                first_positions += first_start
+                positions += offset
+                firsts, seconds = first_rows[first_positions], second_rows[positions]
+                delta = first_coords[first_positions] - second_coords[positions]
+                distances = np.sqrt(np.einsum("ij,ij->i", delta, delta))
+                radius_sums = first_radii[first_positions] + second_radii[positions]
+            else:
+                delta = first_coords[first_start:first_stop, None, :] - second_coords[None, offset:stop, :]
+                distances = np.sqrt(np.einsum("ijk,ijk->ij", delta, delta)).reshape(-1)
+                delta = delta.reshape(-1, 3)
+                radius_sums = (first_radii[first_start:first_stop, None] + second_radii[None, offset:stop]).reshape(-1)
+                firsts = np.repeat(first_rows[first_start:first_stop], stop - offset)
+                seconds = np.tile(second_rows[offset:stop], first_stop - first_start)
+            overlaps = radius_sums - distances
+
+            # The scalar norm uses a dot product, while the axis norm reduces
+            # squared components.  Recheck only threshold-adjacent pairs with
+            # that original scalar operation so its last-bit rounding cannot
+            # change an inclusive contact or a strict clash classification.
+            scale = np.maximum(1.0, np.maximum(radius_sums, distances))
+            near_threshold = np.abs(overlaps - clash_overlap_threshold_angstrom) <= roundoff * np.maximum(
+                scale, abs(clash_overlap_threshold_angstrom)
+            )
+            if contact_threshold_angstrom is not None:
+                near_threshold |= np.abs(distances - contact_threshold_angstrom) <= roundoff * np.maximum(
+                    scale, abs(contact_threshold_angstrom)
+                )
+            for index in np.flatnonzero(near_threshold):
+                distances[index] = float(np.linalg.norm(delta[index]))
+            overlaps = radius_sums - distances
+            yield firsts, seconds, distances, overlaps
+
+
 def _interface_metrics(
     candidate: Any,
     atoms: Any,
@@ -874,48 +983,65 @@ def _interface_metrics(
     valid = _coordinate_valid_mask(atoms)
     coords = np.asarray(atoms.coord, dtype=np.float64)
     exclusions = _bond_exclusions(candidate, atoms)
+    excluded_neighbours: dict[int, list[int]] = defaultdict(list)
+    for first, second in exclusions:
+        excluded_neighbours[first].append(second)
+        excluded_neighbours[second].append(first)
+    excluded_by_row = {row: np.asarray(neighbours, dtype=np.intp) for row, neighbours in excluded_neighbours.items()}
+    radii = _atom_radii(atoms)
     contact_pairs: list[tuple[int, int]] = []
     clash_pairs: list[tuple[int, int]] = []
     clash_penalty = 0.0
-    for binder_row in binder_rows:
-        if not valid[binder_row]:
-            continue
-        for antigen_row in antigen_rows:
-            if not valid[antigen_row]:
-                continue
-            pair = (min(int(binder_row), int(antigen_row)), max(int(binder_row), int(antigen_row)))
-            if pair in exclusions:
-                continue
-            distance = float(np.linalg.norm(coords[binder_row] - coords[antigen_row]))
-            if distance <= contact_threshold_angstrom:
-                contact_pairs.append(pair)
-            overlap = _radius(_element(atoms, int(binder_row))) + _radius(_element(atoms, int(antigen_row))) - distance
-            if overlap > clash_overlap_threshold_angstrom:
-                clash_pairs.append(pair)
-                clash_penalty += float((overlap - clash_overlap_threshold_angstrom) ** 2)
+    for firsts, seconds, distances, overlaps in _atom_pair_geometry_blocks(
+        coords,
+        radii,
+        binder_rows[valid[binder_rows]],
+        antigen_rows[valid[antigen_rows]],
+        excluded_by_row,
+        contact_threshold_angstrom=contact_threshold_angstrom,
+        clash_overlap_threshold_angstrom=clash_overlap_threshold_angstrom,
+    ):
+        contacting = distances <= contact_threshold_angstrom
+        contact_firsts, contact_seconds = firsts[contacting].tolist(), seconds[contacting].tolist()
+        contact_pairs.extend((min(first, second), max(first, second)) for first, second in zip(contact_firsts, contact_seconds))
+        clashing = overlaps > clash_overlap_threshold_angstrom
+        clash_firsts, clash_seconds = firsts[clashing].tolist(), seconds[clashing].tolist()
+        clash_pairs.extend(
+            (min(first, second), max(first, second))
+            for first, second in zip(clash_firsts, clash_seconds)
+        )
+        clash_penalty += float(np.sum((overlaps[clashing] - clash_overlap_threshold_angstrom) ** 2))
 
     # CDR clashes are intentionally a separate diagnostic.  They include H/L
     # pairs within CDRs, whereas the interface metrics above never do.
-    cdr_rows = [row for residue in residues if residue.role_id in {ROLE_HEAVY, ROLE_LIGHT} and residue.region_id in CDR_IDS for row in residue.rows]
+    cdr_rows = np.asarray(
+        [row for residue in residues if residue.role_id in {ROLE_HEAVY, ROLE_LIGHT} and residue.region_id in CDR_IDS for row in residue.rows],
+        dtype=np.intp,
+    )
+    cdr_rows = cdr_rows[valid[cdr_rows]]
     cdr_clash_pairs: list[tuple[int, int]] = []
     cdr_clash_penalty = 0.0
-    for position, first in enumerate(cdr_rows):
-        if not valid[first]:
-            continue
-        for second in cdr_rows[position + 1 :]:
-            if not valid[second]:
-                continue
-            pair = (min(int(first), int(second)), max(int(first), int(second)))
-            if pair in exclusions:
-                continue
-            distance = float(np.linalg.norm(coords[first] - coords[second]))
-            overlap = _radius(_element(atoms, int(first))) + _radius(_element(atoms, int(second))) - distance
-            if overlap > clash_overlap_threshold_angstrom:
-                cdr_clash_pairs.append(pair)
-                cdr_clash_penalty += float((overlap - clash_overlap_threshold_angstrom) ** 2)
+    for firsts, seconds, _, overlaps in _atom_pair_geometry_blocks(
+        coords,
+        radii,
+        cdr_rows,
+        cdr_rows,
+        excluded_by_row,
+        upper_triangle=True,
+        contact_threshold_angstrom=None,
+        clash_overlap_threshold_angstrom=clash_overlap_threshold_angstrom,
+    ):
+        clashing = overlaps > clash_overlap_threshold_angstrom
+        clash_firsts, clash_seconds = firsts[clashing].tolist(), seconds[clashing].tolist()
+        cdr_clash_pairs.extend(
+            (min(first, second), max(first, second))
+            for first, second in zip(clash_firsts, clash_seconds)
+        )
+        cdr_clash_penalty += float(np.sum((overlaps[clashing] - clash_overlap_threshold_angstrom) ** 2))
 
     chain_values = _annotation(atoms, "chain_id", "")
     res_values = _annotation(atoms, "res_id", 0)
+    mol_types = _annotation(atoms, "mol_type", "")
     residue_contact_pairs = sorted(
         {
             (
@@ -943,7 +1069,7 @@ def _interface_metrics(
     details = {
         "binder_chain_ids": sorted({_as_text(chain_values[row]) for row in binder_rows}),
         "antigen_chain_ids": sorted({_as_text(chain_values[row]) for row in antigen_rows}),
-        "antigen_modalities": sorted({_as_text(_annotation(atoms, "mol_type", "")[row]) for row in antigen_rows if _as_text(_annotation(atoms, "mol_type", "")[row])}),
+        "antigen_modalities": sorted({_as_text(mol_types[row]) for row in antigen_rows if _as_text(mol_types[row])}),
         "role_annotations_used": bool(role_available),
         "contact_residue_pairs": [list(pair) for pair in residue_contact_pairs],
     }
