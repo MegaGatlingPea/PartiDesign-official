@@ -21,6 +21,20 @@ several. Normal and antibody tasks must be selected in separate submissions.
 Use the same `--ckpt`, routing settings, and configuration overlays intended for
 [generation](design.md).
 
+Task checks accept the same execution request as generation:
+
+```bash
+partidesign check configs/examples/protein.yaml --task protein_fixture \
+  --execution-backend auto --compile auto
+```
+
+`--execution-backend auto|native|bioir`, `--compile auto|true|false`, and
+`--compile-strategy auto|dynamic|bucket` follow the
+[generation flag rules](design.md#execution-and-compilation). Ordinary checks
+and CPU loading do not probe GPU capabilities; automatic backend resolution
+remains pending. An explicit BioIR check inspects its dependencies and CPU task
+preparation, while GPU execution requires a real job.
+
 ## Check model resources
 
 Without a task file, select repeatable `--model NAME` or `--all`. With neither,
@@ -76,6 +90,8 @@ requested check. Native-generation smoke checks require the generation bundle.
 | `--ckpt FILE` | Select a compatible generation checkpoint for a task check. |
 | `--config FILE`, `--override KEY=VALUE` | Use the intended runtime settings for a task check. |
 | `--route`, `--route-ckpt` | Use the intended model-routing settings; see [routing](design.md#routing-and-task-selection). |
+| `--execution-backend auto\|native\|bioir` | Request an execution backend for a task check; default `auto`. |
+| `--compile auto\|true\|false`, `--compile-strategy auto\|dynamic\|bucket` | Use the intended task compilation settings; see [execution rules](design.md#execution-and-compilation). |
 | `--load`, `--smoke` | Opt into CPU loading or real execution as described above. |
 | `--msa off` | Check explicit AF3/AF3-LA resources without MSA databases. |
 
@@ -93,7 +109,7 @@ environment, bundled resources, generation bundle, and CPU checks.
 | Symptom | Check |
 | --- | --- |
 | `partidesign: command not found` | Run `conda activate partidesign` and confirm environment creation completed successfully. |
-| A package or backend path fails during installation | Run `conda env create -f partidesign.yaml` from the repository root; the environment definition installs relative source paths. Keep the supplied versions and bundled dependencies together. |
+| A package or backend path fails during installation | Run `conda env create -f partidesign_cu12.yaml` from the repository root; the environment definition installs relative source paths. Keep the supplied versions and bundled dependencies together. |
 | The native checkpoint is missing | Download the [release bundle](download.md#generation-weights-and-bundled-assets) to `ckpts/partidesign.ckpt` under the selected model root, or use `--ckpt` with a task check. The Drive release is downloaded separately from the CLI asset downloader. |
 | CUDA is unavailable | Check `nvidia-smi`, the activated Python/PyTorch environment, and `CUDA_VISIBLE_DEVICES`. CPU checks do not establish GPU availability. |
 | An example input cannot be found | Run from the repository root. Input paths resolve relative to the invocation directory; `--model-dir` does not change input/output resolution. |
@@ -111,8 +127,9 @@ nvidia-smi
 
 Before retrying generation, inspect the task with `design --show-config`. For a
 smaller trial, copy the YAML and reduce `sample_num` and its length plan.
-`--batch-size 1 --compile false` reduces batch and compilation demands without
-changing the requested sample count. Retry refinement of existing usable
-structures with [relax](relax.md), without regenerating them.
+With the default automatic backend, `--batch-size 1 --compile false` is an
+intentional native-eager diagnostic that preserves the requested sample count.
+Retry refinement of existing usable structures with [relax](relax.md), without
+regenerating them.
 
 [Command index](commands.md) · [Download assets](download.md) · [Generate designs](design.md)

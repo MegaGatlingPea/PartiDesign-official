@@ -14,6 +14,7 @@ class AdaptiveLayerNorm(torch.nn.Module):
         super().__init__()
         self.norm = torch.nn.LayerNorm(dim, elementwise_affine=False)
         self.norm_cond = torch.nn.LayerNorm(dim_cond)
+        self._bioir_backend = None
 
         self.to_gamma = torch.nn.Sequential(
             torch.nn.Linear(dim_cond, dim), torch.nn.Sigmoid()
@@ -31,6 +32,8 @@ class AdaptiveLayerNorm(torch.nn.Module):
         Returns:
             Representation after adaptive layer norm, shape as input representation [*, dim].
         """
+        if self._bioir_backend is not None and not self.training and not torch.is_grad_enabled():
+            return self._bioir_backend.adaln(self, x, cond, mask)
         normed = self.norm(x)
         normed_cond = self.norm_cond(cond)
 

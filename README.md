@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://cadd.zju.edu.cn/partidesign/"><img src="https://img.shields.io/badge/Web_Server-Access-5E81AC?style=flat-square" alt="Web Server"></a>
-  <a href="docs/README.md"><img src="https://img.shields.io/badge/User_Guide-Read-5E81AC?style=flat-square" alt="User Guide"></a>
+  <a href="docs/README.md"><img src="https://img.shields.io/badge/User_Guide-Read-B48EAD?style=flat-square" alt="User Guide"></a>
 </p>
 
 PartiDesign generates molecular structures together with their sequences or
@@ -37,7 +37,8 @@ identity in a shared space. Flow matching generates both together, and the
 decoder recovers identities and atom coordinates. **PartiScore**, an MDN network
 for molecular interface scoring, can score the resulting complexes.
 Optional workflow steps include Best-of-N ranking, OpenMM refinement, MPNN
-sequence redesign, refolding, and structural clustering.
+sequence redesign, refolding, protein-complex postfiltering, and structural
+clustering.
 
 ## Installation
 
@@ -53,10 +54,20 @@ Run environment creation from the repository root:
 git clone https://github.com/MegaGatlingPea/PartiDesign-official.git
 cd PartiDesign-official
 
-conda env create -f partidesign.yaml
+conda env create -f partidesign_cu12.yaml
 conda activate partidesign
 partidesign --help
 ```
+
+For the full CUDA 13 environment, including the optional BioIR backend, use
+`conda env create -f partidesign_cu13.yaml` and `conda activate partidesign_cu13`
+instead. It includes the same redesign, folding, MSA, chemistry, refinement and
+docking tools. CUDA 13 requires Linux x86_64, glibc 2.34 or newer, and NVIDIA
+driver 580 or newer. See the [environment guide](docs/environments.md).
+
+Both environment definitions support PyRosetta, DSSP, and DAlphaBall for CPU
+postfiltering of successful protein complexes. See the
+[postfilter installation guide](docs/postfilter.md#dependencies-and-execution-settings).
 
 The environment definition installs PartiDesign, bundled backend sources, and
 build dependencies. Check the active Python/PyTorch environment and GPU:
@@ -123,14 +134,14 @@ with `--task`, and edit its inputs and conditions using the
 ### Run inference
 
 
-Run the examples from the repository root with the `partidesign` environment
-active. The `protein_fixture` task requests five proteins of length 40, with
-scoring and refinement disabled. Preview the configuration without loading weights:
+Run the examples from the repository root with your selected PartiDesign
+environment active. The `protein_fixture` task requests five proteins of length
+40, with scoring and refinement disabled. Preview the configuration without loading weights:
 
 ```bash
 partidesign design configs/examples/protein.yaml \
   --task protein_fixture --run-name first_run \
-  --batch-size 1 --compile false --show-config
+  --batch-size 1 --show-config
 ```
 
 After supplying the generation checkpoint, check the task and generate:
@@ -140,8 +151,15 @@ partidesign check configs/examples/protein.yaml --task protein_fixture
 
 CUDA_VISIBLE_DEVICES=0 partidesign design configs/examples/protein.yaml \
   --task protein_fixture --run-name first_run \
-  --batch-size 1 --compile false
+  --batch-size 1
 ```
+
+Execution and compilation default to `auto`. A submission with at least 100
+expanded candidates uses native dynamic compilation. Smaller submissions use
+BioIR when usable, or native eager execution when it is unavailable. BioIR uses
+CUDA Graphs for eligible inputs and its eager kernels otherwise. The count
+includes selected tasks, length plans, `sample_num`, and Best-of-N replicas;
+batch size does not change it. See [execution settings](docs/design.md#execution-and-compilation).
 
 ### Output format
 
@@ -170,12 +188,15 @@ and edit its inputs, sample count, and conditions using the
 | `--run-name NAME` | Write under `inference/NAME/` |
 | `--out PATH` | Set an explicit output root |
 | `--batch-size N` | Set the generation batch size |
-| `--compile true\|false` | Enable or disable model compilation |
+| `--execution-backend auto\|native\|bioir` | Select execution; default `auto` |
+| `--compile auto\|true\|false` | Select native compilation; default `auto` |
+| `--compile-strategy auto\|dynamic\|bucket` | Select automatic, dynamic, or bucket compilation |
 | `--show-config` | Print resolved settings without generating |
 
 The [generation guide](docs/design.md) covers all options. Separate guides explain
 [scoring](docs/score.md), [refinement](docs/relax.md),
-[validation](docs/validate.md), and [clustering](docs/cluster.md).
+[validation](docs/validate.md), [postfiltering](docs/postfilter.md), and
+[clustering](docs/cluster.md).
 Normal and antibody tasks should be submitted separately.
 
 ## Usage
@@ -295,6 +316,7 @@ binding rates or end-to-end throughput.
 | [Task YAML](docs/task_schema.md) | Task fields, molecules, lengths, constraints, and antibody CDRs |
 | [Commands](docs/commands.md) | A separate reference page for each CLI command |
 | [Validation](docs/validate.md) | Methods, MPNN sequence sources, passing criteria, reports, reuse, and reruns |
+| [Postfilter](docs/postfilter.md) | Rosetta relaxation, BC1/BC2 protein metrics, filtering and recovery for successful refolds |
 | [Example index](configs/examples/README.md) | Named runnable tasks by modality and topology |
 | [Performance](docs/performance.md) | Complete budget tables, definitions, and evaluation scope |
 
@@ -305,8 +327,9 @@ contain the task and protocol definitions used for evaluation.
 ## Agent skill
 
 The **[PartiDesign MilkyFrog skill](.agents/skills/partidesign-milkyfrog/SKILL.md)**
-helps with task YAML, generation, scoring, refinement, validation, clustering,
-troubleshooting, and usage questions. In Codex opened from this checkout,
+helps with task YAML, generation, scoring, refinement, validation, protein-complex
+postfiltering, clustering, troubleshooting, and usage questions. In Codex opened
+from this checkout,
 invoke it by name, for example:
 
 ```text

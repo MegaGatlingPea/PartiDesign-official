@@ -21,6 +21,7 @@ import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
+from functools import partial
 from pathlib import Path
 from partidesign.paths import community_asset
 from typing import Any, TypeAlias
@@ -40,6 +41,8 @@ from .assembly import (
 )
 from .batch import PredictBatch, collate_compiled_samples
 from .compiler import compile_request
+from .compile_policy import active_token_buckets
+from .execution_policy import apply_execution_policy, resolve_execution_policy
 from .preflight import (
     PreflightKey, source_interfaces, preflight_key, unique_preflight_requests,
 )
@@ -2343,12 +2346,12 @@ class _ExactShardBatchSampler(Sampler[list[int]]):
 
 
 def _collate_prepared(
-    items: Sequence[PreparedItem],
+    items: Sequence[PreparedItem], *, token_buckets: Sequence[int] | None = None,
 ) -> tuple[PredictBatch | None, tuple[SampleFailure, ...]]:
     compiled = tuple(item for item in items if isinstance(item, CompiledSample))
     failures = tuple(item for item in items if isinstance(item, SampleFailure))
     return (
-        collate_compiled_samples(compiled) if compiled else None,
+        collate_compiled_samples(compiled, token_buckets=token_buckets) if compiled else None,
         failures,
     )
 
@@ -2409,8 +2412,10 @@ class _StandalonePredictModule(LightningModule):
         fold_reward_runner: FoldRewardRunner,
         global_seed: int,
         scorer_config: Mapping[str, Any] | None = None,
+        token_buckets: Sequence[int] | None = None,
     ) -> None:
         super().__init__()
+        self.token_buckets = None if token_buckets is None else tuple(token_buckets)
         self.scorer_config = dict(scorer_config or {})
         self._partiscore = None
         self._local_score_records: dict[tuple[str, str], dict[str, Any]] = {}
@@ -3131,7 +3136,9 @@ class _StandalonePredictModule(LightningModule):
         chunk_size = len(specs) if configured_chunk is None else int(configured_chunk)
         for start in range(0, len(specs), chunk_size):
             chunk = specs[start : start + chunk_size]
-            repeated = collate_compiled_samples([compiled for compiled, _ in chunk])
+            repeated = collate_compiled_samples(
+                [compiled for compiled, _ in chunk], token_buckets=self.token_buckets,
+            )
             repeated = _move_predict_batch(repeated, self.device)
             terminal_results = tuple(
                 self.terminal_candidate_factory(
@@ -3229,7 +3236,7 @@ class _StandalonePredictModule(LightningModule):
                     lengths,
                 )
             )
-            single = collate_compiled_samples((compiled,))
+            single = collate_compiled_samples((compiled,), token_buckets=self.token_buckets)
             single = _move_predict_batch(single, self.device)
             terminal_results = tuple(
                 self.fk_candidate_factory(
@@ -5359,6 +5366,15 @@ def run_runtime(
             f"{resolved_context_mode!r}"
         )
     config.model.context_constraint_mode = resolved_context_mode
+    context_preflight_elapsed = time.perf_counter() - context_preflight_started
+    execution_policy_started = time.perf_counter()
+    execution_policy = resolve_execution_policy(
+        OmegaConf.to_container(config.model, resolve=True), requests,
+        OmegaConf.to_container(config.search, resolve=True),
+    )
+    apply_execution_policy(config, execution_policy)
+    execution_backend = execution_policy.resolved_backend
+    execution_policy_elapsed = time.perf_counter() - execution_policy_started
 
     launcher_rank = _launcher_local_rank()
     launcher_world_size = _launcher_world_size()
@@ -5379,8 +5395,10 @@ def run_runtime(
                     output_dir,
                     task_names=task_names,
                 )
+                logger.info("FM execution policy: %s", execution_policy.metadata())
+                logger.info("FM execution policy startup completed in %.3fs", execution_policy_elapsed)
                 logger.info("runtime validation/preflight completed in %.3fs", time.perf_counter() - runtime_started)
-                logger.info("checkpoint context constraint preflight completed in %.3fs", time.perf_counter() - context_preflight_started)
+                logger.info("checkpoint context constraint preflight completed in %.3fs", context_preflight_elapsed)
                 logger.info("output leaf initialization completed in %.3fs", time.perf_counter() - output_init_started)
             except Exception as error:
                 if launcher_world_size > 1:
@@ -5458,10 +5476,17 @@ def run_runtime(
                 logger.info("FM inference optimization: %s", decision)
                 logger.info("FM optimization configuration completed in %.3fs", time.perf_counter() - optimization_started)
         compile_started = time.perf_counter()
-        model = model_compiler(
-            model,
-            OmegaConf.to_container(config.model.compile, resolve=True),
-        )
+        compile_config = OmegaConf.to_container(config.model.compile, resolve=True)
+        token_buckets = active_token_buckets(compile_config)
+        if execution_backend == "bioir":
+            from ..model.bioir import configure_bioir, bioir_status
+            model = configure_bioir(
+                model, OmegaConf.to_container(config.model.bioir, resolve=True),
+            )
+            if logger is not None:
+                logger.info("FM execution backend BioIR: %s", bioir_status(model))
+        else:
+            model = model_compiler(model, compile_config)
         if logger is not None:
             compiler_options = getattr(model, "_inference_compiler_options", None)
             if compiler_options:
@@ -5488,6 +5513,7 @@ def run_runtime(
             postprocess_enabled=postprocess_enabled,
             fold_reward_runner=fold_reward_runner,
             global_seed=int(config.seed),
+            token_buckets=token_buckets,
         )
         dataset = _CompiledRequestDataset(
             requests,
@@ -5503,7 +5529,7 @@ def run_runtime(
                 len(dataset), int(config.batch_size)
             ),
             num_workers=int(config.num_workers),
-            collate_fn=_collate_prepared,
+            collate_fn=partial(_collate_prepared, token_buckets=token_buckets),
             worker_init_fn=pl_worker_init_function,
             persistent_workers=bool(int(config.num_workers) > 0),
             pin_memory=bool(config.pin_memory),
@@ -5517,6 +5543,9 @@ def run_runtime(
             dataloaders=loader,
             return_predictions=False,
         )
+        if execution_backend == "bioir" and logger is not None:
+            from ..model.bioir import bioir_status
+            logger.info("FM BioIR execution statistics: %s", bioir_status(module.inference_model))
         if module.deferred_partiscore_reward:
             rank, world_size = _distributed_rank_world()
             offload_error = None

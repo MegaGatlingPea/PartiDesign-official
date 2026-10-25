@@ -373,4 +373,20 @@ CPU, alone, with original only; neither `--score` nor `--recompute-metrics` is s
 RDKit validity, docking success, QED > 0.25, and Vina < −8.18 kcal/mol. This evaluates generated
 pocket ligands; it is not the general fixed-identity docking workflow.
 
+## Optional protein-complex postfiltering
+
+After named validation criteria pass, [postfilter](postfilter.md) can relax and
+screen the actual successful protein–protein complex refolds on CPU, including
+eligible antibody–antigen assemblies. It uses saved validation decisions,
+`.state/` plans, sequence records, and refold files; retain them for the handoff.
+Explicit peptide tasks, nucleic acids, and ligands are outside this workflow.
+
+```bash
+partidesign postfilter inference/first_run --task protein_fixture --plan
+```
+
+Remove `--plan` only for requested execution. Postfiltering adds no new folding
+predictions and preserves upstream results. It is independent of
+[clustering](cluster.md), which compares original generated backbones.
+
 [Back to the command guide](commands.md)

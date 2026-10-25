@@ -1,0 +1,12 @@
+seed: 2026
+workers: 1
+threads: 1
+timeout: 1800
+scorefunction: beta_nov16
+dalphaball: null
+dssp: null
+path_mappings: {}
+relax:
+  max_iter: 200
+  repeats: 1
+  constrain_start: true

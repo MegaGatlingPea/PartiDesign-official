@@ -611,12 +611,18 @@ def polymer_template_bond_is_supported(atoms: struc.AtomArray, row_i: int, row_j
     return not (np.isfinite(distance) and distance > 2.0)
 
 
-def _polymer_template_bonds(atoms: struc.AtomArray) -> list[tuple[int, int, int]]:
+def _polymer_template_bonds(atoms: struc.AtomArray, *, canonical_polymer_order: bool = False) -> list[tuple[int, int, int]]:
     result: list[tuple[int, int, int]] = []
     for asym_uid in np.unique(atoms.asym_uid):
         indices = np.where((atoms.asym_uid == asym_uid) & (atoms.mol_type != "ligand"))[0]
         if not len(indices):
             continue
+        if canonical_polymer_order:
+            # Biotite needs contiguous residues in the private postfilter view.
+            grouped_indices = {}
+            for index in indices:
+                grouped_indices.setdefault(int(atoms.residue_uid[index]), []).append(int(index))
+            indices = np.asarray([index for group in grouped_indices.values() for index in group], dtype=np.int64)
         subset = atoms[indices]
         try:
             bonds = struc.connect_via_residue_names(subset, inter_residue=True)
@@ -874,6 +880,7 @@ def _read_cif_rows(
     *,
     parent_sources: Mapping[str, str | None] | None = None,
     declared_polymer_chain_modalities: Mapping[str, str] | None = None,
+    canonical_polymer_order: bool = False,
 ) -> tuple[
     struc.AtomArray,
     Any,
@@ -993,6 +1000,23 @@ def _read_cif_rows(
     rows = _restore_source_atom_order(
         rows, key="source_atom_id", where="CIF atom_site"
     )
+    if canonical_polymer_order:
+        # Atom IDs identify rows, while label_seq_id defines polymer order.
+        # Retain the IDs and coordinates even when a producer renumbers rows.
+        by_asym: dict[object, list[dict[str, Any]]] = {}
+        for row in rows:
+            by_asym.setdefault(row["asym_key"], []).append(row)
+        rows = []
+        for members in by_asym.values():
+            if all(row["mol_type"] != "ligand" for row in members):
+                try:
+                    positions = [int(row["label_seq_id"]) for row in members]
+                except (TypeError, ValueError) as exc:
+                    raise DesignInputError("canonical polymer order requires integral label_seq_id") from exc
+                if any(position <= 0 for position in positions):
+                    raise DesignInputError("canonical polymer order requires positive label_seq_id")
+                members = [row for _, row in sorted(zip(positions, members), key=lambda item: item[0])]
+            rows.extend(members)
     return _rows_to_atom_array(rows, use_label_seq=True), block, rows, altloc_ledger
 
 
@@ -1856,6 +1880,7 @@ class StructureReader:
         strict_type_bond_chains: frozenset[str] = frozenset(),
         polymer_parent_sources: Mapping[str, str | None] | None = None,
         declared_polymer_chain_modalities: Mapping[str, str] | None = None,
+        canonical_polymer_order: bool = False,
     ) -> struc.AtomArray:
         source = Path(path).expanduser().resolve()
         if not source.is_file():
@@ -1886,6 +1911,7 @@ class StructureReader:
                     source,
                     parent_sources=parent_sources,
                     declared_polymer_chain_modalities=declared_polymer_chain_modalities,
+                    canonical_polymer_order=canonical_polymer_order,
                 )
                 file_bonds = _cif_component_bonds(
                     block, atoms
@@ -1912,7 +1938,7 @@ class StructureReader:
         mark_source_breaks(atoms, file_bonds, complete=complete)
         atoms.bonds = _merge_template_and_declared_bonds(
             len(atoms),
-            _polymer_template_bonds(atoms), file_bonds,
+            _polymer_template_bonds(atoms, canonical_polymer_order=canonical_polymer_order), file_bonds,
         )
         atoms.source_graph_complete[:] = complete or suffix == ".pdb"
         validate_atom_array(atoms, phase="identity")
@@ -1926,6 +1952,7 @@ def read_structure(
     strict_type_bond_chains: frozenset[str] = frozenset(),
     polymer_parent_sources: Mapping[str, str | None] | None = None,
     declared_polymer_chain_modalities: Mapping[str, str] | None = None,
+    canonical_polymer_order: bool = False,
 ) -> struc.AtomArray:
     """Read one standalone inference structure under the controlled ABI."""
 
@@ -1934,4 +1961,5 @@ def read_structure(
         strict_type_bond_chains=strict_type_bond_chains,
         polymer_parent_sources=polymer_parent_sources,
         declared_polymer_chain_modalities=declared_polymer_chain_modalities,
+        canonical_polymer_order=canonical_polymer_order,
     )

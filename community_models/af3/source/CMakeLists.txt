@@ -67,35 +67,37 @@ set(ABSL_PROPAGATE_CXX_STD ON)
 # Remove support for scan deps, which is only useful when using C++ modules.
 unset(CMAKE_CXX_SCANDEP_SOURCE)
 
+# Commit-pinned archives avoid cloning complete upstream Git histories.
+# SHA256 checks keep the source content fixed for fresh environment builds.
 FetchContent_Declare(
   abseil-cpp
-  GIT_REPOSITORY https://github.com/abseil/abseil-cpp
-  GIT_TAG d7aaad83b488fd62bd51c81ecf16cd938532cc0a # 20240116.2
+  URL https://codeload.github.com/abseil/abseil-cpp/tar.gz/d7aaad83b488fd62bd51c81ecf16cd938532cc0a
+  URL_HASH SHA256=3a1f642ea21f45b220a01708d06b46042a3b750f31772b52371d6268f02d5bbc # 20240116.2
   EXCLUDE_FROM_ALL)
 
 FetchContent_Declare(
   pybind11
-  GIT_REPOSITORY https://github.com/pybind/pybind11
-  GIT_TAG 2e0815278cb899b20870a67ca8205996ef47e70f # v2.12.0
+  URL https://codeload.github.com/pybind/pybind11/tar.gz/2e0815278cb899b20870a67ca8205996ef47e70f
+  URL_HASH SHA256=a50dfa85eda59b4c95180dd06baec89437ee1bc28ba92c5d9d1f853738ddd490 # v2.12.0
   EXCLUDE_FROM_ALL)
 
 FetchContent_Declare(
   pybind11_abseil
-  GIT_REPOSITORY https://github.com/pybind/pybind11_abseil
-  GIT_TAG bddf30141f9fec8e577f515313caec45f559d319 # HEAD @ 2024-08-07
+  URL https://codeload.github.com/pybind/pybind11_abseil/tar.gz/bddf30141f9fec8e577f515313caec45f559d319
+  URL_HASH SHA256=a92e5faba0397eb4a6ba79317ab57de7891dc69ca8848cf2326abe28d5179c8f # HEAD @ 2024-08-07
   EXCLUDE_FROM_ALL)
 
 FetchContent_Declare(
   cifpp
-  GIT_REPOSITORY https://github.com/pdb-redo/libcifpp
-  GIT_TAG ac98531a2fc8daf21131faa0c3d73766efa46180 # v7.0.3
+  URL https://codeload.github.com/pdb-redo/libcifpp/tar.gz/ac98531a2fc8daf21131faa0c3d73766efa46180
+  URL_HASH SHA256=5fa208efa5aa7890b2a31ac1743ffb4dfc8bdc2605f590cc4639cc8922b18890 # v7.0.3
   # Don't `EXCLUDE_FROM_ALL` as necessary for build_data.
 )
 
 FetchContent_Declare(
   dssp
-  GIT_REPOSITORY https://github.com/PDB-REDO/dssp
-  GIT_TAG 57560472b4260dc41f457706bc45fc6ef0bc0f10 # v4.4.7
+  URL https://codeload.github.com/PDB-REDO/dssp/tar.gz/57560472b4260dc41f457706bc45fc6ef0bc0f10
+  URL_HASH SHA256=6cf3068527117e9a613728633a62f489af8890d5c30e7db919183b470e972258 # v4.4.7
   EXCLUDE_FROM_ALL)
 
 FetchContent_MakeAvailable(pybind11 abseil-cpp pybind11_abseil cifpp dssp)

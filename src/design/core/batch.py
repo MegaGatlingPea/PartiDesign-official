@@ -25,6 +25,7 @@ from ..utils.atoms import (
     validate_atom_array,
 )
 from .model_tokens import ModelTokenLayout, build_model_token_layout
+from .compile_policy import token_bucket_size
 from .records import CompiledSample, DesignSampleError, ExpandedRequest
 from .modified_polymer import proxy_atom_rows, proxy_inventory
 from ..model.constants import normalise_atom_name
@@ -850,7 +851,10 @@ def validate_canonical_sample(sample: Mapping[str, Any]) -> None:
         raise ValueError("bond condition violates the four-state edge/order ABI")
 
 
-def dense_pad_canonical_collate(samples: Sequence[Mapping[str, Any]], *, pad_max_size: int | None = None) -> dict[str, Any]:
+def dense_pad_canonical_collate(
+    samples: Sequence[Mapping[str, Any]], *, pad_max_size: int | None = None,
+    token_buckets: Sequence[int] | None = None,
+) -> dict[str, Any]:
     if not samples:
         raise ValueError("dense canonical collate requires at least one sample")
     for sample in samples:
@@ -860,6 +864,10 @@ def dense_pad_canonical_collate(samples: Sequence[Mapping[str, Any]], *, pad_max
     specs = _sample_field_specs(samples[0])
     lengths = [int(sample["token_mask"].shape[0]) for sample in samples]
     maximum = max(lengths)
+    if token_buckets is not None:
+        if pad_max_size is not None:
+            raise ValueError("pad_max_size and token_buckets are mutually exclusive")
+        maximum = token_bucket_size(maximum, token_buckets)
     if pad_max_size is not None:
         if int(pad_max_size) < maximum:
             raise ValueError("canonical truncation is forbidden")
@@ -940,9 +948,14 @@ def _cyclic_periods(compiled: CompiledSample, canonical: Mapping[str, Any]) -> t
     return periods
 
 
-def collate_compiled_samples(samples: Sequence[CompiledSample], *, pad_max_size: int | None = None) -> PredictBatch:
+def collate_compiled_samples(
+    samples: Sequence[CompiledSample], *, pad_max_size: int | None = None,
+    token_buckets: Sequence[int] | None = None,
+) -> PredictBatch:
     canonical_samples = [compile_canonical_sample(sample) for sample in samples]
-    canonical = dense_pad_canonical_collate(canonical_samples, pad_max_size=pad_max_size)
+    canonical = dense_pad_canonical_collate(
+        canonical_samples, pad_max_size=pad_max_size, token_buckets=token_buckets,
+    )
     # Runtime-only metadata: keep the frozen training canonical schema unchanged.
     # Always attach the tensor so changing cyclic content does not change keys
     # seen by the compiled FM network. AE features deliberately ignore it.

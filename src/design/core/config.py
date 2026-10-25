@@ -14,6 +14,7 @@ from omegaconf.errors import OmegaConfBaseException
 
 from ..model.solver import validate_sampling_config
 from .records import DesignConfigError
+from .compile_policy import validate_bucket_compile_policy, validate_compile_enabled
 from .omission import normalize_rm_token_type
 from ..rewards.interface import normalize_fixed_interface
 from ..rewards.aa_omission import resolve_rm_aa
@@ -218,7 +219,20 @@ def _resolve_path(value: Any, invocation_dir: Path, where: str) -> str | None:
 
 
 def _validate_model(model: Mapping[str, Any], invocation_dir: Path) -> None:
-    _closed(model, {"checkpoint", "precision", "context_constraint_mode", "compile", "optimization"}, "model")
+    _closed(model, {"checkpoint", "precision", "context_constraint_mode", "compile", "optimization", "execution_backend", "bioir"}, "model")
+    execution_backend = model.get("execution_backend", "auto")
+    if not isinstance(execution_backend, str) or execution_backend not in {"auto", "native", "bioir"}:
+        raise DesignConfigError("model.execution_backend must be auto, native, or bioir")
+    model["execution_backend"] = execution_backend
+    bioir = {"cuda_graph": True, "max_graphs": 4, "max_tokens": 512}
+    if "bioir" in model:
+        bioir.update(_mapping(model["bioir"], "model.bioir"))
+    _closed(bioir, {"cuda_graph", "max_graphs", "max_tokens"}, "model.bioir")
+    if type(bioir["cuda_graph"]) is not bool:
+        raise DesignConfigError("model.bioir.cuda_graph must be boolean")
+    for key in ("max_graphs", "max_tokens"):
+        _int(bioir[key], "model.bioir." + key, minimum=1)
+    model["bioir"] = bioir
     if model.get("precision") != "bf16-mixed":
         raise DesignConfigError("model.precision must be 'bf16-mixed'")
     context_constraint_mode = model.get("context_constraint_mode")
@@ -231,15 +245,21 @@ def _validate_model(model: Mapping[str, Any], invocation_dir: Path) -> None:
             "model.context_constraint_mode must be auto, rigid, or flex"
         )
     compile_cfg = _mapping(model.get("compile"), "model.compile")
-    _closed(compile_cfg, {"enabled", "backend", "mode", "dynamic", "fullgraph"}, "model.compile")
-    for key in ("enabled", "dynamic", "fullgraph"):
+    _closed(compile_cfg, {"enabled", "backend", "mode", "dynamic", "fullgraph", "token_buckets"}, "model.compile")
+    validate_compile_enabled(compile_cfg.get("enabled"))
+    for key in ("dynamic", "fullgraph"):
         if not isinstance(compile_cfg.get(key), bool):
             raise DesignConfigError(f"model.compile.{key} must be boolean")
     if compile_cfg.get("backend") != "inductor" or compile_cfg.get("mode") != "default":
         raise DesignConfigError("model.compile backend/mode must be inductor/default")
-    if compile_cfg.get("dynamic") is not True or compile_cfg.get("fullgraph") is not True:
+    if compile_cfg.get("fullgraph") is not True:
+        raise DesignConfigError("model.compile.fullgraph is fixed to true")
+    validate_bucket_compile_policy(compile_cfg)
+    if execution_backend == "bioir" and (
+        compile_cfg["enabled"] is True or compile_cfg.get("token_buckets") is not None
+    ):
         raise DesignConfigError(
-            "model.compile dynamic/fullgraph are fixed to true/true"
+            "BioIR requires model.compile.enabled=false or auto, and token_buckets=null"
         )
     from ..model.optimization import DEFAULT_OPTIMIZATION, validate_optimization_config
     # Hydra ++ overrides may supply a single optional field. Keep defaults in

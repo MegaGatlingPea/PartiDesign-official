@@ -72,3 +72,6 @@ dist/
 
 # User-created notebook inputs and task configurations.
 /configs/customs/
+
+# Local acceptance tests are not part of the published repository.
+/tests/

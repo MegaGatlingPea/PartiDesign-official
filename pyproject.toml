@@ -36,7 +36,7 @@ dependencies = [
   "omegaconf>=2.3,<3",
   "networkx>=3,<4",
   "rdkit>=2026.3,<2027",
-  "torch==2.9.1",
+  "torch>=2.9.1,<2.12",
   "lightning>=2.5,<2.6",
   "pytorch-lightning>=2.5,<2.6",
   "jaxtyping>=0.3,<0.4",
@@ -90,6 +90,17 @@ community-cuda = [
   "jax-cuda12-plugin==0.10.2; platform_system == \"Linux\"",
   "nvidia-cuda-nvcc-cu12==12.8.93; platform_system == \"Linux\"",
 ]
+# Full CUDA 13 environment uses the same JAX API with CUDA 13 plugins.
+# Choose one CUDA extra; do not install both plugin families together.
+community-cu13 = [
+  "jax[cuda13]==0.10.2; platform_system == \"Linux\"",
+  "jaxlib==0.10.2; platform_system == \"Linux\"",
+  "jax-cuda13-pjrt==0.10.2; platform_system == \"Linux\"",
+  "jax-cuda13-plugin[with-cuda]==0.10.2; platform_system == \"Linux\"",
+  "nvidia-cuda-nvcc==13.0.88; platform_system == \"Linux\"",
+  "nvidia-nvvm==13.0.88; platform_system == \"Linux\"",
+  "nvidia-cuda-crt==13.0.88; platform_system == \"Linux\"",
+]
 # OpenFF and AmberTools are conda-provisioned in the tested environment and
 # intentionally omitted here because they are not reliable PyPI requirements.
 # Install those native tools separately for refinement.
@@ -107,7 +118,3 @@ docking = [
 
 [project.scripts]
 partidesign = "partidesign.cli:main"
-
-[tool.pytest.ini_options]
-addopts = "-p no:cacheprovider"
-testpaths = [".cache/tests"]

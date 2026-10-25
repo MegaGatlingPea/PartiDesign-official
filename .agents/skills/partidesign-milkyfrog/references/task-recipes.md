@@ -133,7 +133,7 @@ From `<repo>`, this real fixture preview requests five length-40 proteins:
 ```bash
 partidesign design configs/examples/protein.yaml \
   --task protein_fixture --run-name protein_trial \
-  --batch-size 1 --compile false --show-config
+  --batch-size 1 --show-config
 
 partidesign check configs/examples/protein.yaml --task protein_fixture
 ```

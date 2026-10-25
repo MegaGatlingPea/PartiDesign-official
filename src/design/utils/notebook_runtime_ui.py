@@ -89,8 +89,11 @@ class NotebookRuntimePanel:
         self.gpu_ids = text("0", "GPU IDs", placeholder="Comma-separated GPU IDs")
         self.cpu_budget = self._int(8, "CPU budget")
         self.resource_note = editor._info("")
-        self.compile_enabled = check("Compile model (optional)")
-        self.compile_help = editor._help("Off by default. Large jobs can enable compilation: the first prediction takes longer to compile, then later samples can run faster.")
+        self.compile_enabled = W.Dropdown(
+            options=[("Auto", "auto"), ("On (native)", "true"), ("Off (native)", "false")],
+            value="auto", description="Compilation",
+        )
+        self.compile_help = editor._help("Auto: below 100 expanded candidates, use BioIR with CUDA Graph when usable, otherwise native eager. At 100 or more, use native dynamic compilation. On/Off explicitly select native compilation/eager execution.")
         self.batch_size = self._int(16, "Batch size")
         self.data_workers = self._int(4, "Data workers")
         self.output_hint = editor._info("")

@@ -412,7 +412,7 @@ def _native_smoke(runner, args) -> str:
                              trainer_factory=one_device_trainer, **options)
         if result.failed or result.postprocess_failed or result.score_failed:
             raise RuntimeError(f"smoke failed: generated={result.failed}, packing={result.postprocess_failed}, scoring={result.score_failed}")
-        return ("400-step " + ("compiled" if runner.config.model.compile.enabled else "eager")
+        return ("400-step " + ("compiled" if runner.config.model.compile.enabled is True else "eager")
                 + " smoke on one device; " + _readback(output, expected))
 
 
@@ -436,6 +436,17 @@ def _run_check(args, root: Path, report: Report) -> int:
         if not report.attempt("task-configuration", lambda: _runner_summary(args, root, holders)):
             return 1
         runner = holders[0]
+        report.emit("execution-policy", "PASS",
+                    "requested backend=" + str(runner.config.model.execution_backend)
+                    + ", compile=" + str(runner.config.model.compile.enabled)
+                    + "; runtime auto selection is deferred until generation")
+        if runner.config.model.get("execution_backend", "auto") == "bioir":
+            def bioir_environment():
+                from src.design.model.bioir import require_bioir
+                require_bioir()
+                return "BioIR dependency/API imports passed; GPU kernels and model numerics require a design run"
+            if not report.attempt("bioir-environment", bioir_environment):
+                return 1
         route_holder = []
         def route_summary():
             ccd = None if runner.config.ccd_path is None else Path(str(runner.config.ccd_path))
@@ -522,7 +533,9 @@ def _runner_summary(args, root, holders) -> str:
     from .cli import build_design_runner
     runner = build_design_runner(args, root)
     holders.append(runner)
-    return f"{len(runner.tasks)} selected tasks, {len(runner.requests)} expanded requests"
+    from src.design.core.execution_policy import count_fm_samples
+    fm_samples = count_fm_samples(runner.requests, runner.config.search)
+    return f"{len(runner.tasks)} selected tasks, {len(runner.requests)} expanded requests, {fm_samples} FM samples"
 
 
 def _file_summary(path: Path) -> str:
@@ -533,7 +546,8 @@ def _file_summary(path: Path) -> str:
 def _target_summary(runner, holders) -> str:
     targets = _required_task_targets(runner)
     holders.append(targets)
-    return ", ".join(targets) if targets else "native generation only"
+    generation = str(runner.config.model.get("execution_backend", "auto")) + " generation"
+    return ", ".join([generation, *targets])
 
 
 def _postprocess_resources(runner) -> str:

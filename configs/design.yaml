@@ -25,12 +25,18 @@ model:
   checkpoint: ./ckpts/partidesign.ckpt
   precision: bf16-mixed
   context_constraint_mode: auto
+  execution_backend: auto
+  bioir:
+    cuda_graph: true
+    max_graphs: 4
+    max_tokens: 512
   compile:
-    enabled: true
+    enabled: auto
     backend: inductor
     mode: default
     dynamic: true
     fullgraph: true
+    token_buckets: null
 
 sampling:
   args:

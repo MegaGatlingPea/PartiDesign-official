@@ -9,3 +9,6 @@ configs/examples/structures/nuc_design/dna_backbone.pdb whitespace=-blank-at-eol
 configs/examples/structures/nuc_design/nuc_bind_ligand.cif whitespace=-blank-at-eol,-blank-at-eof
 configs/examples/structures/nuc_design/nuc_bind_prot.pdb whitespace=-blank-at-eol,-blank-at-eof
 configs/examples/structures/nuc_design/rna_backbone_motif.pdb whitespace=-blank-at-eol,-blank-at-eof
+
+# Preserve upstream DAlphaBall source formatting.
+community_models/rosetta/source/dalphaball/** whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

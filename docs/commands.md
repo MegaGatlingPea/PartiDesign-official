@@ -1,8 +1,9 @@
 # Command reference
 
-Run commands from the repository root after activating the `partidesign`
-environment. A [task YAML](task_schema.md) describes the molecules and conditions;
-command options select inputs, model assets, and execution settings.
+Run commands from the repository root after activating `partidesign` (CUDA 12)
+or `partidesign_cu13` (CUDA 13). A [task YAML](task_schema.md) describes the
+molecules and conditions; command options select inputs, model assets, and
+execution settings.
 
 ```bash
 partidesign --help
@@ -17,6 +18,7 @@ partidesign <command> --help
 | [`partidesign score`](score.md) | PartiScore interface scoring of saved structures |
 | [`partidesign relax`](relax.md) | OpenMM refinement of existing designs |
 | **[`partidesign validate`](validate.md)** | **Sequence redesign, structure prediction, criteria, reports, reuse, and reruns** |
+| [`partidesign postfilter`](postfilter.md) | Relax and evaluate successful protein–protein refolds |
 | [`partidesign cluster`](cluster.md) | Structural clustering of passing designs |
 
 For a first run, follow the [main README](../README.md#inference). After generation,

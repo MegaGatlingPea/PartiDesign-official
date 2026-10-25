@@ -1908,7 +1908,7 @@ class NotebookTaskEditor:
         payload = self._prepared_payload(payload, final=True)
         path = backend.save_task(name, payload, destination, invocation_dir=self.repo_root)
         command = ["partidesign", "design", str(path), "--task", name, "--out", str(self._path(self.output_dir.value)),
-            "--compile", "true" if self.runtime.compile_enabled.value else "false"]
+            "--compile", str(self.runtime.compile_enabled.value).lower()]
         if self.checkpoint.value.strip():
             command += ["--ckpt", str(self._path(self.checkpoint.value.strip()))]
         if self.context_mode.value != "auto":

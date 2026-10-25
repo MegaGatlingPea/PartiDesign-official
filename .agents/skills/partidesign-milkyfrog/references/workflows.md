@@ -1,9 +1,11 @@
 # Common PartiDesign workflows
 
 Use this reference for setup, generation, saved-structure operations, and output
-handling. Read [task-recipes.md](task-recipes.md) for molecular task authoring or
-[validation.md](validation.md) for post-generation evaluation. Repository paths
-below refer to the dynamically located active checkout, not this skill folder.
+handling. Read [task-recipes.md](task-recipes.md) for molecular task authoring,
+[validation.md](validation.md) for post-generation evaluation, or
+[postfilter.md](postfilter.md) for optional CPU screening of successful protein
+complex refolds. Repository paths below refer to the dynamically located
+active checkout, not this skill folder.
 
 ## Locate the runtime and check prerequisites
 
@@ -17,8 +19,11 @@ python -c "import sys, partidesign; from partidesign.paths import code_root, res
 partidesign --help
 ```
 
-Use the matching `README.md` and `partidesign.yaml` for environment setup and
-tested versions. The supplied inference environment targets Linux/NVIDIA.
+Use the matching `README.md` and `docs/environments.md` for setup and tested
+versions. `partidesign_cu12.yaml` creates `partidesign`;
+`partidesign_cu13.yaml` creates `partidesign_cu13` with the optional BioIR provider.
+Both target Linux/NVIDIA and support PyRosetta, DSSP, and DAlphaBall for CPU
+postfiltering; a source checkout provides DAlphaBall.
 Create or change an environment only when that is part of the requested work;
 do not install dependencies merely to answer a usage question. For requested
 execution, inspect `nvidia-smi` and the active PyTorch/CUDA build if readiness is
@@ -62,20 +67,21 @@ section of `configs/examples/README.md`. Inspect the named task's sample count,
 length plans, scoring, refinement, and search settings before running it.
 
 The bundled `protein_fixture` requests five length-40 proteins. These examples
-reduce batch/compilation demands while retaining all five requests:
+use batch size one and automatic execution while retaining all five requests:
 
 ```bash
 partidesign design configs/examples/protein.yaml \
   --task protein_fixture --run-name first_run \
-  --batch-size 1 --compile false --show-config
+  --batch-size 1 --show-config
 
 partidesign check configs/examples/protein.yaml --task protein_fixture
 ```
 
 `--show-config` resolves configuration and basic task fields without loading
-weights or generating structures. The ordinary task check additionally inspects
-sources, routing, environment, and requested assets. Detailed compilation and
-stochastic length/crop validity have further execution-time checks. Use the
+weights, probing the GPU, or generating structures. The ordinary task check
+additionally inspects sources, routing, environment, and requested assets.
+Detailed compilation and stochastic length/crop validity have further
+execution-time checks. Use the
 same checkpoint, routing, and runtime overlays for checking and generation.
 
 For user-requested execution after prerequisites pass:
@@ -83,7 +89,7 @@ For user-requested execution after prerequisites pass:
 ```bash
 CUDA_VISIBLE_DEVICES=0 partidesign design configs/examples/protein.yaml \
   --task protein_fixture --run-name first_run \
-  --batch-size 1 --compile false
+  --batch-size 1
 ```
 
 `--task` is repeatable; omitting it selects every task in the file. `sample_num`
@@ -91,6 +97,18 @@ is per length plan; multiple polymer design chains use explicit `joint` length
 rows, not a Cartesian product. `--batch-size` does not reduce this budget. A
 smaller diagnostic trial requires an intentional task copy/change, not a silent
 change to the request.
+
+Execution and compilation default to `auto`. The expanded count includes all
+selected tasks, length plans, `sample_num`, and Best-of-N replicas. At 100
+candidates or more, automatic execution uses native dynamic compilation; below
+100 it uses BioIR when usable, otherwise native eager. BioIR uses graph replay
+for eligible inputs and eager kernels otherwise. Selection is made once per
+submission. CPU checks leave automatic GPU selection pending;
+the runtime log and saved config report the request, resolved choice, reason,
+and count. Use `docs/design.md`, Execution and compilation, for explicit backend,
+compile, and strategy combinations. Keep automatic defaults in examples unless
+the user requests an explicit policy; automatic fallback is not an out-of-memory
+retry.
 
 Automatic bundle routing is the normal choice. Normal and antibody submissions
 must be separate. Force `--route-ckpt` or disable routing only with a compatible
@@ -119,7 +137,7 @@ are separate choices. Preview an optional clash-reward run with:
 ```bash
 partidesign design configs/examples/protein.yaml \
   --task protein_fixture --run-name ranked_run \
-  --batch-size 1 --compile false \
+  --batch-size 1 \
   --override search=best_of_n --override reward=clash \
   --override search.best_of_n.replicas=4 --show-config
 ```
@@ -174,6 +192,14 @@ samples and permits replacement of their refined staging files. If task scoring
 is enabled, retries may update scores, ranking, and filenames too; consult the
 updated report. These mutations are part of an authorized retry, not a read-only
 plan.
+
+## Optional postfilter of successful protein complexes
+
+After named validation criteria pass, use [postfilter.md](postfilter.md) for
+requested CPU relaxation and structural screening of the actual successful
+protein–protein complex refolds, including antibody–antigen assemblies.
+Preserve validation state and refold records. Explicit peptides, nucleic acids,
+and ligands are outside that workflow. This step is independent of clustering.
 
 ## Cluster passing polymer backbones
 

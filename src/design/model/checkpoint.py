@@ -10,6 +10,7 @@ import yaml
 
 from partidesign.paths import resource_root
 
+from src.design.core.compile_policy import validate_bucket_compile_policy
 from src.design.model.bundle import is_partidesign_bundle, select_bundle_checkpoint
 from src.design.model.core import PartiDesignInferenceModel
 from src.design.model.solver import (
@@ -609,14 +610,20 @@ def load_combined_checkpoint(
 
 def validate_compile_config(config: Mapping[str, Any]) -> None:
     mapping = _as_mapping(config, "model.compile")
-    if set(mapping) != set(_COMPILE_KEYS) or len(mapping) != len(_COMPILE_KEYS):
-        raise ValueError(f"model.compile keys must be exactly {sorted(_COMPILE_KEYS)}")
+    if not _COMPILE_KEYS <= set(mapping) or set(mapping) - _COMPILE_KEYS - {"token_buckets"}:
+        raise ValueError(
+            f"model.compile requires {sorted(_COMPILE_KEYS)} and optional token_buckets"
+        )
     for key in ("enabled", "dynamic", "fullgraph"):
         if type(mapping[key]) is not bool:
             raise TypeError(f"model.compile.{key} must be bool")
     for key in ("backend", "mode"):
         if not isinstance(mapping[key], str) or not mapping[key].strip():
             raise TypeError(f"model.compile.{key} must be a non-empty string")
+    # Five-key low-level callers predate bucket padding and may request static
+    # compilation directly. The public config validates the paired policy itself.
+    if "token_buckets" in mapping:
+        validate_bucket_compile_policy(mapping)
 
 
 def compile_denoiser(
@@ -625,9 +632,9 @@ def compile_denoiser(
 ) -> PartiDesignInferenceModel:
     """Compile only ``model.nn`` with a stable Inductor padding policy.
 
-    Capture the policy in the compiler options so that lazy compilation and
-    later recompilation use it without changing process-global Torch settings.
-    Compile errors propagate without fallback.
+    Capture the padding policy in compiler options for lazy compilation and
+    recompilation. Enabled bucket mode also reserves Dynamo specialization
+    capacity for its token shapes. Compile errors propagate without fallback.
     """
 
     if not isinstance(model, PartiDesignInferenceModel):
@@ -638,6 +645,21 @@ def compile_denoiser(
     if not compile_config["enabled"]:
         model._inference_compile_config = dict(compile_config)
         return model
+    buckets = compile_config.get("token_buckets")
+    if buckets is not None:
+        from torch._dynamo import config as dynamo_config
+
+        # Static buckets need separate token shapes and batch-size regimes.
+        # Torch 2.9's cache_size_limit aliases this per-code recompile limit.
+        reserved = max(dynamo_config.recompile_limit, 2 * len(buckets) + 2)
+        dynamo_config.recompile_limit = reserved
+        dynamo_config.accumulated_recompile_limit = max(
+            dynamo_config.accumulated_recompile_limit, reserved,
+        )
+        model._inference_dynamo_recompile_limit = reserved
+        model._inference_dynamo_accumulated_recompile_limit = (
+            dynamo_config.accumulated_recompile_limit
+        )
     compile_kwargs: dict[str, Any] = {
         "backend": compile_config["backend"],
         "dynamic": compile_config["dynamic"],

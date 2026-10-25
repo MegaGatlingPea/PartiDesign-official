@@ -210,5 +210,17 @@ explicitly. `--plan`, `--refilter`, and `--recompute-metrics` are mutually
 exclusive. Refilter/recompute cannot accompany `--rerun` or `--score`;
 `--rerun-refold` cannot accompany plan/refilter/recompute or full rerun.
 `--msa-refresh` cannot accompany plan/refilter/recompute. Use `--refilter` for
-new Vina thresholds or `--rerun` to dock again. After applying criteria, route
-passing original polymer backbones to clustering in [workflows.md](workflows.md).
+new Vina thresholds or `--rerun` to dock again.
+
+## Hand off passing results
+
+Keep the saved named decisions, `.state/` plan, sequence records, and refold
+files when handing eligible protein–protein complexes, including
+antibody–antigen assemblies, to optional CPU [postfiltering](postfilter.md).
+Postfilter selects actual complete predictions that passed the named upstream
+criteria; a success link or CSV alone is insufficient. It excludes explicit
+peptide, nucleic-acid, and ligand tasks and preserves upstream results.
+
+Independently, route passing original generated polymer backbones to clustering
+in [workflows.md](workflows.md). Postfilter relaxed refolds do not replace
+those clustering inputs. Start neither additional step unless requested.

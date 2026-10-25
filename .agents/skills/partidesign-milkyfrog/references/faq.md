@@ -6,9 +6,12 @@ configuration for the user's installed version.
 
 ## 1. Where should I install and run PartiDesign?
 
-Use the environment in `<repo>/README.md` under Installation: Linux with an
-NVIDIA GPU, created from `partidesign.yaml` at the checkout root. Activate
-`partidesign`, then run `partidesign --help`. For CUDA issues, inspect
+Use `<repo>/README.md` and `<repo>/docs/environments.md`: Linux with an
+NVIDIA GPU, using `partidesign_cu12.yaml` / `partidesign` or
+`partidesign_cu13.yaml` / `partidesign_cu13`. Create the environment from the
+checkout root, activate it, then run `partidesign --help`. Both support CPU
+postfiltering with PyRosetta, DSSP, and checkout-provided DAlphaBall. For CUDA
+issues, inspect
 `nvidia-smi` and the active Python/PyTorch build using
 `<repo>/docs/check.md`. A CPU resource check does not prove GPU readiness.
 
@@ -36,7 +39,8 @@ outputs. See `<repo>/docs/download.md`, Use a separate model directory.
 
 ## 4. Which preview or check should I use?
 
-`design --show-config` resolves settings without loading weights or generating.
+`design --show-config` resolves settings without loading weights, probing the
+GPU, or generating. Automatic backend selection remains pending until runtime.
 For the real protein fixture, `check configs/examples/protein.yaml --task protein_fixture`
 checks selected inputs, routing and required assets without inference.
 `check --load` adds strict CPU loading and may need
@@ -106,10 +110,12 @@ input error; check the task using the intended checkpoint/settings. See
 ## 11. What should I change after an out-of-memory error?
 
 Inspect the log and active GPU first. Try a smaller batch, commonly
-`--batch-size 1 --compile false`; this leaves the requested sample budget
-unchanged. To reduce work, copy the task and explicitly reduce `sample_num`
-or the length plan. Retain scientifically required context when adjusting a
-crop. Validation models have their own memory demands and options. Start with
+`--batch-size 1 --compile false` as an intentional native-eager diagnostic;
+this leaves the requested sample budget unchanged. Automatic execution does
+not retry arbitrary out-of-memory failures. To reduce work, copy the task and
+explicitly reduce `sample_num` or the length plan. Retain scientifically
+required context when adjusting a crop. Validation models have their own memory
+demands and options. Start with
 `<repo>/docs/check.md` and the relevant command page.
 
 ## 12. The command ended, but a sample has no CIF. Where do I look?
@@ -129,15 +135,18 @@ criteria, and inspect chemistry/geometry where needed. Validation without named
 criteria normally collects metrics without publishing passing candidates.
 See `<repo>/docs/check.md` and `<repo>/docs/validate.md`.
 
-## 14. Should I use `score`, `validate`, or refinement?
+## 14. Should I use `score`, `validate`, refinement, or `postfilter`?
 
 `score` applies PartiScore to existing structures and writes `score.csv`; it
 does not refold or redesign sequences. `validate` evaluates saved run/task
 results with selected methods, sequence sources and criteria; `gt:1` means the
 original generated identities, not experimental ground truth. `relax` retries
-OpenMM refinement. Generation task `score: true` and Best-of-N reward ranking
-are also separate choices. Read `<repo>/docs/score.md`, `<repo>/docs/validate.md`,
-and `<repo>/docs/relax.md` for the intended step and its assets.
+OpenMM refinement. `postfilter` uses actual successful protein–protein complex
+refolds for optional CPU Rosetta relaxation and structural screening; it does
+not refold or alter upstream results. Generation task `score: true` and
+Best-of-N reward ranking are also separate choices. Read `<repo>/docs/score.md`,
+`<repo>/docs/validate.md`, `<repo>/docs/relax.md`, and `<repo>/docs/postfilter.md`
+for the intended step and its assets.
 
 ## 15. Can I reuse an output directory or change saved results?
 
@@ -162,3 +171,28 @@ do not measure binding rates or service throughput. Docking, antibody CDR
 design, and peptide design across topologies support inference as Preview
 features; quality can vary, and separate performance budgets are not reported
 there. Start with a bounded trial matched to the user's hardware and criteria.
+
+## 17. Why did automatic execution select BioIR or native?
+
+The public backend and compilation defaults are `auto`. Count the selected
+tasks' expanded length plans and `sample_num`, including Best-of-N replicas.
+At least 100 candidates selects native dynamic compilation; smaller submissions
+use BioIR when usable, otherwise native eager. BioIR uses graph replay for
+eligible inputs and eager kernels otherwise. This is one choice for the
+submission, not per batch. An explicit native request keeps the
+same automatic compilation cutoff; explicit BioIR takes precedence over count
+and reports dependency errors. CPU checks do not prove GPU suitability.
+Read the requested/resolved settings, reason, and count in the runtime log and
+saved config. See `<repo>/docs/design.md` for explicit compile/strategy rules.
+
+## 18. Can postfilter consume a success CSV or replace clustering?
+
+It needs saved named passing decisions, the validation plan and sequence records,
+and the actual complete complex refolds; a loose CSV, PDB, or CIF is insufficient.
+Eligible protein–protein complexes include antibody–antigen assemblies, while
+explicit peptides, nucleic acids, ligands, and monomers are excluded.
+`postfilter --plan` checks selection and tools without native scoring.
+Postfilter criteria are all required, unlike validation's OR across criteria.
+Its relaxed refolds are separate from clustering, which compares original
+generated polymer backbones. Use [postfilter.md](postfilter.md) for the workflow
+and `<repo>/docs/postfilter.md` for maintained criteria and recovery details.

@@ -133,12 +133,14 @@ def freeze_task_inputs(repo_root, task_file, destination) -> Path:
 
 
 def build_design_command(repo_root, task_file, task_name, output_dir,
-                         compile_enabled=False, checkpoint=None, batch_size=None,
+                         compile_enabled="auto", checkpoint=None, batch_size=None,
                          num_workers=None) -> list[str]:
-    """Build native design argv; --out is the container above TASK_NAME."""
+    """Build design argv with the shared auto policy; --out is above TASK_NAME."""
     root = _repo(repo_root)
-    if type(compile_enabled) is not bool:
-        raise ValueError("compile_enabled must be boolean")
+    if type(compile_enabled) is bool:
+        compile_enabled = str(compile_enabled).lower()
+    if not isinstance(compile_enabled, str) or compile_enabled not in {"auto", "true", "false"}:
+        raise ValueError("compile_enabled must be auto, true, false, or boolean")
     if not isinstance(task_name, str) or not task_name.strip():
         raise ValueError("task_name must be a nonempty native task name")
     command = [sys.executable, "-m", "partidesign", "design", str(_path(root, task_file)),

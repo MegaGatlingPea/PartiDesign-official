@@ -1,6 +1,6 @@
 ---
 name: partidesign-milkyfrog
-description: "Use PartiDesign for molecular inference: write task YAML, plan or run generation, score and refine structures, validate and cluster saved designs, troubleshoot usage, and answer workflow questions. For end users rather than model training or software development."
+description: "Use PartiDesign for molecular inference: write task YAML, plan or run generation, score and refine structures, validate saved designs, postfilter successful protein complexes, cluster generated backbones, and troubleshoot usage. For end users rather than model training or software development."
 ---
 
 # PartiDesign MilkyFrog
@@ -16,6 +16,7 @@ runtime implementation, and software changes outside this skill's scope.
 | Environment/assets, generation, Best-of-N, existing-structure scoring, refinement retry, clustering, outputs | [workflows.md](references/workflows.md) |
 | Select an example or author molecular inputs, identities, motifs, topology, and antibody tasks | [task-recipes.md](references/task-recipes.md) |
 | Choose validation methods, sequence sources, criteria, MSA policy, or reuse saved evaluation | [validation.md](references/validation.md) |
+| Relax and postfilter successful protein–protein complex refolds, including antibody–antigen assemblies, on CPU | [postfilter.md](references/postfilter.md) |
 | Explain behavior, interpret a failure, or answer a common usage question | [faq.md](references/faq.md) |
 
 Start with the relevant reference; load another only when the request crosses

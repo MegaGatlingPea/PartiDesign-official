@@ -181,6 +181,18 @@ class PartiDesignInferenceModel(torch.nn.Module):
 
     def add_sampling_context(self, batch: Mapping[str, Any]) -> dict[str, Any]:
         result = dict(batch)
+        token_mask = result.get("token_mask")
+        if (
+            getattr(self.nn, "_bioir_backend", None) is not None
+            and isinstance(token_mask, Tensor)
+            and token_mask.is_inference()
+        ):
+            # Keep one versioned sampling-mask snapshot. BioIR can validate it
+            # once per batch and still detect later in-place changes, without
+            # a host synchronization on every denoising step. Other inputs and
+            # the native path retain their existing storage/identity behavior.
+            with torch.inference_mode(False):
+                result["token_mask"] = token_mask.clone()
         if not self.rigid_context:
             result.pop("x_context", None)
             return self._prepare_inference_optimization(result)

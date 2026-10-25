@@ -24,6 +24,7 @@ include src/design/utils/notebook_theme.css
 recursive-include src/validate *.py
 recursive-include src/scoring *.py
 recursive-include src/cluster *.py
+recursive-include src/postfilter *.py
 
 
 # No tests, generated caches, model weights, native environments, or notebooks.
@@ -86,8 +87,13 @@ global-exclude *.ipynb
 
 recursive-include src/common *.py
 
-include partidesign.yaml
+include partidesign_cu12.yaml
+include partidesign_cu13.yaml
+recursive-include runtime/bioir-kernels *.py *.toml *.md
 recursive-include docs *.md
 prune .cache
 prune .goal-task
 prune .pytest_cache
+
+# Provision native executables separately when installing an archive.
+prune community_models/rosetta/bin

@@ -42,6 +42,8 @@ def _task_options(parser, *, generation=False):
     _single(parser, "--route", choices=("true", "false"), help="Use checkpoint routing (default: configured true)")
     _single(parser, "--route-ckpt", choices=("null", "omni", "prot", "nuc", "ligand", "antibody", "pep"),
             help="Bundle selector (pep requires a version-2 six-member bundle); null means automatic selection")
+    _single(parser, "--execution-backend", choices=("auto", "native", "bioir"),
+            help="FM execution backend (default: auto); BioIR requires its separate CUDA 13 environment")
     parser.add_argument("--override", action="append", default=[], metavar="KEY=VALUE",
                         help="Existing Hydra configuration override (repeatable)")
     if generation:
@@ -50,8 +52,10 @@ def _task_options(parser, *, generation=False):
         _single(parser, "--seed", type=int, help="Nonnegative global seed (default: configured 2026)")
         _single(parser, "--batch-size", type=int, help="Positive FM batch size (default: configured 16)")
         _single(parser, "--num-workers", type=int, help="Nonnegative data workers (default: configured 4)")
-        _single(parser, "--compile", choices=("true", "false"),
-                help="Compile FM trunk (default: configured true); sampling remains 400 steps")
+        _single(parser, "--compile", choices=("auto", "true", "false"),
+                help="Compile FM trunk (default: auto); sampling remains 400 steps")
+        _single(parser, "--compile-strategy", choices=("auto", "dynamic", "bucket"),
+                help="Automatic execution policy (default), dynamic compilation, or static token buckets")
         parser.add_argument("--show-config", action="store_true", help="Print resolved configuration without generation")
 
 
@@ -142,6 +146,10 @@ def build_parser() -> argparse.ArgumentParser:
     cluster = commands.add_parser("cluster", help="Cluster successful original design polymers on CPU")
     from src.cluster.cli import add_arguments as cluster_arguments
     cluster_arguments(cluster)
+
+    postfilter = commands.add_parser("postfilter", help="Relax and filter successful protein complex refolds")
+    from src.postfilter.cli import add_arguments as postfilter_arguments
+    postfilter_arguments(postfilter)
 
     # Constants and configuration parsing in this package do not import models.
     from src.validate.config import METHODS
@@ -402,26 +410,35 @@ def build_design_runner(args, root: Path, *, invocation_dir: Path | None = None)
     from src.design.core.api import DesignRunner
     from src.design.core.config import load_yaml_mapping, normalize_reward_rm_aa_overlay, capture_reward_auto_backend
     from src.design.core.records import DesignConfigError
+    from src.design.core.compile_policy import DEFAULT_TOKEN_BUCKETS, validate_compile_enabled
     from .paths import inference_config_dir
 
     cwd = Path.cwd().resolve() if invocation_dir is None else invocation_dir.resolve()
     fields = {"tasks_file": str(_absolute(args.task_file, cwd))}
     mapping = {"ckpt": "model.checkpoint", "out": "output_dir", "run_name": "run_name",
                "seed": "seed", "batch_size": "batch_size", "num_workers": "num_workers",
-               "route": "route", "route_ckpt": "route_ckpt", "compile": "model.compile.enabled"}
+               "route": "route", "route_ckpt": "route_ckpt", "compile": "model.compile.enabled",
+               "execution_backend": "model.execution_backend"}
     for argument, key in mapping.items():
         value = getattr(args, argument, None)
         if value is None:
             continue
         if argument in {"ckpt", "out"}:
             value = str(_absolute(value, cwd))
-        elif argument in {"route", "compile"}:
+        elif argument == "route" or (argument == "compile" and value != "auto"):
             value = value == "true"
         elif argument == "route_ckpt" and value == "null":
             value = None
         fields[key] = value
     if args.task is not None:
         fields["task_names"] = args.task
+    strategy = getattr(args, "compile_strategy", None)
+    if strategy == "auto":
+        if getattr(args, "compile", None) not in {None, "auto"}:
+            raise DesignConfigError("--compile-strategy auto conflicts with --compile true or false")
+        fields["model.compile.enabled"] = "auto"
+    if strategy is not None:
+        fields["model.compile.dynamic"] = strategy != "bucket"
     try:
         parsed = OverridesParser.create().parse_overrides(args.override)
         keys = [item.key_or_group for item in parsed]
@@ -434,6 +451,9 @@ def build_design_runner(args, root: Path, *, invocation_dir: Path | None = None)
         for item in parsed:
             if item.is_sweep_override() or item.is_delete():
                 raise DesignConfigError("sweep/delete overrides are not supported by the local CLI")
+            if (strategy in {"auto", "dynamic"} and item.key_or_group == "model.compile.token_buckets"
+                    and item.value() is not None):
+                raise DesignConfigError(f"--compile-strategy {strategy} conflicts with a token_buckets override")
         config_dir = inference_config_dir()
         with initialize_config_dir(config_dir=str(config_dir), version_base=None):
             base = compose(config_name="design")
@@ -530,11 +550,33 @@ def build_design_runner(args, root: Path, *, invocation_dir: Path | None = None)
                     )
                     path = Path(relative)
                     OmegaConf.update(base, key, str(root / path))
+        if strategy is not None:
+            buckets = OmegaConf.select(base, "model.compile.token_buckets")
+            fields["model.compile.token_buckets"] = (
+                None if strategy != "bucket" else
+                list(DEFAULT_TOKEN_BUCKETS) if buckets is None else buckets
+            )
+            if strategy != "auto":
+                enabled = validate_compile_enabled(fields.get(
+                    "model.compile.enabled", OmegaConf.select(base, "model.compile.enabled"),
+                ))
+                fields["model.compile.enabled"] = enabled is not False
         for key, value in fields.items():
             OmegaConf.update(base, key, value, merge=False, force_add=True)
+        if (strategy in {"dynamic", "bucket"}
+                and OmegaConf.select(base, "model.execution_backend") == "bioir"):
+            raise DesignConfigError(
+                "BioIR execution conflicts with --compile-strategy dynamic or bucket"
+            )
         capture_reward_auto_backend(base, overlay, args.override)
+        # Strategy consumes the bucket override above; do not reapply a raw null
+        # after selecting the bucket defaults or resetting the dynamic policy.
         native_overrides = [value for value in args.override
-                            if not value.split("=", 1)[0].lstrip("+") == "reward"]
+                            if value.split("=", 1)[0].lstrip("+") != "reward"
+                            and not (strategy is not None and
+                                     value.split("=", 1)[0].lstrip("+") in {
+                                         "model.compile.token_buckets", "model.compile.enabled",
+                                     })]
         reward_presets = {
             "src.design.rewards.clash.ClashReward": "clash",
             "src.design.rewards.partiscore.PartiScoreReward": "partiscore",
@@ -570,6 +612,7 @@ def _validate_arguments(args, parser):
         if args.task_file is None and (
             args.config is not None or args.task is not None or args.ckpt is not None
             or args.route is not None or args.route_ckpt is not None or args.override
+            or args.execution_backend is not None
         ):
             parser.error("task-specific check options require TASK_FILE.yaml")
         if args.model and len(args.model) != len(set(args.model)):
@@ -636,6 +679,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "cluster":
             from src.cluster.cli import run as cluster_run
             return cluster_run(args)
+        if args.command == "postfilter":
+            from src.postfilter.cli import run as postfilter_run
+            return postfilter_run(args)
         root = model_dir(args.model_dir)
         if args.command == "download":
             from .download import TARGETS, download_targets, list_targets, selection_options

@@ -76,6 +76,7 @@ class PairBiasAttention(nn.Module):
         # Plain configuration state only.  It is intentionally not a buffer,
         # parameter, or derived-weight cache, so the checkpoint ABI is stable.
         self._attention_use_sdpa = False
+        self._bioir_backend = None
         if exists(pair_dim):
             self.to_bias = nn.Linear(pair_dim, heads, bias=False)
             self.pair_norm = nn.LayerNorm(pair_dim)
@@ -149,6 +150,8 @@ class PairBiasAttention(nn.Module):
 
     def _attn(self, q, k, v, b, mask: Optional[Tensor]) -> Tensor:
         """Perform attention update"""
+        if self._bioir_backend is not None and not self.training and not torch.is_grad_enabled():
+            return self._bioir_backend.attention(q, k, v, b, mask)
         if self._attention_use_sdpa and not self.training and not torch.is_grad_enabled():
             attn_mask = None
             if torch.is_tensor(b):

@@ -65,7 +65,7 @@ _WEIGHT_SUFFIXES = {
 
 
 def _allowed_package(name: str) -> bool:
-    if name in {"partidesign", "src.design", "src.validate", "src.scoring", "src.common", "src.cluster"}:
+    if name in {"partidesign", "src.design", "src.validate", "src.scoring", "src.common", "src.cluster", "src.postfilter"}:
         return True
     if name.startswith("src.design."):
         return True
@@ -74,6 +74,8 @@ def _allowed_package(name: str) -> bool:
     if name.startswith("src.common."):
         return True
     if name.startswith("src.scoring."):
+        return True
+    if name.startswith("src.postfilter."):
         return True
     if name.startswith("src.cluster."):
         return True
@@ -148,6 +150,9 @@ def _allowed_community_file(path: Path) -> bool:
     relative = path.relative_to(ROOT / "community_models")
     parts = relative.parts
     lowered = {part.lower() for part in parts}
+    # Platform executables stay in Git; portable wheels ship their source.
+    if parts[:2] == ("rosetta", "bin"):
+        return False
     if any(part.endswith(".egg-info") or part.startswith(".") for part in parts):
         return False
     # AF3's downloaded CCD snapshot is generated runtime state, not source.
@@ -174,6 +179,8 @@ def _allowed_community_file(path: Path) -> bool:
     if path.suffix.lower() == ".ipynb":
         return False
     suffix = path.suffix.lower()
+    if parts[:3] == ("rosetta", "source", "dalphaball") and suffix in {".c", ".h", ".f"}:
+        return True
     if suffix in _BINARY_SUFFIXES:
         return False
     if suffix in _WEIGHT_SUFFIXES:
@@ -197,6 +204,11 @@ def _copy_resources(build_lib: Path) -> None:
                                               for part in path.relative_to(root).parts)
                                   and path.suffix not in {".pyc", ".log", ".out", ".err"})
     resource_paths.extend(path for path in _git_community_files() if path.is_file() and _allowed_community_file(path))
+    # Curated native tool source and licenses are part of the portable wheel.
+    tool_root = ROOT / "community_models" / "rosetta"
+    if tool_root.is_dir():
+        resource_paths.extend(path for path in tool_root.rglob("*")
+                              if path.is_file() and _allowed_community_file(path))
     for source in sorted(set(resource_paths)):
         _copy_file(source, destination_root / source.relative_to(ROOT))
 
@@ -210,6 +222,7 @@ def _copy_source_closure(build_lib: Path) -> None:
     _copy_python_tree("src/validate", build_lib, exclude_dirs={"tests", "__pycache__"})
     _copy_python_tree("src/scoring", build_lib, exclude_dirs=set())
     _copy_python_tree("src/cluster", build_lib, exclude_dirs=set())
+    _copy_python_tree("src/postfilter", build_lib, exclude_dirs={"__pycache__", "tests"})
     _copy_python_tree("src/common", build_lib, exclude_dirs={"__pycache__"})
     _copy_selected_files(
         ("src/__init__.py", "src/design/utils/notebook_molstar.js", "src/design/utils/notebook_command.js", "src/design/utils/notebook_help.js", "src/design/utils/notebook_preset_load.js", "src/design/utils/notebook_action.js", "src/design/utils/notebook_theme.css"), build_lib

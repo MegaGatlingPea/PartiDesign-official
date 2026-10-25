@@ -128,6 +128,8 @@ class LocalLatentsTransformer(torch.nn.Module):
         self._attention_opt_fused_pair_bias = False
         self._attention_opt_row_chunk_size = 0
         self._attention_opt_layer_group_size = 1
+        self._bioir_backend = None
+        self._bioir_graph_region = None
         for attention in self._attention_modules:
             attention._attention_use_sdpa = False
 
@@ -193,8 +195,15 @@ class LocalLatentsTransformer(torch.nn.Module):
         return self
 
     def forward(self, batch: dict[str, Any]) -> dict[str, dict[str, torch.Tensor]]:
+        if self._bioir_backend is not None and not self.training and not torch.is_grad_enabled():
+            return self._bioir_backend.forward(self, batch)
+        return self._forward_eager(batch)
+
+    def _forward_eager(self, batch: dict[str, Any]) -> dict[str, dict[str, torch.Tensor]]:
         mask = batch["token_mask"].bool()
         assert mask.ndim == 2
+        if self._bioir_backend is not None and not self.training and not torch.is_grad_enabled():
+            self._bioir_backend.prepare_forward(mask)
         for component in STATE_COMPONENTS:
             assert batch["x_t"][component].shape == mask.shape + (
                 STATE_DIMS[component],
