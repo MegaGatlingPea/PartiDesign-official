@@ -26,6 +26,30 @@ presets:
       - {metric: bc1_interface_hbonds, op: '>=', value: 2, scope: complex}
       - {metric: bc1_interface_unsat_hbonds, op: '<=', value: 6, scope: complex}
       - {metric: bc1_binder_loop_percent, op: '<=', value: 90, scope: complex}
+  # BindCraft settings_filters/peptide_filters.json at the pinned BC1 revision.
+  bc1_peptide_structural:
+    methods: [rosetta]
+    reduction: all
+    rules:
+      - {metric: bc1_binder_energy_score, op: '<=', value: 0, scope: complex}
+      - {metric: bc1_surface_hydrophobicity, op: '<=', value: 0.50, scope: complex}
+      - {metric: bc1_shape_complementarity, op: '>=', value: 0.50, scope: complex}
+      - {metric: bc1_dg, op: '<=', value: 0, scope: complex}
+      - {metric: bc1_dsasa, op: '>=', value: 1, scope: complex}
+      - {metric: bc1_interface_residues, op: '>=', value: 4, scope: complex}
+      - {metric: bc1_interface_hbonds, op: '>=', value: 1, scope: complex}
+      - {metric: bc1_interface_unsat_hbonds, op: '<=', value: 3, scope: complex}
+      - {metric: bc1_binder_loop_percent, op: '<=', value: 90, scope: complex}
+  # Null upstream thresholds are not promoted to required rules.
+  bc1_peptide_structural_relaxed:
+    methods: [rosetta]
+    reduction: all
+    rules:
+      - {metric: bc1_binder_energy_score, op: '<=', value: 0, scope: complex}
+      - {metric: bc1_surface_hydrophobicity, op: '<=', value: 0.50, scope: complex}
+      - {metric: bc1_dg, op: '<=', value: 0, scope: complex}
+      - {metric: bc1_dsasa, op: '>=', value: 1, scope: complex}
+      - {metric: bc1_interface_residues, op: '>=', value: 2, scope: complex}
   bc2_protein_geometry:
     methods: [bc2]
     reduction: all

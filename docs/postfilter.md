@@ -1,7 +1,7 @@
-# Postfilter successful protein complexes
+# Postfilter successful protein and peptide complexes
 
 `partidesign postfilter` relaxes **successful refold complexes** and measures
-protein–protein structural properties. It consumes the named quality decisions
+protein–protein or peptide–protein structural properties. It consumes the named quality decisions
 saved by `partidesign validate`. It does not use generated design coordinates,
 run new folding predictions, redesign sequences, or change upstream results.
 
@@ -32,16 +32,35 @@ Use repeatable `--task`, `--method`, and `--upstream-criteria` to restrict the
 selection. `--limit N` limits concrete refolds per task, after selection and
 deduplication; the report records that the run is limited.
 
-Only protein–protein inputs are supported. Explicit peptide tasks, monomers,
-nucleic acids, ligands, unsupported modifications, and ambiguous partner roles
-are excluded or reported with a precise error. Chain length does not decide
-whether a task is a peptide. All declared binder chains form one assembly;
+Standard protein–protein and peptide–protein inputs are supported, including
+linear peptides and head-to-tail cyclic peptides. Monomers, nucleic acids,
+ligands, nonstandard residues, mixed protein/peptide binder assemblies, and
+ambiguous partner roles are excluded or reported with a precise error.
+Saved peptide modality or subtype metadata identifies peptide tasks; a real
+head-to-tail bond in a binder refold also identifies its peptide path
+automatically. Chain length does not decide whether a task is a peptide.
+All declared binder chains form one assembly;
 antibody heavy and light chains belong together against the antigen. Metrics
 use the actual saved redesigned sequence, not the original generation sequence.
 CIF polymer order follows its authoritative `label_seq_id`, including reordered
 atom rows; public atom identities and input coordinates are retained. PDB files
 with ambiguous, non-increasing author residue locators require an explicit CIF
 mapping rather than an inferred chain order.
+
+Head-to-tail closure must be an explicit single bond from the last residue's
+carbonyl C to the first residue's N in the actual success refold. The command
+does not infer that bond from a short distance or `cyclic_offset`. For an intact
+standard peptide chain, Rosetta removes the free-terminal variants, restores
+that chemical bond, and maintains its geometry during FastRelax with native
+cutpoint overlap constraints. It checks the closed graph and final junction
+geometry before publishing the relaxed CIF. Source refold coordinates and
+connections remain untouched. No cyclic-specific CLI option is required.
+If saved `input_metadata.cyclic_chains` declares a physical closure but the
+actual refold omits it, postfilter rejects that historical refold rather than
+relaxing it as a linear peptide. The check applies to declared binder and target
+cycles after chain mapping. Current topology-preserving refold CIFs carry the
+closure themselves; the command never reconstructs a missing bond from offsets
+or original generated coordinates.
 
 `--plan` lists candidate identities, reasons for exclusions, and missing tools.
 It performs no native scoring and creates no postfilter output. The common
@@ -112,17 +131,21 @@ runs in an isolated CPU process with an explicit timeout and thread budget.
 `workers` controls parallel candidates within each task; tasks are processed in
 order. This command does not allocate a GPU.
 
-The pinned BC1 protein protocol uses `beta_nov16`, one FastRelax repeat with
+The pinned BC1 protocol uses `beta_nov16`, one FastRelax repeat with
 200 maximum minimizer iterations, movable backbone/sidechains, fixed rigid-body
 jumps, and repacking without sequence design. It does not inherit PartiDesign
 motif or fixed-coordinate constraints. BC1's own soft starting-coordinate
 option is recorded explicitly; coordinates can move during relaxation.
 
-## Protein criteria
+## Automatic criteria
 
-The default requires both `bc1_protein_structural` and
-`bc2_protein_geometry` to pass for the same concrete refold. Rules are stored in
-`configs/postfilter_presets.yaml`; no peptide preset is exposed by this command.
+With no `--criteria`, protein binders require both `bc1_protein_structural` and
+`bc2_protein_geometry` to pass for the same concrete refold. Peptide binders
+automatically use `bc1_peptide_structural`. A run containing separate protein
+and peptide tasks selects the appropriate default for each candidate. Rules
+are stored in `configs/postfilter_presets.yaml`.
+
+### Protein rules
 
 | BC1 protein structural metric | Default rule | Unit |
 | --- | --- | --- |
@@ -153,11 +176,46 @@ format. Unknown names, metrics, methods, operators, and scopes are rejected
 before native work. Missing, NaN, or infinite required metrics produce
 `unavailable` and cannot pass.
 
+### Peptide rules
+
+`bc1_peptide_structural` projects the per-prediction structural rules from
+BindCraft's pinned [peptide filter profile](https://github.com/martinpacesa/BindCraft/blob/7713aa0d0d351e4117a8befeb8541f3a8ebd3368/settings_filters/peptide_filters.json).
+It uses the same metric definitions and relax protocol as the protein profile.
+
+| BC1 peptide structural metric | Default rule | Unit |
+| --- | --- | --- |
+| Binder energy score | ≤ 0 | Rosetta energy units |
+| Surface hydrophobicity | ≤ 0.50 | LayerSelector residue fraction |
+| Shape complementarity | ≥ 0.50 | dimensionless |
+| Interface dG | ≤ 0 | Rosetta energy units |
+| Interface dSASA | ≥ 1 | Å², IAM interface area |
+| Binder interface residues | ≥ 4 | count |
+| Interface hydrogen bonds | ≥ 1 | count |
+| Buried unsatisfied hydrogen bonds | ≤ 3 | count |
+| Binder loop content | ≤ 90 | percent, input-refold DSSP |
+
+`bc1_peptide_structural_relaxed` projects the pinned
+[relaxed peptide profile](https://github.com/martinpacesa/BindCraft/blob/7713aa0d0d351e4117a8befeb8541f3a8ebd3368/settings_filters/peptide_relaxed_filters.json):
+binder energy ≤ 0, surface hydrophobicity ≤ 0.50, dG ≤ 0, dSASA ≥ 1, and binder
+interface residues ≥ 2. Upstream SC, hydrogen-bond, unsatisfied-hydrogen-bond,
+and loop thresholds are unset in that profile and do not become required rules.
+The relaxed profile changes thresholds, not the relaxation protocol.
+
+```bash
+# Peptide rules are selected automatically from saved roles and real topology.
+partidesign postfilter inference/PEPTIDE_RUN/TASK/validate/af2_ig/success
+# Select the upstream relaxed peptide profile explicitly when desired.
+partidesign postfilter inference/PEPTIDE_RUN --criteria bc1_peptide_structural_relaxed
+```
+
+Explicit `--criteria` overrides automatic defaults for every selected candidate.
+Peptide tasks do not automatically inherit the BC2 protein interface-size gate.
+
 These are structural projections of the pinned upstream rules, not complete
 BindCraft pipelines. AF confidence, trajectory-reference RMSD, binder-alone
 predictions, and multi-prediction averages remain upstream responsibilities.
-BC1's single-structure SC threshold is 0.55; its Average SC threshold is not
-substituted here. Average-only amino-acid rules are not turned into per-refold
+BC1's protein single-structure SC threshold is 0.55 and its peptide threshold
+is 0.50; Average SC thresholds are not substituted here. Average-only amino-acid rules are not turned into per-refold
 defaults.
 
 ## Metric stages and interpretation
@@ -186,6 +244,9 @@ not BC1's LayerSelector value. BC2 buried area is binder-side and cannot replace
 IAM dSASA. The CA/atom37 clash counts are geometric counts, not a chemically
 complete clash score. Sequence mass, pI, and charge follow BC2's concatenated
 assembly convention; they are not exact masses of linked chemical species.
+For a head-to-tail cyclic binder, free-terminal exposure and the linear
+free-terminal mass, pI, and charge estimates are unavailable. Their values
+are not replaced with zeros or used to pass a required rule.
 Metrics requiring additional property inputs or prediction states are not
 fabricated and do not become default gates.
 

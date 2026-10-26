@@ -141,8 +141,9 @@ See `<repo>/docs/check.md` and `<repo>/docs/validate.md`.
 does not refold or redesign sequences. `validate` evaluates saved run/task
 results with selected methods, sequence sources and criteria; `gt:1` means the
 original generated identities, not experimental ground truth. `relax` retries
-OpenMM refinement. `postfilter` uses actual successful protein–protein complex
-refolds for optional CPU Rosetta relaxation and structural screening; it does
+OpenMM refinement. `postfilter` uses actual successful protein–protein or
+standard peptide–protein complex refolds for optional CPU Rosetta relaxation
+and structural screening; it does
 not refold or alter upstream results. Generation task `score: true` and
 Best-of-N reward ranking are also separate choices. Read `<repo>/docs/score.md`,
 `<repo>/docs/validate.md`, `<repo>/docs/relax.md`, and `<repo>/docs/postfilter.md`
@@ -189,8 +190,11 @@ saved config. See `<repo>/docs/design.md` for explicit compile/strategy rules.
 
 It needs saved named passing decisions, the validation plan and sequence records,
 and the actual complete complex refolds; a loose CSV, PDB, or CIF is insufficient.
-Eligible protein–protein complexes include antibody–antigen assemblies, while
-explicit peptides, nucleic acids, ligands, and monomers are excluded.
+Eligible complexes include protein–protein and standard peptide–protein
+assemblies, including antibody–antigen and physical head-to-tail cyclic
+peptides. Saved roles and actual refold topology select the peptide path
+automatically; no new flag or bond inference from `cyclic_offset` is needed.
+Nucleic acids, ligands, nonstandard residues, and monomers remain unsupported.
 `postfilter --plan` checks selection and tools without native scoring.
 Postfilter criteria are all required, unlike validation's OR across criteria.
 Its relaxed refolds are separate from clustering, which compares original

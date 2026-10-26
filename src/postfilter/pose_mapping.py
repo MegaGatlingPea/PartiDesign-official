@@ -15,6 +15,8 @@ from src.design.utils.atoms import PROTEIN_RES_ATOMS
 from src.design.utils.reader import _read_pdb, read_structure
 from src.design.utils.source_mapping import COMPLETE_BACKBONE_CRITERIA
 
+from .topology import head_tail_chains
+
 
 class MappingError(ValueError):
     """A structure cannot be represented without changing its chemistry."""
@@ -186,6 +188,7 @@ class SourceStructure:
     disulfides: tuple[tuple[int, int], ...]
     binder_chains: tuple[str, ...]
     target_chains: tuple[str, ...]
+    head_tail_pairs: tuple[tuple[int, int], ...] = ()
 
     @property
     def binder_indices(self) -> tuple[int, ...]:
@@ -336,6 +339,21 @@ def read_source(path: str | Path, binder_chains: tuple[str, ...],
                 raise MappingError(f"element differs from standard atom {atoms.atom_name[index]}")
     bonds = tuple(sorted((min(int(a), int(b)), max(int(a), int(b)), int(order))
                          for a, b, order in atoms.bonds.as_array()))
+    try:
+        closed_chains = set(head_tail_chains({"annotations": {
+            "label_asym_id": atoms.label_asym_id.tolist(),
+            "residue_uid": atoms.residue_uid.tolist(),
+            "label_seq_id": atoms.label_seq_id.tolist(),
+            "atom_name": atoms.atom_name.tolist(), "res_name": atoms.res_name.tolist(),
+        }, "bonds": bonds}))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise MappingError(f"unsupported source peptide topology: {exc}") from exc
+    chain_ordinals: dict[str, list[int]] = {}
+    for ordinal, indices in enumerate(residue_rows, 1):
+        chain_ordinals.setdefault(str(atoms.label_asym_id[indices[0]]), []).append(ordinal)
+    head_tail_pairs = tuple((indices[0], indices[-1]) for chain, indices in chain_ordinals.items()
+                            if chain in closed_chains)
+    closure_edges = {(last, first) for first, last in head_tail_pairs}
     polymer_links: set[tuple[int, int]] = set()
     disulfides: list[tuple[int, int]] = []
     for a, b, _order in bonds:
@@ -346,9 +364,15 @@ def read_source(path: str | Path, binder_chains: tuple[str, ...],
         ca, cb = str(atoms.label_asym_id[a]), str(atoms.label_asym_id[b])
         if (ca in binder) != (cb in binder):
             raise MappingError("covalent bonds across binder and target are unsupported")
-        if (names == {"C", "N"} and ca == cb and abs(ra - rb) == 1
-                and str(atoms.atom_name[a if ra < rb else b]) == "C"):
-            polymer_links.add((min(ra, rb), max(ra, rb)))
+        if names == {"C", "N"} and ca == cb:
+            carbon, nitrogen = (ra, rb) if str(atoms.atom_name[a]) == "C" else (rb, ra)
+            if _order != 1:
+                raise MappingError("inter-residue peptide bonds must be single bonds")
+            if (carbon, nitrogen) in closure_edges:
+                continue
+            if nitrogen != carbon + 1:
+                raise MappingError("unsupported inter-residue C-N chemistry")
+            polymer_links.add((carbon, nitrogen))
         elif names == {"SG"} and str(atoms.res_name[a]) == str(atoms.res_name[b]) == "CYS":
             disulfides.append((min(ra, rb), max(ra, rb)))
         else:
@@ -379,7 +403,7 @@ def read_source(path: str | Path, binder_chains: tuple[str, ...],
         previous_chain = chain
     return SourceStructure(path, cif, block_name, atoms, coordinates, tuple(source_rows),
         tuple(residues), tuple(atom_residues), bonds, tuple(sorted(set(disulfides))),
-        binder_chains, target_chains)
+        binder_chains, target_chains, head_tail_pairs)
 
 
 @dataclass
@@ -471,7 +495,26 @@ def load_pose_mapping(source: SourceStructure, pr: Any, work_dir: Path) -> tuple
     for left, right in source.disulfides:
         pr.rosetta.core.conformation.form_disulfide(
             pose.conformation(), pose_residues[left - 1], pose_residues[right - 1])
-    # Forming a disulfide rebuilds native atoms and can move public heavy atoms.
+    if source.head_tail_pairs:
+        for first, last in source.head_tail_pairs:
+            first_index, last_index = pose_residues[first - 1], pose_residues[last - 1]
+            pr.rosetta.core.pose.remove_lower_terminus_type_from_pose_residue(pose, first_index)
+            pr.rosetta.core.pose.remove_upper_terminus_type_from_pose_residue(pose, last_index)
+            pose.conformation().declare_chemical_bond(last_index, "C", first_index, "N")
+            pr.rosetta.core.pose.add_variant_type_to_pose_residue(
+                pose, pr.rosetta.core.chemical.CUTPOINT_LOWER, last_index)
+            pr.rosetta.core.pose.add_variant_type_to_pose_residue(
+                pose, pr.rosetta.core.chemical.CUTPOINT_UPPER, first_index)
+        # Terminal/closure variants change native AtomIDs. Resolve them again
+        # only after every chemistry operation, then restore the source values.
+        for occurrence, pose_index in zip(source.residues, pose_residues, strict=True):
+            residue = pose.residue(pose_index)
+            for index in occurrence.atom_indices:
+                name = str(source.atoms.atom_name[index])
+                if not residue.has(name):
+                    raise MappingError(f"cyclization dropped source atom {occurrence.ordinal}:{name}")
+                atom_ids[index] = (int(residue.atom_index(name)), pose_index)
+    # Chemistry operations may rebuild native atoms and move public heavy atoms.
     # Restore source precision again after all chemical variants are installed.
     for index, (atom_number, pose_index) in enumerate(atom_ids):
         pose.set_xyz(pr.rosetta.core.id.AtomID(atom_number, pose_index),

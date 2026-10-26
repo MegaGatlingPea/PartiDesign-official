@@ -147,7 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
     from src.cluster.cli import add_arguments as cluster_arguments
     cluster_arguments(cluster)
 
-    postfilter = commands.add_parser("postfilter", help="Relax and filter successful protein complex refolds")
+    postfilter = commands.add_parser("postfilter", help="Relax and filter successful protein and peptide complex refolds")
     from src.postfilter.cli import add_arguments as postfilter_arguments
     postfilter_arguments(postfilter)
 

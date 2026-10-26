@@ -1,4 +1,4 @@
-"""Select concrete protein refolds from saved named-quality decisions."""
+"""Select concrete protein and peptide refolds from saved quality decisions."""
 from __future__ import annotations
 
 from collections import defaultdict
@@ -218,6 +218,11 @@ def _peptide_intent(value):
             if key in {"modality", "sub_modality", "design_modality", "type", "format"} and isinstance(item, str) and item.lower() in _PEPTIDE:
                 return True
             if key == "design_chains":
+                if isinstance(item, str):
+                    try:
+                        item = json.loads(item)
+                    except ValueError:
+                        item = []
                 declarations = item if isinstance(item, list) else [item]
                 if any(isinstance(declaration, dict) and any(
                     isinstance(kind, str) and kind.lower() in _PEPTIDE for kind in declaration.values()
@@ -238,14 +243,13 @@ def _design_entries(row):
         _reject("metadata_incomplete", "Saved design_chains is not valid JSON")
     if not isinstance(entries, list) or not entries or any(not isinstance(entry, dict) for entry in entries):
         _reject("metadata_incomplete", "Complete saved design-chain role metadata is required")
-    labels = []
+    labels, kinds = [], set()
     for entry in entries:
-        if _peptide_intent(entry):
-            _reject("not_ppi", "Explicit peptide design intent is outside the protein interface scope")
-        if "sub_modality" in entry and entry["sub_modality"] != "peptide":
+        if "sub_modality" in entry and entry["sub_modality"] not in _PEPTIDE:
             _reject("metadata_incomplete", "Saved design-chain sub_modality is unknown")
-        if entry.get("modality") != "protein":
-            _reject("not_ppi", "All designed partners must be explicitly declared protein")
+        if entry.get("modality") not in {"protein", *_PEPTIDE}:
+            _reject("not_ppi", "All designed partners must be explicitly declared protein or peptide")
+        kinds.add("peptide" if _peptide_intent(entry) else "protein")
         chain = entry.get("chain")
         if (not isinstance(chain, str) or not chain or chain != chain.strip()
                 or not isinstance(entry.get("sequence"), str) or not entry["sequence"]
@@ -254,6 +258,8 @@ def _design_entries(row):
         if chain in labels:
             _reject("metadata_mismatch", "Saved design-chain labels are duplicated")
         labels.append(chain)
+    if len(kinds) > 1:
+        _reject("not_ppi", "Mixed protein and peptide binder roles are unsupported")
     return labels
 
 
@@ -269,18 +275,24 @@ def _chain_list(value):
 
 
 def _roles(row, record, sequence, task_definition):
-    if _peptide_intent(row) or _peptide_intent(task_definition) or _peptide_intent(record.get("input_metadata", {})):
-        _reject("not_ppi", "Explicit peptide intent is outside the protein interface scope")
-    if row.get("design_modality") not in {None, "", "protein", "joint", "antibody"}:
-        _reject("not_ppi", "Saved design modality is not explicitly protein")
+    if row.get("design_modality") not in {None, "", "protein", "joint", "antibody", *_PEPTIDE}:
+        _reject("not_ppi", "Saved design modality is not explicitly protein or peptide")
     authored = task_definition.get("design_chains", [])
     authored = authored if isinstance(authored, list) else [authored]
+    authored_kinds = set()
     for declaration in authored:
-        if isinstance(declaration, dict) and any(kind != "protein" for kind in declaration.values()):
-            _reject("not_ppi", "Authored design partners are not exclusively protein")
+        if isinstance(declaration, dict):
+            for kind in declaration.values():
+                if kind not in {"protein", *_PEPTIDE}:
+                    _reject("not_ppi", "Authored design partners are not exclusively protein or peptide")
+                authored_kinds.add("peptide" if kind in _PEPTIDE else "protein")
+    if len(authored_kinds) > 1:
+        _reject("not_ppi", "Mixed protein and peptide binder roles are unsupported")
     saved_sequences = sequence["sequences"]
     antibody = bool(row.get("heavy_role") or row.get("heavy_chain") or row.get("antigen_chains") or task_definition.get("format") == "antibody")
     if antibody:
+        if _binder_kind(row, record, task_definition) == "peptide":
+            _reject("metadata_mismatch", "Antibody and peptide binder roles conflict")
         heavy, light = row.get("heavy_chain"), row.get("light_chain")
         if row.get("heavy_role") not in {"VH", "VHH"} or not isinstance(heavy, str) or not heavy:
             _reject("metadata_incomplete", "Explicit antibody heavy chain and role are required")
@@ -305,6 +317,11 @@ def _roles(row, record, sequence, task_definition):
             or len(set(declared)) != len(declared) or set(declared) != set(binder)):
         _reject("metadata_mismatch", "Record design-chain labels disagree with binder roles")
     return binder, target
+
+
+def _binder_kind(row, record, task_definition):
+    values = (row, task_definition, record.get("input_metadata", {}))
+    return "peptide" if any(_peptide_intent(value) for value in values) else "protein"
 
 
 def _structure_sequences(snapshot):
@@ -387,7 +404,7 @@ def _method_plan(root, task_dir, mappings):
 
 
 def _candidate_from_state(root, sample, slot, record_path, record, sequence,
-                          binder, target, key, names, mappings):
+                          binder, target, key, names, mappings, *, binder_kind="protein"):
     prediction = record["predictions"].get(key)
     _checked_prediction(key, prediction, record, sequence, root.name)
     path = _mapped(prediction.get("structure_path"), mappings)
@@ -398,15 +415,37 @@ def _candidate_from_state(root, sample, slot, record_path, record, sequence,
     snapshot = snapshot_refold(path)
     actual = _structure_sequences(snapshot)
     assigned = _map_chains(sequence["sequences"], actual)
+    mapped_binder = tuple(assigned[chain] for chain in binder)
+    from .topology import head_tail_chains
+    actual_cycles = set(head_tail_chains(snapshot))
+    metadata = record.get("input_metadata", {})
+    if "cyclic_chains" in metadata:
+        declared_cycles = metadata["cyclic_chains"]
+        if (not isinstance(declared_cycles, (list, tuple))
+                or any(not isinstance(chain, str) or not chain or chain != chain.strip()
+                       for chain in declared_cycles)
+                or len(set(declared_cycles)) != len(declared_cycles)
+                or set(declared_cycles).difference(assigned)):
+            _reject("metadata_mismatch", "Saved physical cyclic_chains must contain unique known chain IDs")
+        missing_cycles = [chain for chain in declared_cycles if assigned[chain] not in actual_cycles]
+        if missing_cycles:
+            _reject("unsupported_chemistry", "Saved physical head-to-tail closure is missing from refold chains: "
+                    + ", ".join(missing_cycles))
+    cyclic_binder = set(mapped_binder).intersection(actual_cycles)
+    if cyclic_binder:
+        if binder_kind == "protein" and cyclic_binder != set(mapped_binder):
+            _reject("not_ppi", "A cyclic binder mixed with unclassified protein partners is unsupported")
+        binder_kind = "peptide"
     task_dir = root.parent.parent
     return Candidate(
         task_dir=str(task_dir), method_dir=str(root), task=task_dir.name,
         method=root.name, sample=sample, seq_index=slot["seq_index"],
         source=slot["source"], source_index=slot["source_index"],
         prediction_key=key, refold_path=str(path), record_path=str(record_path),
-        binder_chains=tuple(assigned[chain] for chain in binder),
+        binder_chains=mapped_binder,
         target_chains=tuple(assigned[chain] for chain in target),
         sequences=actual, passing_criteria=tuple(sorted(names)), source_snapshot=snapshot,
+        binder_kind=binder_kind,
     )
 
 
@@ -465,16 +504,18 @@ def refresh_candidate(candidate: Candidate, *, path_mappings=None) -> Candidate:
         if not names:
             reasons = "; ".join(item["reason"] for item in selection.diagnostics)
             _reject("no_quality_success", reasons or "Current named quality decisions no longer nominate this prediction")
-        binder, target = _roles(entry["row"], record, sequence, _task_definition(task_dir))
+        definition = _task_definition(task_dir)
+        binder, target = _roles(entry["row"], record, sequence, definition)
         return _candidate_from_state(root, sample, slot, record_path, record, sequence,
-                                     binder, target, candidate.prediction_key, names, mappings)
+                                     binder, target, candidate.prediction_key, names, mappings,
+                                     binder_kind=_binder_kind(entry["row"], record, definition))
     except (KeyError, TypeError) as exc:
         _reject("metadata_incomplete", f"Malformed current candidate state: {exc}")
 
 
 def select_refolds(inputs, *, methods=None, upstream_criteria=None, task_names=None,
                    limit=None, path_mappings=None) -> Selection:
-    """Select only saved, named-quality-passed complex protein predictions."""
+    """Select only saved, named-quality-passed protein or peptide complexes."""
     if isinstance(inputs, (str, os.PathLike)):
         inputs = [inputs]
     selected_methods, criteria, tasks = _names(methods), _names(upstream_criteria), _names(task_names)
@@ -569,6 +610,7 @@ def select_refolds(inputs, *, methods=None, upstream_criteria=None, task_names=N
                         candidates.append(_candidate_from_state(
                             root, sample, slot, record_path, record, sequence,
                             binder, target, key, names, mappings,
+                            binder_kind=_binder_kind(entry["row"], record, definition),
                         ))
                     except (KeyError, OSError, TypeError, ValueError) as exc:
                         _diagnostic(selection, getattr(exc, "code", "invalid_refold"), exc, **prediction_context)

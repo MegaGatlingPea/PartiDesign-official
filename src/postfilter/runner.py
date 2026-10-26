@@ -10,7 +10,7 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from .config import DEFAULT_CRITERIA,dependency_status,load_config
+from .config import DEFAULT_CRITERIA,DEFAULT_PEPTIDE_CRITERIA,dependency_status,load_config
 from .criteria import evaluate,load_presets,validate_criteria
 
 def _geometry_settings(config):
@@ -260,14 +260,22 @@ def run(args):
     from partidesign.paths import inference_config_dir
     config=load_config(args.config)
     presets=load_presets(args.presets or inference_config_dir()/"postfilter_presets.yaml")
-    names=validate_criteria(args.criteria or DEFAULT_CRITERIA,presets)
+    names=validate_criteria(args.criteria,presets) if args.criteria else []
+    def candidate_criteria(candidate):
+        if args.criteria:
+            return names
+        return list(DEFAULT_PEPTIDE_CRITERIA if candidate.binder_kind == "peptide" else DEFAULT_CRITERIA)
     if args.limit is not None and args.limit<1:raise ValueError("--limit must be positive")
     if args.show_config:
-        print(json.dumps({"config":config,"criteria":{n:presets[n] for n in names}},indent=2));return 0
+        shown_names=names if args.criteria else [n for n in (*DEFAULT_CRITERIA,*DEFAULT_PEPTIDE_CRITERIA) if n in presets]
+        print(json.dumps({"config":config,"criteria":{n:presets[n] for n in shown_names},
+                          "default_criteria":{"protein":DEFAULT_CRITERIA,"peptide":DEFAULT_PEPTIDE_CRITERIA}},indent=2));return 0
     if not args.inputs:raise ValueError("postfilter requires RUN_OR_TASK_OR_SUCCESS")
     from .inputs import select_refolds
     selected=select_refolds(args.inputs,methods=args.method,upstream_criteria=args.upstream_criteria,
                             task_names=args.task,limit=args.limit,path_mappings=config["path_mappings"])
+    for candidate in selected.candidates:
+        validate_criteria(candidate_criteria(candidate),presets)
     nonerrors={"not_ppi","no_quality_success","not_complex"}
     selection_errors=[d for d in selected.diagnostics if d.get("code") not in nonerrors]
     if not selected.task_dirs:
@@ -276,7 +284,8 @@ def run(args):
     deps=dependency_status(config)
     if args.plan:
         print(json.dumps({"selected":len(selected.candidates),"tasks":selected.task_dirs,"dependencies":deps,"selection_counts":selected.counts,
-                          "candidates":[{k:v for k,v in c.to_dict().items() if k!="source_snapshot"} for c in selected.candidates],
+                          "candidates":[{**{k:v for k,v in c.to_dict().items() if k!="source_snapshot"},
+                                         "criteria":candidate_criteria(c)} for c in selected.candidates],
                           "diagnostics":selected.diagnostics},indent=2));return 2 if selection_errors else 0
     mode="refilter" if args.refilter else "recompute_metrics" if args.recompute_metrics else "rerun" if args.rerun else "resume"
     if selected.candidates and mode!="refilter" and any(v!="available" for v in deps.values()):
@@ -287,6 +296,9 @@ def run(args):
     failures=bool(selection_errors)
     for task in selected.task_dirs:
         candidates=[c for c in selected.candidates if c.task_dir==task]
+        task_names=list(dict.fromkeys(name for candidate in candidates for name in candidate_criteria(candidate)))
+        if not candidates:
+            task_names=names if args.criteria else [n for n in DEFAULT_CRITERIA if n in presets]
         output=Path(args.out).expanduser().absolute() if args.out else Path(task)/"postfilter"
         if output.resolve()==Path(task).resolve() or output.resolve().is_relative_to(Path(task)/"validate"):
             raise ValueError("postfilter output must be independent of upstream validation")
@@ -304,10 +316,10 @@ def run(args):
             atomic_json(output/".state"/"report_status.json",{"status":"running"})
             if previous_plan is None:
                 atomic_json(state,{"version":1,"task_dir":task,"status":"running","config":config,
-                                   "criteria":names,"identities":[c.identity for c in candidates]})
+                                   "criteria":task_names,"identities":[c.identity for c in candidates]})
             # Per-candidate settings are checked before replacing this saved plan.
             with ThreadPoolExecutor(max_workers=config["workers"]) as pool:
-                records=list(pool.map(lambda candidate:_process(candidate,output,config,names,presets,mode),candidates))
+                records=list(pool.map(lambda candidate:_process(candidate,output,config,candidate_criteria(candidate),presets,mode),candidates))
             errors=any(r["status"]!="complete" or any(d["status"]=="unavailable" for d in r["decisions"].values()) for r in records)
             counts={**selected.counts.get(task,{}),"selected":len(candidates),
                     "metadata_error_events":sum(d.get("code") not in nonerrors for d in diagnostics),
@@ -316,8 +328,8 @@ def run(args):
             summary=write_reports(output,records,diagnostics,counts)
             if not errors:
                 atomic_json(state,{"version":1,"task_dir":task,"status":"complete","config":config,
-                                   "criteria":names,"identities":[c.identity for c in candidates]})
-            atomic_json(output/"resolved_config.json",{"config":config,"criteria":{n:presets[n] for n in names}})
+                                   "criteria":task_names,"identities":[c.identity for c in candidates]})
+            atomic_json(output/"resolved_config.json",{"config":config,"criteria":{n:presets[n] for n in task_names}})
             print(json.dumps({"task":task,"output":str(output),"selected":summary["selected"],"passed":summary["passed"],"execution_failures":summary["execution_failures"]}))
             failures|=errors
     return 2 if failures else 0

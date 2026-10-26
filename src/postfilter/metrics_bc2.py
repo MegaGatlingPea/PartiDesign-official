@@ -57,7 +57,10 @@ def compute_input_metrics(candidate,config):
     from Bio.SeqUtils import seq1
     atoms=read_structure(Path(candidate.refold_path), canonical_polymer_order=True)
     from .records import snapshot_refold
-    coordinates=np.asarray(snapshot_refold(candidate.refold_path)["coordinates"],dtype=np.float64)
+    from .topology import head_tail_chains
+    snapshot=snapshot_refold(candidate.refold_path)
+    cyclic_binder=set(head_tail_chains(snapshot)).intersection(candidate.binder_chains)
+    coordinates=np.asarray(snapshot["coordinates"],dtype=np.float64)
     if coordinates.shape!=atoms.coord.shape or not np.array_equal(coordinates.astype(np.float32),atoms.coord):
         raise ValueError("source precision coordinates disagree with atom identities")
     heavy=~np.isin(atoms.element,("H","D","T"))
@@ -149,6 +152,13 @@ def compute_input_metrics(candidate,config):
         else: hi=mid
     metrics["bc2_binder_pi"]=(lo+hi)/2
     details["sequence_properties"]="concatenated assembly; BC2 single-terminal-pair convention"
+    if cyclic_binder:
+        details["head_tail_binder_chains"]=sorted(cyclic_binder)
+        details["sequence_properties"]="BC2 free-terminal definitions are unavailable for head-to-tail cyclic binders"
+        for name in ("terminus_exposure","binder_mass_kda","binder_pi","binder_net_charge"):
+            key="bc2_"+name
+            metrics.pop(key,None)
+            errors[key]="BC2 linear-chain/free-terminal definition is not applicable to a head-to-tail cyclic binder"
     try: metrics.update(_dssp(atoms,candidate.binder_chains,config.get("dssp")))
     except Exception as exc: errors["bc1_binder_loop_percent"]=str(exc)
     for name,value in list(metrics.items()):

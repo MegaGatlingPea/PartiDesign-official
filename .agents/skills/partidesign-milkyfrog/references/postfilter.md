@@ -1,4 +1,4 @@
-# Postfilter successful protein complexes
+# Postfilter successful protein and peptide complexes
 
 Use this reference for optional CPU relaxation and structural screening after
 validation. Read the active checkout's `docs/postfilter.md` for the maintained
@@ -16,11 +16,14 @@ refold files. A loose success CSV or PDB/CIF cannot establish eligibility;
 original generated files and `result.csv` are not required.
 
 The supported scope is protein–protein complexes, including antibody–antigen
-assemblies with heavy/light chains kept together as the binder. Explicit
-peptide tasks, monomers, nucleic acids, ligands, unsupported modifications,
-and ambiguous roles are excluded or reported precisely. Length alone does not
-define peptide intent. Metrics use each saved refold's actual redesigned
-sequence.
+assemblies with heavy/light chains kept together as the binder, and standard
+peptide–protein complexes using the twenty standard amino acids. Linear and
+physical head-to-tail cyclic peptides are supported. Monomers, nucleic acids,
+ligands, nonstandard residues, mixed protein/peptide binder assemblies, and
+ambiguous roles are excluded or reported precisely. Saved peptide roles or
+the refold's actual head-to-tail bond select the peptide path automatically;
+length and `cyclic_offset` do not establish chemical closure. No new CLI option
+is needed. Metrics use each saved refold's actual redesigned sequence.
 
 The selector uses each named criterion's `passing_prediction_keys`. It does
 not score every link in `success/`: a linked monomer or a model that did not
@@ -51,11 +54,17 @@ paths, workers, threads, and timeout. Do not install tools to answer a usage
 question. Execution uses isolated CPU workers and allocates no GPU.
 
 After prerequisites pass, remove `--plan` for authorized execution with the
-same selection and execution overlay. The default requires both
+same selection and execution overlay. Protein defaults require both
 `bc1_protein_structural` and `bc2_protein_geometry` on the same concrete
-refold. Repeated `--criteria` are an AND, unlike validation's OR. Preserve
+refold; peptide defaults use `bc1_peptide_structural` automatically.
+Explicit `--criteria` overrides these defaults, and repeated criteria are an
+AND, unlike validation's OR. Preserve
 requested criteria and consult `configs/postfilter_presets.yaml` rather than
 inventing thresholds. Missing required metrics are unavailable and cannot pass.
+For a head-to-tail cyclic binder, free-terminal exposure, linear mass, pI,
+and net-charge estimates are unavailable; do not substitute zeros or linear
+peptide values. The maintained guide lists the peptide and relaxed peptide
+profiles without changing the relax protocol.
 
 ## Read results and recover saved work
 

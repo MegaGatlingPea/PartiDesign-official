@@ -20,13 +20,21 @@ class Candidate:
     sequences: dict[str, str]
     passing_criteria: tuple[str, ...]
     source_snapshot: dict = field(default_factory=dict)
+    binder_kind: str = "protein"
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.binder_kind, str) or self.binder_kind not in {"protein", "peptide"}:
+            raise ValueError("Postfilter binder_kind must be protein or peptide")
 
     @property
     def identity(self) -> str:
         return f"{self.method}/{self.sample}/seq{self.seq_index}/{self.prediction_key}"
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        value = asdict(self)
+        if self.binder_kind == "protein":
+            value.pop("binder_kind")
+        return value
 
     @classmethod
     def from_dict(cls, value: dict) -> "Candidate":

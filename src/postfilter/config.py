@@ -8,6 +8,7 @@ import shutil
 import sys
 
 DEFAULT_CRITERIA=("bc1_protein_structural","bc2_protein_geometry")
+DEFAULT_PEPTIDE_CRITERIA=("bc1_peptide_structural",)
 
 def load_yaml(path):
     import yaml

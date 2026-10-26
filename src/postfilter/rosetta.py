@@ -112,6 +112,71 @@ def configure_partner_foldtree(source: SourceStructure, pose: Any, mapping: Pose
     return jump
 
 
+def _head_tail_constraints(source: SourceStructure, pose: Any, mapping: PoseMapping,
+                           pr: Any) -> list[Any]:
+    """Native overlap atoms constrain the closed bond's length, angles and omega."""
+    constraints = []
+    atom_id = pr.rosetta.core.id.AtomID
+    constraint_type = pr.rosetta.core.scoring.constraints.AtomPairConstraint
+    harmonic = pr.rosetta.core.scoring.func.HarmonicFunc
+    for first, last in getattr(source, "head_tail_pairs", ()):
+        first_index, last_index = mapping.pose_residues[first - 1], mapping.pose_residues[last - 1]
+        for left_index, left_atom, right_index, right_atom in (
+                (first_index, "N", last_index, "OVL1"),
+                (first_index, "CA", last_index, "OVL2"),
+                (last_index, "C", first_index, "OVU1")):
+            constraint = constraint_type(
+                atom_id(pose.residue(left_index).atom_index(left_atom), left_index),
+                atom_id(pose.residue(right_index).atom_index(right_atom), right_index),
+                harmonic(0.0, 0.1))
+            pose.add_constraint(constraint)
+            constraints.append(constraint)
+    return constraints
+
+
+def validate_head_tail_geometry(source: SourceStructure, pose: Any, mapping: PoseMapping) -> list[dict]:
+    """Check the real terminal bond after relaxation or saved-state restoration."""
+    def xyz(residue, atom):
+        return np.asarray([float(v) for v in pose.residue(residue).xyz(atom)], dtype=np.float64)
+    def angle(a, b, c):
+        u, v = a - b, c - b
+        norm = float(np.linalg.norm(u) * np.linalg.norm(v))
+        if not math.isfinite(norm) or norm <= 0:
+            raise MappingError("degenerate head-to-tail peptide bond geometry")
+        return math.degrees(math.acos(float(np.clip(np.dot(u, v) / norm, -1.0, 1.0))))
+    result = []
+    for first, last in getattr(source, "head_tail_pairs", ()):
+        first_index, last_index = mapping.pose_residues[first - 1], mapping.pose_residues[last - 1]
+        ca_last, carbon, nitrogen, ca_first = (xyz(last_index, "CA"), xyz(last_index, "C"),
+                                               xyz(first_index, "N"), xyz(first_index, "CA"))
+        distance = float(np.linalg.norm(carbon - nitrogen))
+        carbon_angle, nitrogen_angle = angle(ca_last, carbon, nitrogen), angle(carbon, nitrogen, ca_first)
+        axis = nitrogen - carbon
+        axis /= np.linalg.norm(axis)
+        v = ca_last - carbon
+        w = ca_first - nitrogen
+        v -= np.dot(v, axis) * axis
+        w -= np.dot(w, axis) * axis
+        if min(float(np.linalg.norm(v)), float(np.linalg.norm(w))) <= 0:
+            raise MappingError("degenerate head-to-tail peptide omega geometry")
+        omega = math.degrees(math.atan2(float(np.dot(np.cross(axis, v), w)), float(np.dot(v, w))))
+        planarity = min(abs(omega), abs(180.0 - abs(omega)))
+        if (not all(math.isfinite(value) for value in (distance, carbon_angle, nitrogen_angle, omega))
+                or not 1.1 <= distance <= 1.7
+                or not 85.0 <= carbon_angle <= 155.0
+                or not 85.0 <= nitrogen_angle <= 155.0
+                or planarity > 45.0):
+            raise MappingError("relaxed head-to-tail peptide geometry is invalid: "
+                f"C-N={distance:.3f} A, angles={carbon_angle:.2f}/{nitrogen_angle:.2f}, omega={omega:.2f}")
+        result.append({"chain": source.residues[first - 1].chain,
+            "first_occurrence": first, "last_occurrence": last,
+            "distance": distance, "carbon_angle": carbon_angle,
+            "nitrogen_angle": nitrogen_angle, "omega": omega})
+    if result:
+        mapping.details["head_tail_geometry"] = result
+    return result
+
+
 def relax_pose(source: SourceStructure, pose: Any, mapping: PoseMapping,
                pr: Any, config: dict) -> Any:
     config = validate_config(config)
@@ -121,6 +186,13 @@ def relax_pose(source: SourceStructure, pose: Any, mapping: PoseMapping,
     movemap.set_chi(True)
     movemap.set_jump(False)
     scorefxn = pr.get_fa_scorefxn()
+    cycles = getattr(source, "head_tail_pairs", ())
+    original_constraints = pose.constraint_set().clone() if cycles else None
+    if cycles:
+        _head_tail_constraints(source, pose, mapping, pr)
+        # Only the relax scorefunction sees closure penalties. Public BC1
+        # energies below use the unchanged native beta_nov16 scorefunction.
+        scorefxn.set_weight(pr.rosetta.core.scoring.atom_pair_constraint, 1.0)
     relax = pr.rosetta.protocols.relax.FastRelax(scorefxn, config["relax"]["repeats"])
     relax.set_movemap(movemap)
     relax.max_iter(config["relax"]["max_iter"])
@@ -135,13 +207,18 @@ def relax_pose(source: SourceStructure, pose: Any, mapping: PoseMapping,
         "constrain_start_flag": bool(relax.constrain_relax_to_start_coords()),
         "coordinate_constraints": bool(relax.constrain_coords()),
     }
-    relax.apply(pose)
+    try:
+        relax.apply(pose)
+    finally:
+        if original_constraints is not None:
+            pose.constraint_set(original_constraints)
     align = pr.rosetta.protocols.simple_moves.AlignChainMover()
     align.source_chain(0)
     align.target_chain(0)
     align.pose(start_pose)
     align.apply(pose)
     verify_pose(source, pose, mapping)
+    validate_head_tail_geometry(source, pose, mapping)
     return pose
 
 
@@ -395,6 +472,7 @@ def _bc1_bun_metric(pose: Any, mapping: PoseMapping, pr: Any, config: dict,
 def calculate_metrics(source: SourceStructure, pose: Any, mapping: PoseMapping,
                       pr: Any, config: dict) -> dict:
     """Score clones of one completed relaxed structure; never run relax here."""
+    validate_head_tail_geometry(source, pose, mapping)
     metrics: dict[str, int | float] = {}
     errors: dict[str, str] = {}
     raw: dict[str, float] = {}

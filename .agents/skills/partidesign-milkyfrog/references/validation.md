@@ -216,10 +216,13 @@ new Vina thresholds or `--rerun` to dock again.
 
 Keep the saved named decisions, `.state/` plan, sequence records, and refold
 files when handing eligible protein–protein complexes, including
-antibody–antigen assemblies, to optional CPU [postfiltering](postfilter.md).
+antibody–antigen assemblies, or standard peptide–protein complexes to optional
+CPU [postfiltering](postfilter.md).
 Postfilter selects actual complete predictions that passed the named upstream
-criteria; a success link or CSV alone is insufficient. It excludes explicit
-peptide, nucleic-acid, and ligand tasks and preserves upstream results.
+criteria; a success link or CSV alone is insufficient. Linear and physical
+head-to-tail cyclic peptides are supported automatically, while nonstandard
+residues, nucleic acids, and ligands remain unsupported. Upstream results are
+preserved.
 
 Independently, route passing original generated polymer backbones to clustering
 in [workflows.md](workflows.md). Postfilter relaxed refolds do not replace
