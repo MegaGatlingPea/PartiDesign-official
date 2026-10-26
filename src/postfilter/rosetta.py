@@ -1,4 +1,4 @@
-"""Child-only BC1 standard-protein relaxation and native interface metrics.
+"""Actor-local BC1 standard-protein relaxation and native interface metrics.
 
 Protocol adapted from BindCraft, Martin Pacesa and contributors (MIT), commit
 7713aa0d0d351e4117a8befeb8541f3a8ebd3368, functions/pyrosetta_utils.py.
@@ -12,7 +12,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 import numpy as np
-from .pose_mapping import MappingError, PoseMapping, SourceStructure, pose_coordinates, verify_pose
+from .pose_mapping import (MappingError, PoseMapping, SourceStructure,
+                           pose_coordinates, verify_pose, verify_required_connections)
 
 REQUIRED_METRICS = (
     "bc1_binder_energy_score", "bc1_surface_hydrophobicity", "bc1_shape_complementarity",
@@ -33,23 +34,20 @@ def validate_config(config: dict) -> dict:
             raise ValueError(f"native {name} must be an integer in range")
         result[name] = value
     relax = dict(result.get("relax", {}))
-    for name, default in (("max_iter", 200), ("repeats", 1)):
-        value = relax.get(name, default)
-        if isinstance(value, bool) or not isinstance(value, int) or value < 1:
-            raise ValueError(f"relax.{name} must be a positive integer")
-        relax[name] = value
-    if not isinstance(relax.get("constrain_start", True), bool):
-        raise ValueError("relax.constrain_start must be boolean")
-    relax.setdefault("constrain_start", True)
+    for name, expected in (("max_iter", 200), ("repeats", 1)):
+        value = relax.get(name, expected)
+        if type(value) is not int or value != expected:
+            raise ValueError(f"native relax.{name} must be {expected}")
+        relax[name] = expected
+    if set(relax).difference({"max_iter", "repeats"}):
+        raise ValueError("native relax supports only max_iter and repeats")
     result["relax"] = relax
     result["scorefunction"] = "beta_nov16"
-    if result.get("mode", "relax") not in {"relax", "metrics_only"}:
-        raise ValueError("native mode must be relax or metrics_only")
     return result
 
 
 def initialize(config: dict) -> Any:
-    """Import and initialize the licensed SDK only inside a disposable child."""
+    """Import and initialize the licensed SDK once inside a persistent actor."""
     config = validate_config(config)
     import pyrosetta as pr
     options = ["-mute", "all", "-corrections::beta_nov16", "true",
@@ -65,7 +63,7 @@ def initialize(config: dict) -> Any:
 
 
 def seed_metrics(pr: Any, seed: int) -> None:
-    """An explicit metric-phase seed shared by initial scoring and recovery."""
+    """Reset native metric RNG to the actor protocol's metric-phase seed."""
     pr.rosetta.numeric.random.rg().set_seed(seed)
 
 
@@ -106,8 +104,10 @@ def configure_partner_foldtree(source: SourceStructure, pose: Any, mapping: Pose
     if not np.allclose(before, pose_coordinates(pose, mapping), rtol=0, atol=1e-10):
         raise MappingError("assembly FoldTree changed source coordinates")
     mapping.separation_jump = jump
+    mapping.binder_pose_residues = tuple(sorted(binder))
+    mapping.target_pose_residues = tuple(sorted(target))
     mapping.details.update({"partners": source.partners, "separation_jump": jump,
-        "binder_pose_residues": sorted(binder), "target_pose_residues": sorted(target)})
+        "binder_residues": len(binder), "target_residues": len(target)})
     verify_pose(source, pose, mapping)
     return jump
 
@@ -135,7 +135,7 @@ def _head_tail_constraints(source: SourceStructure, pose: Any, mapping: PoseMapp
 
 
 def validate_head_tail_geometry(source: SourceStructure, pose: Any, mapping: PoseMapping) -> list[dict]:
-    """Check the real terminal bond after relaxation or saved-state restoration."""
+    """Check the real terminal bond geometry after relaxation."""
     def xyz(residue, atom):
         return np.asarray([float(v) for v in pose.residue(residue).xyz(atom)], dtype=np.float64)
     def angle(a, b, c):
@@ -173,7 +173,8 @@ def validate_head_tail_geometry(source: SourceStructure, pose: Any, mapping: Pos
             "distance": distance, "carbon_angle": carbon_angle,
             "nitrogen_angle": nitrogen_angle, "omega": omega})
     if result:
-        mapping.details["head_tail_geometry"] = result
+        mapping.details["head_tail_closures"] = len(result)
+        mapping.details["head_tail_max_distance"] = max(item["distance"] for item in result)
     return result
 
 
@@ -197,7 +198,9 @@ def relax_pose(source: SourceStructure, pose: Any, mapping: PoseMapping,
     relax.set_movemap(movemap)
     relax.max_iter(config["relax"]["max_iter"])
     relax.min_type("lbfgs_armijo_nonmonotone")
-    relax.constrain_relax_to_start_coords(config["relax"]["constrain_start"])
+    # Keep the baseline setter state; the SDK's separate constrain_coords
+    # gate stays disabled, so no starting-coordinate restraints are created.
+    relax.constrain_relax_to_start_coords(True)
     task_factory = pr.rosetta.core.pack.task.TaskFactory()
     task_factory.push_back(pr.rosetta.core.pack.task.operation.RestrictToRepacking())
     relax.set_task_factory(task_factory)
@@ -217,12 +220,15 @@ def relax_pose(source: SourceStructure, pose: Any, mapping: PoseMapping,
     align.target_chain(0)
     align.pose(start_pose)
     align.apply(pose)
-    verify_pose(source, pose, mapping)
+    if not np.isfinite(pose_coordinates(pose, mapping)).all():
+        raise MappingError("Rosetta returned nonfinite coordinates")
+    verify_required_connections(source, pose, mapping)
     validate_head_tail_geometry(source, pose, mapping)
     return pose
 
 
-def _interface_contacts(source: SourceStructure, pose: Any, mapping: PoseMapping) -> tuple[list[int], dict[str, int]]:
+def _interface_contacts(source: SourceStructure, pose: Any, mapping: PoseMapping,
+                        *, include_composition: bool = True) -> tuple[list[int], dict[str, int]]:
     # BC1's Bio.PDB hotspot calculation unfolds every atom in Rosetta's PDB,
     # including native hydrogens and terminal preparation atoms.
     binder_coordinates, binder_occurrences, target_coordinates = [], [], []
@@ -243,10 +249,12 @@ def _interface_contacts(source: SourceStructure, pose: Any, mapping: PoseMapping
                            - target_coordinates[None, :, :]) ** 2, axis=-1)
         for local_index in np.flatnonzero(np.any(distance2 <= 16.0, axis=1)):
             contacts.add(binder_occurrences[offset + int(local_index)])
-    composition = {aa: 0 for aa in "ACDEFGHIKLMNPQRSTVWY"}
-    from .pose_mapping import _AA
-    for ordinal in sorted(contacts):
-        composition[_AA[source.residues[ordinal - 1].name]] += 1
+    composition = {}
+    if include_composition:
+        composition = {aa: 0 for aa in "ACDEFGHIKLMNPQRSTVWY"}
+        from .pose_mapping import _AA
+        for ordinal in contacts:
+            composition[_AA[source.residues[ordinal - 1].name]] += 1
     return sorted(contacts), composition
 
 
@@ -274,7 +282,9 @@ def _binder_surface(source: SourceStructure, pose: Any, mapping: PoseMapping, pr
     return hydrophobic / total
 
 
-def _iam_metrics(source: SourceStructure, pose: Any, pr: Any, scorefxn: Any) -> dict[str, float]:
+def _iam_metrics(source: SourceStructure, pose: Any, pr: Any, scorefxn: Any,
+                 required_metrics=None) -> dict[str, float]:
+    wanted = set(_IAM_METRICS if required_metrics is None else required_metrics)
     mover = pr.rosetta.protocols.analysis.InterfaceAnalyzerMover()
     partners: Any = source.partners
     docking_type = getattr(pr.rosetta.core.pose, "DockingPartners", None)
@@ -282,11 +292,11 @@ def _iam_metrics(source: SourceStructure, pose: Any, pr: Any, scorefxn: Any) -> 
         partners = docking_type.docking_partners_from_string(partners)
     mover.set_interface(partners)
     mover.set_scorefunction(scorefxn)
-    mover.set_compute_packstat(True)
-    mover.set_compute_interface_energy(True)
-    mover.set_calc_dSASA(True)
-    mover.set_calc_hbond_sasaE(True)
-    mover.set_compute_interface_sc(True)
+    mover.set_compute_packstat("bc1_packstat" in wanted)
+    mover.set_compute_interface_energy(bool(wanted & {"bc1_dg", "bc1_dg_dsasa", "bc1_interface_hbonds"}))
+    mover.set_calc_dSASA(bool(wanted & {"bc1_dsasa", "bc1_dg_dsasa", "bc1_interface_hbonds"}))
+    mover.set_calc_hbond_sasaE("bc1_interface_hbonds" in wanted)
+    mover.set_compute_interface_sc("bc1_shape_complementarity" in wanted)
     mover.set_pack_input(False)
     mover.set_pack_separated(True)
     mover.apply(pose.clone())
@@ -295,17 +305,21 @@ def _iam_metrics(source: SourceStructure, pose: Any, pr: Any, scorefxn: Any) -> 
             return action()
         except Exception as exc:
             return exc
-    data = read(mover.get_all_data)
+    data = read(mover.get_all_data) if wanted & {
+        "bc1_shape_complementarity", "bc1_interface_hbonds", "bc1_dg_dsasa"} else None
     def field(name):
         if isinstance(data, Exception):
             raise data
         return getattr(data, name)
-    return {"bc1_shape_complementarity": read(lambda: field("sc_value")),
-            "bc1_interface_hbonds": read(lambda: field("interface_hbonds")),
-            "bc1_dg": read(mover.get_interface_dG),
-            "bc1_dsasa": read(mover.get_interface_delta_sasa),
-            "bc1_packstat": read(mover.get_interface_packstat),
-            "bc1_dg_dsasa": read(lambda: field("dG_dSASA_ratio") * 100)}
+    actions = {
+        "bc1_shape_complementarity": lambda: field("sc_value"),
+        "bc1_interface_hbonds": lambda: field("interface_hbonds"),
+        "bc1_dg": mover.get_interface_dG,
+        "bc1_dsasa": mover.get_interface_delta_sasa,
+        "bc1_packstat": mover.get_interface_packstat,
+        "bc1_dg_dsasa": lambda: field("dG_dSASA_ratio") * 100,
+    }
+    return {name: read(actions[name]) for name in _IAM_METRICS if name in wanted}
 
 
 def _bun_parameters(pr: Any) -> dict:
@@ -371,8 +385,8 @@ def _bun_calculator_metric(pose: Any, mapping: PoseMapping, pr: Any, parameters:
     jump = mapping.separation_jump
     if type(jump) is not int or not 1 <= jump <= pose.num_jump():
         raise MappingError("an explicit valid assembly separation jump is required for BC1 BUNs")
-    binder = set(mapping.details.get("binder_pose_residues", ()))
-    target = set(mapping.details.get("target_pose_residues", ()))
+    binder = set(mapping.binder_pose_residues)
+    target = set(mapping.target_pose_residues)
     if not binder or not target or binder & target or binder | target != set(range(1, pose.total_residue() + 1)):
         raise MappingError("BUN partner residue sets must partition the whole Pose")
     partition = pose.fold_tree().partition_by_jump(jump)
@@ -425,23 +439,13 @@ def _bun_calculator_metric(pose: Any, mapping: PoseMapping, pr: Any, parameters:
             raise ValueError("native BUN atom flags do not match the full residue count")
     if len(atoms) != bound_total:
         raise ValueError("native BUN atom flags do not match the full heavy-atom count")
-    records = []
+    count = 0
     for r, atom in atoms:
         apo_flag = _bun_native_flag(apo_calculator, apo, pr, r, atom)
         query_count += 1
-        residue = bound.residue(r)
-        records.append({"pose_residue": r, "atom_index": atom,
-            "atom_name": residue.atom_name(atom).strip(), "residue_name": residue.name3().strip(),
-            "donor": bool(residue.atom_type(atom).is_donor()),
-            "acceptor": bool(residue.atom_type(atom).is_acceptor()),
-            "atomic_charge": float(residue.atomic_charge(atom)),
-            "backbone": bool(residue.atom_is_backbone(atom)),
-            "apo_unsatisfied": bool(apo_flag), "included": not bool(apo_flag)})
-    count = sum(record["included"] for record in records)
+        count += int(not apo_flag)
     return count, {"bound_heavy_unsats": bound_total, "apo_heavy_unsats": apo_total,
-        "bound_per_residue": bound_counts, "apo_per_residue": apo_counts,
-        "bound_atom_flags": records, "atom_mask_queries": query_count,
-        "atom_query_selection": "native_donor_or_acceptor",
+        "atom_mask_queries": query_count, "atom_query_selection": "native_donor_or_acceptor",
         "separation_distance": 1000.0, "elapsed_seconds": time.perf_counter() - started}
 
 
@@ -470,14 +474,24 @@ def _bc1_bun_metric(pose: Any, mapping: PoseMapping, pr: Any, config: dict,
 
 
 def calculate_metrics(source: SourceStructure, pose: Any, mapping: PoseMapping,
-                      pr: Any, config: dict) -> dict:
-    """Score clones of one completed relaxed structure; never run relax here."""
-    validate_head_tail_geometry(source, pose, mapping)
+                      pr: Any, config: dict, required_metrics=None) -> dict:
+    """Calculate requested native BC1 values and only their actual dependencies."""
+    supported = set(REQUIRED_METRICS) | set(_IAM_METRICS) | {
+        "bc1_interface_hydrophobicity", "bc1_interface_fraction",
+        "bc1_interface_hbond_percentage", "bc1_interface_unsat_hbond_percentage"}
+    wanted = set(REQUIRED_METRICS if required_metrics is None else required_metrics) & supported
+    needed = set(wanted)
+    if "bc1_interface_fraction" in wanted:
+        needed.add("bc1_dsasa")
+    if "bc1_interface_hbond_percentage" in wanted:
+        needed.add("bc1_interface_hbonds")
+    if "bc1_interface_unsat_hbond_percentage" in wanted:
+        needed.add("bc1_interface_unsat_hbonds")
     metrics: dict[str, int | float] = {}
     errors: dict[str, str] = {}
     raw: dict[str, float] = {}
+    failures: dict[str, str] = {}
     details = dict(mapping.details)
-    scorefxn = pr.get_fa_scorefxn()
     def capture(names: tuple[str, ...], action: Callable[[], Any]) -> None:
         try:
             values = action()
@@ -494,58 +508,74 @@ def calculate_metrics(source: SourceStructure, pose: Any, mapping: PoseMapping,
                     if not math.isfinite(number):
                         raise ValueError("nonfinite native metric")
                     raw[name] = number
-                    metrics[name] = round(number, 2)
+                    if name in wanted:
+                        metrics[name] = round(number, 2)
                 except Exception as exc:
-                    errors[name] = f"{type(exc).__name__}: {exc}"
+                    failures[name] = f"{type(exc).__name__}: {exc}"
+                    if name in wanted:
+                        errors[name] = failures[name]
         except Exception as exc:
             for name in names:
+                failures[name] = f"{type(exc).__name__}: {exc}"
+                if name in wanted:
+                    errors[name] = failures[name]
+    scorefxn = pr.get_fa_scorefxn() if needed & (set(_IAM_METRICS) | {"bc1_binder_energy_score"}) else None
+    selector = None
+    if wanted & {"bc1_binder_energy_score", "bc1_interface_fraction"}:
+        indices = [mapping.pose_residues[i - 1] for i in source.binder_indices]
+        selector = _selector(pr, indices)
+    if "bc1_binder_energy_score" in wanted:
+        def binder_energy() -> float:
+            metric = pr.rosetta.core.simple_metrics.metrics.TotalEnergyMetric()
+            metric.set_scorefunction(scorefxn)
+            metric.set_residue_selector(selector)
+            return metric.calculate(pose.clone())
+        capture(("bc1_binder_energy_score",), binder_energy)
+    if "bc1_surface_hydrophobicity" in wanted:
+        capture(("bc1_surface_hydrophobicity",), lambda: _binder_surface(source, pose.clone(), mapping, pr))
+    iam_names = tuple(name for name in _IAM_METRICS if name in needed)
+    if iam_names:
+        capture(iam_names, lambda: _iam_metrics(source, pose, pr, scorefxn, required_metrics=iam_names))
+    contact_names = {"bc1_interface_residues", "bc1_interface_hydrophobicity",
+                     "bc1_interface_hbond_percentage", "bc1_interface_unsat_hbond_percentage"}
+    contacts = None
+    if wanted & contact_names:
+        try:
+            contacts, composition = _interface_contacts(source, pose, mapping,
+                include_composition="bc1_interface_hydrophobicity" in wanted)
+            if "bc1_interface_residues" in wanted:
+                metrics["bc1_interface_residues"] = len(contacts)
+            if "bc1_interface_hydrophobicity" in wanted:
+                metrics["bc1_interface_hydrophobicity"] = round(
+                    100 * sum(composition[aa] for aa in "ACFILMPVWY") / len(contacts), 2) if contacts else 0.0
+        except Exception as exc:
+            for name in wanted & contact_names:
                 errors[name] = f"{type(exc).__name__}: {exc}"
-    indices = [mapping.pose_residues[i - 1] for i in source.binder_indices]
-    selector = _selector(pr, indices)
-    def binder_energy() -> float:
-        metric = pr.rosetta.core.simple_metrics.metrics.TotalEnergyMetric()
-        metric.set_scorefunction(scorefxn)
-        metric.set_residue_selector(selector)
-        return metric.calculate(pose.clone())
-    capture(("bc1_binder_energy_score",), binder_energy)
-    capture(("bc1_surface_hydrophobicity",), lambda: _binder_surface(source, pose.clone(), mapping, pr))
-    capture(_IAM_METRICS, lambda: _iam_metrics(source, pose, pr, scorefxn))
-    try:
-        contacts, composition = _interface_contacts(source, pose, mapping)
-        metrics["bc1_interface_residues"] = len(contacts)
-        metrics["bc1_interface_hydrophobicity"] = round(
-            100 * sum(composition[aa] for aa in "ACFILMPVWY") / len(contacts), 2) if contacts else 0.0
-        details["interface_amino_acids"] = composition
-        details["interface_residues"] = [{"chain": source.residues[i - 1].chain,
-            "label_seq_id": source.residues[i - 1].label_seq,
-            "auth_seq_id": source.residues[i - 1].auth_seq,
-            "ins_code": source.residues[i - 1].insertion, "occurrence": i} for i in contacts]
-        details["no_contacts"] = not contacts
-        details["contact_atom_scope"] = "all_native_atoms"
-    except Exception as exc:
-        contacts = []
-        errors["bc1_interface_residues"] = f"{type(exc).__name__}: {exc}"
-    def buns() -> float:
-        value, calculation = _bc1_bun_metric(pose, mapping, pr, config)
-        details["bun_calculation"] = calculation
-        return value
-    capture(("bc1_interface_unsat_hbonds",), buns)
-    def binder_sasa_fraction() -> float:
-        metric = pr.rosetta.core.simple_metrics.metrics.SasaMetric()
-        metric.set_residue_selector(selector)
-        sasa = float(metric.calculate(pose.clone()))
-        if "bc1_dsasa" not in raw:
-            raise ValueError("interface dSASA is unavailable")
-        return 100 * raw["bc1_dsasa"] / sasa if sasa > 0 else 0.0
-    capture(("bc1_interface_fraction",), binder_sasa_fraction)
-    if contacts:
-        for source_name, output_name in (
+    if "bc1_interface_unsat_hbonds" in needed:
+        def buns() -> float:
+            value, calculation = _bc1_bun_metric(pose, mapping, pr, config)
+            details["bun_calculation"] = calculation
+            return value
+        capture(("bc1_interface_unsat_hbonds",), buns)
+    if "bc1_interface_fraction" in wanted:
+        def binder_sasa_fraction() -> float:
+            if "bc1_dsasa" not in raw:
+                raise ValueError(failures.get("bc1_dsasa", "interface dSASA is unavailable"))
+            metric = pr.rosetta.core.simple_metrics.metrics.SasaMetric()
+            metric.set_residue_selector(selector)
+            sasa = float(metric.calculate(pose.clone()))
+            return 100 * raw["bc1_dsasa"] / sasa if sasa > 0 else 0.0
+        capture(("bc1_interface_fraction",), binder_sasa_fraction)
+    for source_name, output_name in (
             ("bc1_interface_hbonds", "bc1_interface_hbond_percentage"),
             ("bc1_interface_unsat_hbonds", "bc1_interface_unsat_hbond_percentage")):
-            if source_name in raw:
-                metrics[output_name] = round(100 * raw[source_name] / len(contacts), 2)
-    auxiliary_names = {"bc1_interface_fraction", "bc1_interface_hbond_percentage", "bc1_interface_unsat_hbond_percentage"}
-    details["auxiliary_metrics"] = {name: metrics.pop(name) for name in auxiliary_names if name in metrics}
-    details["auxiliary_errors"] = {name: errors.pop(name) for name in auxiliary_names if name in errors}
-    details.update({"raw_metrics": raw, "comparison_decimals": 2, "coordinate_stage": "relaxed_refold"})
+        if output_name not in wanted or output_name in errors:
+            continue
+        if not contacts:
+            errors[output_name] = "no binder-target contacts"
+        elif source_name not in raw:
+            errors[output_name] = failures.get(source_name, "native dependency is unavailable")
+        else:
+            metrics[output_name] = round(100 * raw[source_name] / len(contacts), 2)
+    details.update({"comparison_decimals": 2, "coordinate_stage": "relaxed_refold"})
     return {"metrics": metrics, "errors": errors, "details": details}

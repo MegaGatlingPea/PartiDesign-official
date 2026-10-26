@@ -1,335 +1,379 @@
-"""Stage successful refolds, isolate native work, and publish independent results."""
+"""Select metadata, dispatch a shared Ray pool, and report final records."""
 from __future__ import annotations
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+
+from collections import Counter, deque
 import copy
-import importlib.metadata
+from dataclasses import dataclass
+import importlib
 import json
+import math
 import os
 from pathlib import Path
-import shutil
-import tempfile
+import re
+import sys
+import time
 
-from .config import DEFAULT_CRITERIA,DEFAULT_PEPTIDE_CRITERIA,dependency_status,load_config
-from .criteria import evaluate,load_presets,validate_criteria
+from .config import dependency_status, load_config
+from .criteria import evaluate, finite_number, load_presets, profile_for_kind
+from .schema import Candidate
+from .storage import atomic_json, read_json
+from .worker import (PostfilterWorker, candidate_paths, computation_settings, failed_record,
+                     required_tools, thread_environment)
 
-def _geometry_settings(config):
-    try:version=importlib.metadata.version("pyrosetta")
-    except importlib.metadata.PackageNotFoundError:version=None
-    return {"protocol_version":1,"pyrosetta_version":version,**{k:config[k] for k in ("scorefunction","seed","relax","threads")}}
 
-def _metric_settings(config):
-    tools={}
-    for key in ("dssp","dalphaball"):
-        path=config.get(key)
-        if path and Path(path).is_file():
-            st=Path(path).stat();tools[key]={"path":path,"size":st.st_size,"mtime_ns":st.st_mtime_ns}
-        else:tools[key]=None
-    return {"definition_version":2,"tools":tools}
+@dataclass(frozen=True)
+class _Job:
+    candidate: Candidate
+    output: Path
 
-@contextmanager
-def _lock(output):
-    import fcntl
-    from .storage import _plain_path
-    root=_plain_path(output)
-    if root.is_symlink():raise ValueError("postfilter output cannot be a symlink")
-    state=_plain_path(root/".state");state.mkdir(parents=True,exist_ok=True)
-    path=_plain_path(state/"run.lock")
-    if path.is_symlink():raise ValueError("postfilter lock cannot be a symlink")
-    with path.open("a+") as handle:
-        try:fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        except BlockingIOError as exc:raise ValueError(f"postfilter output is in use: {root}") from exc
-        try:yield
-        finally:fcntl.flock(handle,fcntl.LOCK_UN)
 
-def _physical_candidate(candidate):
-    return {k:v for k,v in candidate.to_dict().items() if k not in {"passing_criteria"}}
+def cpu_budget() -> int:
+    limits = [os.cpu_count() or 1]
+    if hasattr(os, "sched_getaffinity"):
+        try:
+            limits.append(len(os.sched_getaffinity(0)))
+        except OSError:
+            pass
+    for name in ("SLURM_CPUS_PER_TASK", "SLURM_CPUS_ON_NODE", "SLURM_JOB_CPUS_PER_NODE"):
+        match = re.fullmatch(r"\s*(\d+)(?:\(x\d+\))?(?:,.*)?\s*", os.environ.get(name, ""))
+        if match and int(match[1]) > 0:
+            limits.append(int(match[1]))
+    return max(1, min(limits))
 
-def _promote_pair(staging,private_staging,destination,private_destination,original_presence=None):
-    """Publish owned geometry/state, rolling back ordinary write errors."""
-    from .storage import _plain_path
-    pairs=((_plain_path(private_staging),_plain_path(private_destination)),(_plain_path(staging),_plain_path(destination)))
-    backups=[];published=[]
-    for source,target in pairs:
-        target.parent.mkdir(parents=True,exist_ok=True)
-        backup=staging.parent/(target.name+".previous")
-        was_present=target.exists() if original_presence is None else original_presence[str(target)]
-        if was_present and not backup.exists():shutil.copy2(target,backup)
-        backups.append((target,backup if was_present and backup.exists() else None))
+
+def worker_count(config: dict, jobs: int, budget: int | None = None) -> int:
+    budget = cpu_budget() if budget is None else budget
+    cap = budget // config["threads"]
+    if cap < 1:
+        raise ValueError("postfilter threads exceeds the allocated CPU budget")
+    requested = config["workers"]
+    return min(jobs, cap if requested is None else min(requested, cap))
+
+
+def _candidate_matches(saved: dict, candidate: Candidate) -> bool:
     try:
-        for source,target in pairs:
-            _plain_path(target)
-            os.replace(source,target);published.append(target)
-    except Exception:
-        for target,backup in reversed(backups):
-            if backup is not None:os.replace(backup,target)
-            elif target in published:target.unlink(missing_ok=True)
-        raise
-    for _,backup in backups:
-        if backup is not None:backup.unlink(missing_ok=True)
+        previous = Candidate.from_dict(saved).to_dict()
+    except (KeyError, TypeError, ValueError):
+        return False
+    current = candidate.to_dict()
+    previous.pop("passing_criteria", None)
+    current.pop("passing_criteria", None)
+    return previous == current
 
-def _still_passed(candidate, config):
-    from .inputs import refresh_candidate
-    current = refresh_candidate(candidate, path_mappings=config["path_mappings"])
-    if _physical_candidate(current) != _physical_candidate(candidate):
-        raise ValueError("upstream prediction identity or source changed during postfilter")
 
-def _process(candidate, output, config, names, presets, mode):
-    from .records import snapshot_refold
-    from .schema import Candidate
-    from .storage import _plain_path, atomic_json, read_json
-    from .metrics_bc2 import compute_input_metrics
+def _completed_record(job: _Job, config: dict, bundle: dict) -> dict | None:
+    destination, path = candidate_paths(job.candidate.identity, job.output)
+    record = read_json(path)
+    if not record:
+        return None
+    if record.get("version") != 2:
+        raise ValueError(f"legacy postfilter record in {job.output}; request a fresh --out directory")
+    if (record.get("status") != "complete" or record.get("geometry_status") != "complete"
+            or record.get("identity") != job.candidate.identity
+            or not _candidate_matches(record.get("candidate", {}), job.candidate)
+            or record.get("relaxed_path") != str(destination) or not destination.is_file()):
+        return None
+    details = record.get("details", {})
+    if not isinstance(details, dict):
+        return None
+    kind = details.get("binder_kind", job.candidate.binder_kind)
+    try:
+        names, required = profile_for_kind(kind, bundle)
+    except ValueError:
+        return None
+    if record.get("settings") != computation_settings(config, bundle, required):
+        return None
+    metrics = record.get("metrics", {})
+    if not isinstance(metrics, dict) or any(not finite_number(metrics.get(name)) for name in required):
+        return None
+    record["candidate"] = job.candidate.to_dict()
+    record["decisions"] = {name: evaluate(metrics, name, bundle["presets"][name]) for name in names}
+    return record
 
-    identity = Path(candidate.identity)
-    if identity.is_absolute() or ".." in identity.parts:
-        raise ValueError("invalid candidate identity")
-    record_path = _plain_path(output / "records" / identity.with_suffix(".json"))
-    pending_path = _plain_path(record_path.with_suffix(".pending.json"))
-    destination = _plain_path(output / "structures" / identity.with_suffix(".cif"))
-    private_destination = _plain_path(output / ".state" / "native" / identity.with_suffix(".json"))
-    geometry_config, metric_config = _geometry_settings(config), _metric_settings(config)
-    previous, pending = read_json(record_path), read_json(pending_path)
-    record = {
-        "version": 1, "identity": candidate.identity, "candidate": candidate.to_dict(),
-        "status": "failed", "geometry_status": "not_run", "metrics": {}, "errors": {},
-        "decisions": {}, "relaxed_path": None, "error": "",
-        "geometry_config": geometry_config, "metric_config": metric_config,
+
+def _scientific_settings(config: dict, bundle: dict) -> dict:
+    stable_bundle = copy.deepcopy(bundle)
+    for preset in stable_bundle["presets"].values():
+        preset.pop("description", None)
+        for rule in preset["rules"]:
+            rule.pop("value", None)
+    profiles = {}
+    for kind in ("protein", "peptide"):
+        names, required = profile_for_kind(kind, bundle)
+        profiles[kind] = {"names": names, "required": sorted(required)}
+    return {
+        "config": {name: config[name] for name in ("seed", "threads", "dalphaball", "dssp")},
+        "bundle": stable_bundle, "profiles": profiles,
     }
-    can_update_record = False
-    resumed_attempt = False
 
-    def same_request(saved):
-        return (_physical_candidate(Candidate.from_dict(saved["candidate"])) == _physical_candidate(candidate)
-                and saved.get("geometry_config") == geometry_config)
 
-    def check_pair(saved):
-        return (destination.is_file() and private_destination.is_file()
-                and snapshot_refold(destination) == saved.get("output_snapshot")
-                and read_json(private_destination) == saved.get("private_state_snapshot"))
-
+def _check_output(output: Path, task: str, config: dict, bundle: dict, rerun: bool = False) -> None:
+    saved = read_json(output / "resolved_config.json")
+    if saved is None:
+        if output.exists() and (not output.is_dir() or any(output.iterdir())):
+            raise ValueError(f"unrecognized or legacy postfilter output {output}; request a fresh --out directory")
+        return
+    if saved.get("version") != 2 or saved.get("task_dir") != task:
+        raise ValueError(f"legacy or different-task postfilter output {output}; request a fresh --out directory")
     try:
-        if snapshot_refold(candidate.refold_path) != candidate.source_snapshot:
-            raise ValueError("source refold changed after selection")
-        baseline = previous
-        if pending and mode not in {"rerun", "refilter"} and same_request(pending):
-            baseline = pending
-            resumed_attempt = True
-            # A process may stop between a pair publication and its state update.
-            if pending.get("publication_ready"):
-                if not check_pair(pending):
-                    staging = _plain_path(pending["staging_path"])
-                    if not staging.is_relative_to(output / ".state"):
-                        raise ValueError("pending geometry is outside owned staging")
-                    private_staging = _plain_path(staging.with_suffix(".native.json"))
-                    if not staging.is_file() or snapshot_refold(staging) != pending.get("output_snapshot"):
-                        raise ValueError("interrupted geometry publication cannot be recovered")
-                    # This is actual saved native geometry, not newly inferred atoms.
-                    if not private_staging.is_file():
-                        atomic_json(private_staging, pending["private_state_snapshot"])
-                    if read_json(private_staging) != pending.get("private_state_snapshot"):
-                        raise ValueError("interrupted private geometry changed")
-                    _promote_pair(staging, private_staging, destination, private_destination,
-                                  pending.get("publication_previous"))
-                baseline = copy.deepcopy(pending)
-                baseline.update(geometry_status="complete", relaxed_path=str(destination))
+        matches = _scientific_settings(saved.get("config", {}), saved.get("bundle", {})) == _scientific_settings(config, bundle)
+    except (KeyError, TypeError, ValueError):
+        matches = False
+    if not matches and not rerun:
+        raise ValueError(f"postfilter scientific settings changed in {output}; use --rerun for selected samples")
 
-        if baseline and mode != "rerun":
-            old_settings = baseline.get("geometry_config", {})
-            compare_settings = geometry_config
-            if mode == "refilter":
-                old_settings = {k: v for k, v in old_settings.items() if k != "pyrosetta_version"}
-                compare_settings = {k: v for k, v in compare_settings.items() if k != "pyrosetta_version"}
-            if (_physical_candidate(Candidate.from_dict(baseline["candidate"])) != _physical_candidate(candidate)
-                    or old_settings != compare_settings):
-                raise ValueError("input, roles or relax protocol changed; use --rerun")
-            record = copy.deepcopy(baseline)
-            record["candidate"] = candidate.to_dict()
-            if record.get("geometry_status") == "complete":
-                if not destination.is_file() or snapshot_refold(destination) != record.get("output_snapshot"):
-                    raise ValueError("saved relaxed structure is absent or changed; use --rerun")
-                if mode != "refilter" and not check_pair(record):
-                    raise ValueError("saved private geometry is absent or changed; use --rerun")
 
-        if mode == "refilter":
-            if not previous or record.get("geometry_status") != "complete":
-                raise ValueError("no completed postfilter geometry to refilter")
-            can_update_record = True
-        else:
-            if mode == "recompute_metrics" and record.get("geometry_status") != "complete":
-                raise ValueError("no completed geometry; metric recomputation cannot relax")
-            need_geometry = record.get("geometry_status") != "complete" or mode == "rerun"
-            need_metrics = (need_geometry or mode == "recompute_metrics"
-                            or record.get("metric_config") != metric_config or record.get("status") != "complete")
-            if baseline and not need_geometry and baseline.get("metric_config") != metric_config and mode != "recompute_metrics":
-                raise ValueError("metric settings changed; use --recompute-metrics")
-            can_update_record = record.get("geometry_status") == "complete"
-            if need_metrics:
-                from .worker import execute_native
-                native_config = copy.deepcopy(config)
-                native_config["mode"] = "relax" if need_geometry else "metrics_only"
-                cached_native = record.get("native_result", {})
-                use_cached_native = (not need_geometry and mode == "resume"
-                                     and record.get("metric_config") == metric_config
-                                     and record.get("native_result_metric_config") == metric_config
-                                     and not record.get("metrics_attempt_incomplete")
-                                     and cached_native.get("status") == "complete")
-                if use_cached_native:
-                    native = cached_native
+def _dispatch_jobs(jobs: list[_Job], config: dict, bundle: dict, *, ray_module=None) -> tuple[list[dict], list[dict]]:
+    """Run each sample once, replacing lost actors only for subsequent samples."""
+    if not jobs:
+        return [], []
+    from tqdm import tqdm
+
+    ray = importlib.import_module("ray") if ray_module is None else ray_module
+    budget = cpu_budget()
+    owned_runtime = not ray.is_initialized()
+    actors = {}
+    ready = {}
+    active = {}
+    waiting = deque(enumerate(jobs))
+    results = [None] * len(jobs)
+    audit = []
+    progress = tqdm(total=len(jobs), desc="Postfilter", unit="sample", file=sys.stderr)
+    try:
+        count = worker_count(config, len(jobs), budget)
+        if owned_runtime:
+            ray.init(address="local", num_cpus=count * config["threads"], num_gpus=0,
+                     include_dashboard=False, log_to_driver=False)
+        resources = ray.cluster_resources() if owned_runtime else ray.available_resources()
+        if resources.get("CPU", 0) < config["threads"]:
+            raise ValueError("Ray has insufficient CPU resources for one postfilter worker")
+        budget = min(budget, math.floor(resources["CPU"]))
+        count = worker_count(config, len(jobs), budget)
+        remote_worker = ray.remote(
+            num_cpus=config["threads"], num_gpus=0, max_restarts=0, max_task_retries=0,
+            runtime_env={"env_vars": thread_environment(config["threads"])},
+        )(PostfilterWorker)
+
+        def start_actor():
+            actor = remote_worker.remote(config, bundle)
+            actors[actor] = {"submitted": 0}
+            ready[actor.ready.remote()] = (actor, time.monotonic())
+
+        def submit(actor):
+            index, job = waiting.popleft()
+            # Invalidate prior owned output before a new sample can publish.
+            destination, completion = candidate_paths(job.candidate.identity, job.output)
+            if destination.resolve() == Path(job.candidate.refold_path).expanduser().resolve():
+                raise ValueError("relaxed output cannot overwrite the source structure")
+            completion.unlink(missing_ok=True)
+            destination.unlink(missing_ok=True)
+            reference = actor.process.remote(job.candidate.to_dict(), str(job.output))
+            actors[actor]["submitted"] += 1
+            active[reference] = (actor, index, job, time.monotonic())
+
+        def lost_sample(reference, actor, index, job, started, reason, *, terminal=True):
+            info = actors.pop(actor)
+            ray.kill(actor, no_restart=True)
+            if not terminal:
+                # A timed-out process may still be publishing. Ray must confirm
+                # this call is terminal before its final completion is inspected.
+                terminated, _ = ray.wait([reference], num_returns=1, timeout=config["timeout"])
+                if not terminated:
+                    raise RuntimeError("timed-out postfilter worker did not terminate")
+                try:
+                    ray.get(reference)
+                except Exception:
+                    pass
+            audit.append({**info, "retired_reason": reason})
+            # This is the only exceptional-path completion read.
+            try:
+                record = _completed_record(job, config, bundle)
+            except (OSError, TypeError, ValueError):
+                record = None
+            if record is None:
+                record = failed_record(job.candidate, reason, time.monotonic() - started)
+                record["geometry_status"] = "failed"
+                names, required = profile_for_kind(job.candidate.binder_kind, bundle)
+                record["settings"] = computation_settings(config, bundle, required)
+                record["errors"] = {name: reason for name in sorted(required)}
+                record["decisions"] = {
+                    name: {"criteria": name, "status": "unavailable", "reasons": [reason]} for name in names
+                }
+                atomic_json(candidate_paths(job.candidate.identity, job.output)[1], record)
+            results[index] = record
+            progress.update(1)
+            if waiting:
+                start_actor()
+
+        def completed_reference(reference):
+            if reference in ready:
+                actor, _ = ready.pop(reference)
+                try:
+                    info = ray.get(reference)
+                except Exception as exc:
+                    raise RuntimeError(f"postfilter worker startup failed: {exc}") from exc
+                if not isinstance(info, dict) or info.get("initializations") != 1:
+                    raise RuntimeError("postfilter worker startup returned invalid initialization counters")
+                actors[actor].update(info)
+                if waiting:
+                    submit(actor)
+                return
+            actor, index, job, started = active.pop(reference)
+            try:
+                record = ray.get(reference)
+            except Exception as exc:
+                lost_sample(reference, actor, index, job, started, f"worker failed: {type(exc).__name__}: {exc}")
+            else:
+                if (not isinstance(record, dict) or record.get("version") != 2
+                        or record.get("identity") != job.candidate.identity
+                        or record.get("status") not in {"complete", "failed"}):
+                    lost_sample(reference, actor, index, job, started, "worker returned an invalid sample record")
                 else:
-                    if need_geometry:
-                        if resumed_attempt and record.get("staging_path"):
-                            staging = _plain_path(record["staging_path"])
-                            if not staging.is_relative_to(output / ".state"):
-                                raise ValueError("pending job escaped owned staging")
-                        else:
-                            staging = Path(tempfile.mkdtemp(prefix="candidate-", dir=output / ".state")) / "relaxed.cif"
-                        native_config["private_state_path"] = str(staging.with_suffix(".native.json"))
-                    else:
-                        staging = destination
-                        native_config["private_state_path"] = str(private_destination)
-                    reuse_job = (resumed_attempt and record.get("metrics_attempt_incomplete")
-                                 and record.get("native_mode") == native_config["mode"])
-                    job_directory = (Path(record["job_directory"]) if reuse_job and record.get("job_directory")
-                                     else Path(tempfile.mkdtemp(prefix="native-job-", dir=output / ".state")))
-                    job_directory = _plain_path(job_directory)
-                    if not job_directory.is_relative_to(output / ".state"):
-                        raise ValueError("native job escaped owned state")
-                    native_config["job_directory"] = str(job_directory)
-                    record.update(geometry_config=geometry_config, metric_config=metric_config,
-                                  status="running", staging_path=str(staging), job_directory=str(job_directory),
-                                  metrics_attempt_incomplete=True,native_mode=native_config["mode"])
-                    # Preserve the last committed record until new geometry is valid.
-                    atomic_json(pending_path, record)
-                    native = execute_native(candidate, staging, native_config)
-                    complete = native.get("geometry_status") == "complete" or native.get("status") == "complete"
-                    if not complete:
-                        record.update(metrics_attempt_incomplete=False,native_result=native,
-                                      native_result_metric_config=metric_config)
-                        atomic_json(pending_path,record)
-                    if complete and staging.is_file():
-                        private_staging = _plain_path(native.get("private_state_path") or native_config["private_state_path"])
-                        if not private_staging.is_relative_to(output / ".state") and private_staging != private_destination:
-                            raise ValueError("native state escaped owned output")
-                        record.update(output_snapshot=snapshot_refold(staging),
-                                      private_state_snapshot=read_json(private_staging),
-                                      private_state_path=str(private_destination), native_result=native,
-                                      native_result_metric_config=metric_config,metrics_attempt_incomplete=False,
-                                      publication_ready=True,
-                                      publication_previous={str(destination):destination.exists(),
-                                                            str(private_destination):private_destination.exists()})
-                        atomic_json(pending_path, record)
-                        if need_geometry:
-                            _promote_pair(staging, private_staging, destination, private_destination,
-                                          record["publication_previous"])
-                        record.update(geometry_status="complete", relaxed_path=str(destination))
-                        can_update_record = True
-                        atomic_json(record_path, record)
-                    if record.get("geometry_status") != "complete":
-                        raise RuntimeError(native.get("error") or "native geometry failed")
+                    results[index] = record
+                    progress.update(1)
+                    if waiting:
+                        submit(actor)
 
-                record["metrics"] = dict(native.get("metrics", {}))
-                record["errors"] = dict(native.get("errors", {}))
-                record["native_details"] = native.get("details", {})
-                input_metrics = compute_input_metrics(candidate, config)
-                record["metrics"].update(input_metrics["metrics"])
-                record["errors"].update(input_metrics["errors"])
-                record["input_details"] = input_metrics.get("details", {})
-                record["native_result"] = native
-                record["status"] = "complete" if native.get("status") == "complete" else "failed"
-                record["error"] = native.get("error") or ""
-
-        _still_passed(candidate, config)
-        if snapshot_refold(candidate.refold_path) != candidate.source_snapshot:
-            raise ValueError("source refold changed before publication")
-        record["decisions"] = {name: evaluate(record.get("metrics", {}), name, presets[name]) for name in names}
-        atomic_json(record_path, record)
-        if mode != "refilter":
-            pending_path.unlink(missing_ok=True)
-        return record
-    except Exception as exc:
-        record["status"], record["error"] = "failed", str(exc)
-        record["decisions"] = {name: {"criteria": name, "status": "unavailable", "reasons": [str(exc)]} for name in names}
-        if can_update_record:
-            atomic_json(record_path, record)
-        if record.get("staging_path") and mode != "refilter":
-            atomic_json(pending_path, record)
-        return record
+        for _ in range(count):
+            start_actor()
+        while ready or active:
+            deadlines = [item[3] + config["timeout"] for item in active.values()]
+            deadlines.extend(started + config["timeout"] for _, started in ready.values())
+            deadline = min(deadlines, default=None)
+            timeout = max(0.0, deadline - time.monotonic()) if deadline is not None else None
+            completed, _ = ray.wait([*ready, *active], num_returns=1, timeout=timeout)
+            for reference in completed:
+                completed_reference(reference)
+            while True:
+                now = time.monotonic()
+                expired_ready = [reference for reference, (_, started) in ready.items()
+                                 if now - started >= config["timeout"]]
+                expired_active = [reference for reference, item in active.items()
+                                  if now - item[3] >= config["timeout"]]
+                expired = [*expired_ready, *expired_active]
+                if not expired:
+                    break
+                # Driver handling may cross a deadline after other calls have
+                # already finished. Observe those futures before declaring a timeout.
+                completed, _ = ray.wait(expired, num_returns=len(expired), timeout=0)
+                if completed:
+                    for reference in completed:
+                        completed_reference(reference)
+                    continue
+                if expired_ready:
+                    raise RuntimeError(f"postfilter worker startup timeout after {config['timeout']} seconds")
+                reference = expired_active[0]
+                actor, index, job, started = active.pop(reference)
+                lost_sample(reference, actor, index, job, started,
+                            f"worker timeout after {config['timeout']} seconds", terminal=False)
+        for actor, info in actors.items():
+            try:
+                stats = ray.get(actor.stats.remote())
+            except Exception as exc:
+                stats = {"stats_error": f"{type(exc).__name__}: {exc}"}
+            audit.append({**info, **stats})
+        return results, audit
+    finally:
+        try:
+            for actor in actors:
+                ray.kill(actor, no_restart=True)
+            if owned_runtime:
+                ray.shutdown()
+        finally:
+            progress.close()
 
 
 def run(args):
     from partidesign.paths import inference_config_dir
-    config=load_config(args.config)
-    presets=load_presets(args.presets or inference_config_dir()/"postfilter_presets.yaml")
-    names=validate_criteria(args.criteria,presets) if args.criteria else []
-    def candidate_criteria(candidate):
-        if args.criteria:
-            return names
-        return list(DEFAULT_PEPTIDE_CRITERIA if candidate.binder_kind == "peptide" else DEFAULT_CRITERIA)
-    if args.limit is not None and args.limit<1:raise ValueError("--limit must be positive")
-    if args.show_config:
-        shown_names=names if args.criteria else [n for n in (*DEFAULT_CRITERIA,*DEFAULT_PEPTIDE_CRITERIA) if n in presets]
-        print(json.dumps({"config":config,"criteria":{n:presets[n] for n in shown_names},
-                          "default_criteria":{"protein":DEFAULT_CRITERIA,"peptide":DEFAULT_PEPTIDE_CRITERIA}},indent=2));return 0
-    if not args.inputs:raise ValueError("postfilter requires RUN_OR_TASK_OR_SUCCESS")
     from .inputs import select_refolds
-    selected=select_refolds(args.inputs,methods=args.method,upstream_criteria=args.upstream_criteria,
-                            task_names=args.task,limit=args.limit,path_mappings=config["path_mappings"])
-    for candidate in selected.candidates:
-        validate_criteria(candidate_criteria(candidate),presets)
-    nonerrors={"not_ppi","no_quality_success","not_complex"}
-    selection_errors=[d for d in selected.diagnostics if d.get("code") not in nonerrors]
-    if not selected.task_dirs:
-        reasons="; ".join(d.get("reason",d.get("code","selection error")) for d in selected.diagnostics)
-        raise ValueError(reasons or "No validation method matched the selected inputs/tasks/methods")
-    deps=dependency_status(config)
-    if args.plan:
-        print(json.dumps({"selected":len(selected.candidates),"tasks":selected.task_dirs,"dependencies":deps,"selection_counts":selected.counts,
-                          "candidates":[{**{k:v for k,v in c.to_dict().items() if k!="source_snapshot"},
-                                         "criteria":candidate_criteria(c)} for c in selected.candidates],
-                          "diagnostics":selected.diagnostics},indent=2));return 2 if selection_errors else 0
-    mode="refilter" if args.refilter else "recompute_metrics" if args.recompute_metrics else "rerun" if args.rerun else "resume"
-    if selected.candidates and mode!="refilter" and any(v!="available" for v in deps.values()):
-        raise ValueError(f"postfilter dependency gap: {deps}; see docs/postfilter.md")
-    if args.out and len(selected.task_dirs)!=1:raise ValueError("--out requires exactly one selected task")
-    from .storage import atomic_json,read_json
     from .reporting import write_reports
-    failures=bool(selection_errors)
-    for task in selected.task_dirs:
-        candidates=[c for c in selected.candidates if c.task_dir==task]
-        task_names=list(dict.fromkeys(name for candidate in candidates for name in candidate_criteria(candidate)))
-        if not candidates:
-            task_names=names if args.criteria else [n for n in DEFAULT_CRITERIA if n in presets]
-        output=Path(args.out).expanduser().absolute() if args.out else Path(task)/"postfilter"
-        if output.resolve()==Path(task).resolve() or output.resolve().is_relative_to(Path(task)/"validate"):
+
+    if not args.inputs:
+        raise ValueError("postfilter requires RUN_OR_TASK_OR_SUCCESS")
+    config = load_config(args.config)
+    bundle = load_presets(inference_config_dir() / "postfilter_presets.yaml")
+    selected = select_refolds(args.inputs, task_names=args.task)
+    if not selected.task_dirs:
+        reasons = "; ".join(item.get("reason", item.get("code", "selection error")) for item in selected.diagnostics)
+        raise ValueError(reasons or "No validation task matched the selected inputs")
+    task_names = [Path(task).name for task in selected.task_dirs]
+    duplicates = sorted(name for name, count in Counter(task_names).items() if count > 1)
+    if duplicates:
+        raise ValueError("duplicate selected task names: " + ", ".join(duplicates))
+    nonerrors = {"not_ppi", "no_quality_success", "not_complex"}
+    selection_errors = [item for item in selected.diagnostics if item.get("code") not in nonerrors]
+    tools = set()
+    for kind in {candidate.binder_kind for candidate in selected.candidates}:
+        tools.update(required_tools(profile_for_kind(kind, bundle)[1]))
+        if kind == "protein":
+            tools.update(required_tools(profile_for_kind("peptide", bundle)[1]))
+    dependencies = dependency_status(config, required_tools=tools)
+    if args.plan:
+        budget = cpu_budget()
+        print(json.dumps({
+            "selected": len(selected.candidates), "tasks": selected.task_dirs,
+            "dependencies": dependencies, "selection_counts": selected.counts,
+            "defaults": bundle["defaults"], "protocol": bundle["protocol"],
+            "cpu_budget": budget, "workers": worker_count(config, len(selected.candidates), budget),
+            "threads": config["threads"],
+            "candidates": [{"identity": candidate.identity, "refold_path": candidate.refold_path,
+                            "binder_kind": candidate.binder_kind} for candidate in selected.candidates],
+            "diagnostics": selected.diagnostics,
+        }, indent=2))
+        return 2 if selection_errors else 0
+
+    outputs = {}
+    for task, name in zip(selected.task_dirs, task_names):
+        output = (Path(args.out).expanduser().absolute() / name if len(task_names) > 1 else Path(args.out).expanduser().absolute()) if args.out else Path(task) / "postfilter"
+        output = output.resolve()
+        if output == Path(task).resolve() or output.is_relative_to((Path(task) / "validate").resolve()):
             raise ValueError("postfilter output must be independent of upstream validation")
-        from .storage import _plain_path
-        output=_plain_path(output)
-        prior=read_json(output/".state"/"plan.json")
-        if prior is None and output.exists() and any(output.iterdir()):
-            raise ValueError("postfilter output must be new/empty or contain its saved task plan")
-        if prior is not None and (prior.get("version")!=1 or prior.get("task_dir")!=task):
-            raise ValueError("postfilter output belongs to a different task or unsupported state")
-        diagnostics=[d for d in selected.diagnostics if d.get("task_dir") in (None,task)]
-        with _lock(output):
-            state=output/".state"/"plan.json"
-            previous_plan=read_json(state) if state.is_file() else None
-            atomic_json(output/".state"/"report_status.json",{"status":"running"})
-            if previous_plan is None:
-                atomic_json(state,{"version":1,"task_dir":task,"status":"running","config":config,
-                                   "criteria":task_names,"identities":[c.identity for c in candidates]})
-            # Per-candidate settings are checked before replacing this saved plan.
-            with ThreadPoolExecutor(max_workers=config["workers"]) as pool:
-                records=list(pool.map(lambda candidate:_process(candidate,output,config,candidate_criteria(candidate),presets,mode),candidates))
-            errors=any(r["status"]!="complete" or any(d["status"]=="unavailable" for d in r["decisions"].values()) for r in records)
-            counts={**selected.counts.get(task,{}),"selected":len(candidates),
-                    "metadata_error_events":sum(d.get("code") not in nonerrors for d in diagnostics),
-                    "limited":args.limit is not None,"limit":args.limit,
-                    "previous_not_selected":len(set(previous_plan.get("identities",[]))-set(c.identity for c in candidates)) if previous_plan else 0}
-            summary=write_reports(output,records,diagnostics,counts)
-            if not errors:
-                atomic_json(state,{"version":1,"task_dir":task,"status":"complete","config":config,
-                                   "criteria":task_names,"identities":[c.identity for c in candidates]})
-            atomic_json(output/"resolved_config.json",{"config":config,"criteria":{n:presets[n] for n in task_names}})
-            print(json.dumps({"task":task,"output":str(output),"selected":summary["selected"],"passed":summary["passed"],"execution_failures":summary["execution_failures"]}))
-            failures|=errors
+        _check_output(output, task, config, bundle, args.rerun)
+        outputs[task] = output
+    if len(set(outputs.values())) != len(outputs):
+        raise ValueError("selected tasks resolve to the same postfilter output")
+
+    records = {task: [] for task in selected.task_dirs}
+    jobs = []
+    positions = []
+    resumed = Counter()
+    resumed_records = []
+    for candidate in selected.candidates:
+        job = _Job(candidate, outputs[candidate.task_dir])
+        previous = None if args.rerun else _completed_record(job, config, bundle)
+        index = len(records[candidate.task_dir])
+        records[candidate.task_dir].append(previous)
+        if previous is None:
+            jobs.append(job)
+            positions.append((candidate.task_dir, index))
+        else:
+            resumed[candidate.task_dir] += 1
+            resumed_records.append((job, previous))
+    if jobs and any(value != "available" for value in dependencies.values()):
+        raise ValueError(f"postfilter dependency gap: {dependencies}; see docs/postfilter.md")
+    if jobs:
+        worker_count(config, len(jobs))
+    for task, output in outputs.items():
+        atomic_json(output / "resolved_config.json", {
+            "version": 2, "task_dir": task, "config": config, "bundle": bundle,
+        })
+    dispatched, audit = _dispatch_jobs(jobs, config, bundle)
+    for (task, index), record in zip(positions, dispatched):
+        records[task][index] = record
+    # Rejudging thresholds only touches the existing small completed records.
+    for job, record in resumed_records:
+        atomic_json(candidate_paths(job.candidate.identity, job.output)[1], record)
+    if audit:
+        print(json.dumps({"worker_stats": audit}))
+    failures = bool(selection_errors)
+    for task, output in outputs.items():
+        diagnostics = [item for item in selected.diagnostics if item.get("task_dir") in (None, task)]
+        counts = {
+            **selected.counts.get(task, {}), "selected": len(records[task]),
+            "resumed": resumed[task], "executed": len(records[task]) - resumed[task],
+            "metadata_error_events": sum(item.get("code") not in nonerrors for item in diagnostics),
+        }
+        summary = write_reports(output, records[task], diagnostics, counts)
+        failures |= any(record["status"] != "complete" for record in records[task])
+        print(json.dumps({"task": task, "output": str(output), **summary}))
     return 2 if failures else 0

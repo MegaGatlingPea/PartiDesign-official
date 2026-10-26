@@ -16,7 +16,7 @@ runtime implementation, and software changes outside this skill's scope.
 | Environment/assets, generation, Best-of-N, existing-structure scoring, refinement retry, clustering, outputs | [workflows.md](references/workflows.md) |
 | Select an example or author molecular inputs, identities, motifs, topology, and antibody tasks | [task-recipes.md](references/task-recipes.md) |
 | Choose validation methods, sequence sources, criteria, MSA policy, or reuse saved evaluation | [validation.md](references/validation.md) |
-| Relax and postfilter successful protein–protein or standard peptide–protein refolds, including head-to-tail cyclic peptides, on CPU | [postfilter.md](references/postfilter.md) |
+| Relax and screen successful protein–protein or standard peptide–protein refolds, including physical head-to-tail cycles, with persistent Ray CPU actors | [postfilter.md](references/postfilter.md) |
 | Explain behavior, interpret a failure, or answer a common usage question | [faq.md](references/faq.md) |
 
 Start with the relevant reference; load another only when the request crosses
@@ -56,9 +56,11 @@ checkpoint paths, and outputs resolve from the invocation directory.
 - Use explicit task selectors when a file contains additional requests. Batch
   size changes execution memory, not the task's total sample budget. Submit
   normal and antibody tasks separately.
-- Inspect existing outputs before retries. Use the documented resume/refilter/
-  rerun operation and preserve requested replacement boundaries; generation
-  requires new or empty task directories.
+- Inspect existing outputs before retries. Use each command's documented resume
+  or rerun behavior; validation also has refilter/recompute operations. Postfilter
+  resumes complete samples and requires a fresh output directory for older
+  output formats. Preserve requested replacement boundaries; generation requires
+  new or empty task directories.
 
 Report the answer or concrete artifact first. For execution, include the actual
 command/settings, output paths, observed completion/failures, and any remaining

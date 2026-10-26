@@ -1,6 +1,8 @@
-"""Shared, model-free postfilter records."""
+"""Small metadata records passed between the driver and Ray workers."""
 from __future__ import annotations
+
 from dataclasses import asdict, dataclass, field
+
 
 @dataclass(frozen=True)
 class Candidate:
@@ -19,29 +21,23 @@ class Candidate:
     target_chains: tuple[str, ...]
     sequences: dict[str, str]
     passing_criteria: tuple[str, ...]
-    source_snapshot: dict = field(default_factory=dict)
     binder_kind: str = "protein"
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.binder_kind, str) or self.binder_kind not in {"protein", "peptide"}:
-            raise ValueError("Postfilter binder_kind must be protein or peptide")
+    declared_cyclic_chains: tuple[str, ...] = ()
 
     @property
     def identity(self) -> str:
         return f"{self.method}/{self.sample}/seq{self.seq_index}/{self.prediction_key}"
 
     def to_dict(self) -> dict:
-        value = asdict(self)
-        if self.binder_kind == "protein":
-            value.pop("binder_kind")
-        return value
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, value: dict) -> "Candidate":
         data = dict(value)
-        for key in ("binder_chains", "target_chains", "passing_criteria"):
-            data[key] = tuple(data[key])
+        for key in ("binder_chains", "target_chains", "passing_criteria", "declared_cyclic_chains"):
+            data[key] = tuple(data.get(key, ()))
         return cls(**data)
+
 
 @dataclass
 class Selection:

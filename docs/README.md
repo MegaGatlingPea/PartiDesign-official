@@ -21,7 +21,7 @@ Each command has a separate guide:
 | [`score`](score.md) | PartiScore scoring for saved structures |
 | [`relax`](relax.md) | OpenMM refinement of existing results |
 | **[`validate`](validate.md)** | **A complete evaluation workflow: methods, sequences, criteria, reports, and reruns** |
-| [`postfilter`](postfilter.md) | Protein–protein and peptide–protein structural metrics, cyclic relaxation, and filtering of successful refolds |
+| [`postfilter`](postfilter.md) | Ray CPU relaxation, automatic protein/peptide screening, physical cyclic closure, and sample-level resume |
 | [`cluster`](cluster.md) | Clustering passing design backbones |
 
 After generation, start with [validate](validate.md). Choosing a structure
@@ -29,7 +29,7 @@ predictor, choosing sequence sources, and deciding what passes are separate
 steps; the guide explains how to make those choices and inspect the results.
 Successful protein–protein and standard peptide–protein complex refolds,
 including antibody–antigen and head-to-tail cyclic peptide complexes, can then
-receive optional CPU [postfiltering](postfilter.md).
+receive optional [postfiltering](postfilter.md) through persistent Ray CPU actors.
 Clustering independently compares original generated polymer backbones.
 
 ## Tasks and examples

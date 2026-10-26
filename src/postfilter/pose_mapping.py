@@ -1,6 +1,7 @@
 """Exact public identities and coordinates across a private protein Pose bridge."""
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
@@ -29,7 +30,6 @@ _AA = dict(zip(
 ))
 _MISSING = {"", ".", "?"}
 _ALIASES = string.ascii_uppercase + string.ascii_lowercase + string.digits
-_COORD_COLUMNS = {"Cartn_x", "Cartn_y", "Cartn_z"}
 
 
 def _column(category: Any, name: str, default: str = "") -> list[str]:
@@ -189,6 +189,9 @@ class SourceStructure:
     binder_chains: tuple[str, ...]
     target_chains: tuple[str, ...]
     head_tail_pairs: tuple[tuple[int, int], ...] = ()
+    sequences: dict[str, str] = field(default_factory=dict)
+    binder_kind: str = "protein"
+    required_connections: tuple[tuple[int, int], ...] = ()
 
     @property
     def binder_indices(self) -> tuple[int, ...]:
@@ -204,14 +207,8 @@ class SourceStructure:
         binder = "".join(dict.fromkeys(r.private_chain for r in self.residues if r.chain in self.binder_chains))
         return f"{target}_{binder}"
 
-    @property
-    def sequences(self) -> dict[str, str]:
-        result: dict[str, str] = {}
-        for residue in self.residues:
-            result[residue.chain] = result.get(residue.chain, "") + _AA[residue.name]
-        return result
-
-    def write_private_pdb(self, path: Path) -> None:
+    def private_pdb_string(self) -> str:
+        """Return the single private Pose bridge without creating a file."""
         serial = 0
         previous_segment = None
         lines: list[str] = []
@@ -232,21 +229,12 @@ class SourceStructure:
                     f"{residue.private_chain}{residue.private_number:4d}    "
                     f"{x:8.3f}{y:8.3f}{z:8.3f}{1.0:6.2f}{0.0:6.2f}          {element:>2}  ")
         lines.extend(("TER", "END"))
-        Path(path).write_text("\n".join(lines) + "\n")
+        return "\n".join(lines) + "\n"
 
 
-def read_source(path: str | Path, binder_chains: tuple[str, ...],
-                target_chains: tuple[str, ...]) -> SourceStructure:
-    """Read the PD heavy graph and source float64 coordinates without omissions."""
-    path = Path(path).resolve()
-    if path.suffix.lower() == ".pdb":
-        document = _pdb_document(path)
-        with tempfile.TemporaryDirectory(prefix="partidesign-postfilter-pdb-") as directory:
-            converted = Path(directory) / "source.cif"
-            document.write(converted)
-            result = read_source(converted, binder_chains, target_chains)
-        result.path = path
-        return result
+def _read_source(path: str | Path) -> SourceStructure:
+    """Parse once and retain exact public atom identities and coordinates."""
+    path = Path(path).expanduser().resolve()
     cif = _source_document(path)
     if len(cif) != 1:
         raise MappingError("native postfilter requires exactly one CIF data block")
@@ -292,7 +280,8 @@ def read_source(path: str | Path, binder_chains: tuple[str, ...],
         if key in rows_by_key:
             raise MappingError("source contains ambiguous duplicate atom occurrences")
         rows_by_key[key] = row
-    atoms = read_structure(path, canonical_polymer_order=True)
+    reader_name = path if path.suffix.lower() == ".cif" else path.with_suffix(".cif")
+    atoms = read_structure(reader_name, cif_document=cif, canonical_polymer_order=True)
     if len(atoms) != category.row_count:
         raise MappingError("PD reader would discard source atoms")
     if any(str(value) != "protein" for value in atoms.mol_type):
@@ -314,12 +303,6 @@ def read_source(path: str | Path, binder_chains: tuple[str, ...],
                               for row in source_rows], dtype=np.float64)
     if not np.isfinite(coordinates).all():
         raise MappingError("source coordinates must be finite")
-    binder_chains, target_chains = tuple(binder_chains), tuple(target_chains)
-    binder, target = set(binder_chains), set(target_chains)
-    chains = set(str(value) for value in atoms.label_asym_id)
-    if (not binder or not target or binder & target or binder | target != chains
-            or len(binder) != len(binder_chains) or len(target) != len(target_chains)):
-        raise MappingError("explicit binder and target sets must partition source chains")
     groups: dict[int, list[int]] = {}
     for index, uid in enumerate(atoms.residue_uid):
         groups.setdefault(int(uid), []).append(index)
@@ -362,8 +345,6 @@ def read_source(path: str | Path, binder_chains: tuple[str, ...],
             continue
         names = {str(atoms.atom_name[a]), str(atoms.atom_name[b])}
         ca, cb = str(atoms.label_asym_id[a]), str(atoms.label_asym_id[b])
-        if (ca in binder) != (cb in binder):
-            raise MappingError("covalent bonds across binder and target are unsupported")
         if names == {"C", "N"} and ca == cb:
             carbon, nitrogen = (ra, rb) if str(atoms.atom_name[a]) == "C" else (rb, ra)
             if _order != 1:
@@ -401,9 +382,88 @@ def read_source(path: str | Path, binder_chains: tuple[str, ...],
             str(atoms.auth_ins_code[first]), str(atoms.res_name[first]), tuple(indices),
             segment, _ALIASES[segment], private_number))
         previous_chain = chain
+    sequences: dict[str, str] = {}
+    for residue in residues:
+        sequences[residue.chain] = sequences.get(residue.chain, "") + _AA[residue.name]
+    required = tuple((a, b) for a, b, _ in bonds if atom_residues[a] != atom_residues[b])
     return SourceStructure(path, cif, block_name, atoms, coordinates, tuple(source_rows),
         tuple(residues), tuple(atom_residues), bonds, tuple(sorted(set(disulfides))),
-        binder_chains, target_chains, head_tail_pairs)
+        (), (), head_tail_pairs, sequences, "protein", required)
+
+
+def _assign_partners(source: SourceStructure, binder_chains: tuple[str, ...],
+                     target_chains: tuple[str, ...]) -> None:
+    binder_chains, target_chains = tuple(binder_chains), tuple(target_chains)
+    binder, target = set(binder_chains), set(target_chains)
+    if (not binder or not target or binder & target or binder | target != set(source.sequences)
+            or len(binder) != len(binder_chains) or len(target) != len(target_chains)):
+        raise MappingError("explicit binder and target sets must partition source chains")
+    for a, b in source.required_connections:
+        if (str(source.atoms.label_asym_id[a]) in binder) != (str(source.atoms.label_asym_id[b]) in binder):
+            raise MappingError("covalent bonds across binder and target are unsupported")
+    source.binder_chains, source.target_chains = binder_chains, target_chains
+
+
+def read_source(path: str | Path, binder_chains: tuple[str, ...],
+                target_chains: tuple[str, ...]) -> SourceStructure:
+    """Read a source with already resolved actual CIF partner labels."""
+    source = _read_source(path)
+    _assign_partners(source, binder_chains, target_chains)
+    if any(source.residues[first - 1].chain in source.binder_chains
+           for first, _ in source.head_tail_pairs):
+        source.binder_kind = "peptide"
+    return source
+
+
+def read_candidate_source(candidate: Any) -> SourceStructure:
+    """Resolve saved chain metadata against one exact in-memory source graph."""
+    source = _read_source(candidate.refold_path)
+    saved, actual = candidate.sequences, source.sequences
+    if (not isinstance(saved, dict) or len(saved) != len(actual)
+            or any(not isinstance(chain, str) or not chain or chain != chain.strip()
+                   or not isinstance(sequence, str) or not sequence
+                   for chain, sequence in saved.items())):
+        raise MappingError("refold chain inventory does not match the saved sequence map")
+    assigned: dict[str, str] = {}
+    for chain, sequence in saved.items():
+        if chain in actual:
+            if actual[chain] != sequence:
+                raise MappingError(f"refold chain {chain} differs from its saved sequence")
+            assigned[chain] = chain
+    remaining = set(actual).difference(assigned.values())
+    for chain, sequence in saved.items():
+        if chain in assigned:
+            continue
+        options = [label for label in remaining if actual[label] == sequence]
+        if len(options) != 1:
+            raise MappingError(f"saved chain {chain} has {len(options)} unique-sequence matches in the refold")
+        assigned[chain] = options[0]
+        remaining.remove(options[0])
+    binder, target = tuple(candidate.binder_chains), tuple(candidate.target_chains)
+    if (not binder or not target or set(binder) & set(target)
+            or len(set(binder)) != len(binder) or len(set(target)) != len(target)
+            or set(binder) | set(target) != set(saved)):
+        raise MappingError("saved binder and target labels must partition the saved sequence map")
+    _assign_partners(source, tuple(assigned[chain] for chain in binder),
+                     tuple(assigned[chain] for chain in target))
+    cycles = {source.residues[first - 1].chain for first, _ in source.head_tail_pairs}
+    declared = tuple(getattr(candidate, "declared_cyclic_chains", ()))
+    if (len(set(declared)) != len(declared)
+            or any(chain not in assigned for chain in declared)):
+        raise MappingError("saved physical cyclic chains must contain unique known chain labels")
+    missing = [chain for chain in declared if assigned[chain] not in cycles]
+    if missing:
+        raise MappingError("saved physical head-to-tail closure is missing from refold chains: " + ", ".join(missing))
+    kind = candidate.binder_kind
+    if kind not in {"protein", "peptide"}:
+        raise MappingError("binder kind must be protein or peptide")
+    cyclic_binder = cycles.intersection(source.binder_chains)
+    if cyclic_binder:
+        if kind == "protein" and cyclic_binder != set(source.binder_chains):
+            raise MappingError("a cyclic binder mixed with unclassified protein partners is unsupported")
+        kind = "peptide"
+    source.binder_kind = kind
+    return source
 
 
 @dataclass
@@ -413,6 +473,8 @@ class PoseMapping:
     pose_residues: tuple[int, ...]
     separation_jump: int | None = None
     details: dict[str, Any] = field(default_factory=dict)
+    binder_pose_residues: tuple[int, ...] = ()
+    target_pose_residues: tuple[int, ...] = ()
 
 
 def _pose_edges(pose: Any, mapping: PoseMapping) -> set[tuple[int, int]]:
@@ -467,63 +529,77 @@ def verify_pose(source: SourceStructure, pose: Any, mapping: PoseMapping) -> Non
                            f"missing={sorted(expected - actual)}, extra={sorted(actual - expected)}")
 
 
-def load_pose_mapping(source: SourceStructure, pr: Any, work_dir: Path) -> tuple[Any, PoseMapping]:
-    """Load in the native child, restoring every source heavy coordinate."""
-    private_pdb = Path(work_dir) / "bridge.pdb"
-    source.write_private_pdb(private_pdb)
-    pose = pr.pose_from_pdb(str(private_pdb))
+def load_pose_mapping(source: SourceStructure, pr: Any,
+                      work_dir: Path | None = None) -> tuple[Any, PoseMapping]:
+    """Build chemistry before mapping AtomIDs and restoring float64 XYZ once."""
+    pose = pr.io.pose_from_pdbstring(source.private_pdb_string())
     by_private = {(r.private_chain, r.private_number): r for r in source.residues}
     pose_residues = [0] * len(source.residues)
-    atom_ids: list[tuple[int, int] | None] = [None] * len(source.atoms)
+    info = pose.pdb_info()
     for pose_index in range(1, pose.total_residue() + 1):
-        info = pose.pdb_info()
         occurrence = by_private.get((str(info.chain(pose_index)), int(info.number(pose_index))))
         if occurrence is None or pose_residues[occurrence.ordinal - 1]:
             raise MappingError("Rosetta returned an unknown or duplicate private residue")
         pose_residues[occurrence.ordinal - 1] = pose_index
+    if not all(pose_residues):
+        raise MappingError("Rosetta omitted source residues")
+    for left, right in source.disulfides:
+        pr.rosetta.core.conformation.form_disulfide(
+            pose.conformation(), pose_residues[left - 1], pose_residues[right - 1])
+    for first, last in source.head_tail_pairs:
+        first_index, last_index = pose_residues[first - 1], pose_residues[last - 1]
+        pr.rosetta.core.pose.remove_lower_terminus_type_from_pose_residue(pose, first_index)
+        pr.rosetta.core.pose.remove_upper_terminus_type_from_pose_residue(pose, last_index)
+        pose.conformation().declare_chemical_bond(last_index, "C", first_index, "N")
+        pr.rosetta.core.pose.add_variant_type_to_pose_residue(
+            pose, pr.rosetta.core.chemical.CUTPOINT_LOWER, last_index)
+        pr.rosetta.core.pose.add_variant_type_to_pose_residue(
+            pose, pr.rosetta.core.chemical.CUTPOINT_UPPER, first_index)
+    atom_ids: list[tuple[int, int] | None] = [None] * len(source.atoms)
+    for occurrence, pose_index in zip(source.residues, pose_residues, strict=True):
         residue = pose.residue(pose_index)
         for index in occurrence.atom_indices:
             name = str(source.atoms.atom_name[index])
             if not residue.has(name):
                 raise MappingError(f"Rosetta dropped source atom {occurrence.ordinal}:{name}")
-            atom_number = int(residue.atom_index(name))
-            atom_ids[index] = (atom_number, pose_index)
-            xyz = pr.rosetta.numeric.xyzVector_double_t(*map(float, source.coordinates[index]))
-            pose.set_xyz(pr.rosetta.core.id.AtomID(atom_number, pose_index), xyz)
-    if not all(pose_residues) or any(value is None for value in atom_ids):
-        raise MappingError("Rosetta omitted source residues or atoms")
-    for left, right in source.disulfides:
-        pr.rosetta.core.conformation.form_disulfide(
-            pose.conformation(), pose_residues[left - 1], pose_residues[right - 1])
-    if source.head_tail_pairs:
-        for first, last in source.head_tail_pairs:
-            first_index, last_index = pose_residues[first - 1], pose_residues[last - 1]
-            pr.rosetta.core.pose.remove_lower_terminus_type_from_pose_residue(pose, first_index)
-            pr.rosetta.core.pose.remove_upper_terminus_type_from_pose_residue(pose, last_index)
-            pose.conformation().declare_chemical_bond(last_index, "C", first_index, "N")
-            pr.rosetta.core.pose.add_variant_type_to_pose_residue(
-                pose, pr.rosetta.core.chemical.CUTPOINT_LOWER, last_index)
-            pr.rosetta.core.pose.add_variant_type_to_pose_residue(
-                pose, pr.rosetta.core.chemical.CUTPOINT_UPPER, first_index)
-        # Terminal/closure variants change native AtomIDs. Resolve them again
-        # only after every chemistry operation, then restore the source values.
-        for occurrence, pose_index in zip(source.residues, pose_residues, strict=True):
-            residue = pose.residue(pose_index)
-            for index in occurrence.atom_indices:
-                name = str(source.atoms.atom_name[index])
-                if not residue.has(name):
-                    raise MappingError(f"cyclization dropped source atom {occurrence.ordinal}:{name}")
-                atom_ids[index] = (int(residue.atom_index(name)), pose_index)
-    # Chemistry operations may rebuild native atoms and move public heavy atoms.
-    # Restore source precision again after all chemical variants are installed.
-    for index, (atom_number, pose_index) in enumerate(atom_ids):
+            atom_ids[index] = (int(residue.atom_index(name)), pose_index)
+    if any(value is None for value in atom_ids):
+        raise MappingError("Rosetta omitted source atoms")
+    mapping = PoseMapping(tuple(atom_ids), tuple(pose_residues))
+    for index, (atom_number, pose_index) in enumerate(mapping.atom_ids):
         pose.set_xyz(pr.rosetta.core.id.AtomID(atom_number, pose_index),
                      pr.rosetta.numeric.xyzVector_double_t(*map(float, source.coordinates[index])))
-    mapping = PoseMapping(tuple(atom_ids), tuple(pose_residues))
-    verify_pose(source, pose, mapping)
-    if not np.array_equal(pose_coordinates(pose, mapping), source.coordinates):
-        raise MappingError("source coordinate precision was not restored in Pose")
+    # Preserve native terminal preparation at source precision without another
+    # public-coordinate restore. The new amide H uses the local lower stub,
+    # as it did when removing the free terminus before declaring the closure.
+    for first, _last in source.head_tail_pairs:
+        first_index = mapping.pose_residues[first - 1]
+        residue = pose.residue(first_index)
+        if residue.has("H"):
+            atom_number = int(residue.atom_index("H"))
+            pose.set_xyz(pr.rosetta.core.id.AtomID(atom_number, first_index),
+                         residue.icoor(atom_number).build(residue))
+        pr.rosetta.core.pose.update_cutpoint_virtual_atoms_if_connected(pose, first_index)
     return pose, mapping
+
+
+def verify_required_connections(source: SourceStructure, pose: Any, mapping: PoseMapping) -> None:
+    """Check required inter-residue connections without rescanning atom graphs."""
+    for left, right in source.required_connections:
+        atom, residue_index = mapping.atom_ids[left]
+        other_atom, other_residue = mapping.atom_ids[right]
+        residue = pose.residue(residue_index)
+        found = False
+        for connection in range(1, residue.n_possible_residue_connections() + 1):
+            if (int(residue.residue_connect_atom_index(connection)) != atom
+                    or int(residue.residue_connection_partner(connection)) != other_residue):
+                continue
+            partner_connection = int(residue.residue_connection_conn_id(connection))
+            if int(pose.residue(other_residue).residue_connect_atom_index(partner_connection)) == other_atom:
+                found = True
+                break
+        if not found:
+            raise MappingError("Rosetta lost a required source inter-residue connection")
 
 
 def pose_coordinates(pose: Any, mapping: PoseMapping) -> np.ndarray:
@@ -531,44 +607,16 @@ def pose_coordinates(pose: Any, mapping: PoseMapping) -> np.ndarray:
                        for atom, residue in mapping.atom_ids], dtype=np.float64)
 
 
-def _category_values(cif: Any, *, exclude_coordinates: bool) -> dict:
-    result = {}
-    for block_name in cif:
-        result[block_name] = {}
-        for category_name in cif[block_name]:
-            category = cif[block_name][category_name]
-            result[block_name][category_name] = {
-                column_name: _column(category, column_name) for column_name in category
-                if not (exclude_coordinates and category_name == "atom_site"
-                        and column_name in _COORD_COLUMNS)
-            }
-    return result
-
-
-def validate_relaxed_file(source: SourceStructure, path: Path) -> SourceStructure:
-    result = read_source(path, source.binder_chains, source.target_chains)
-    if _category_values(result.cif, exclude_coordinates=True) != _category_values(
-            source.cif, exclude_coordinates=True):
-        raise MappingError("relaxed CIF changed source categories or public atom identities")
-    if result.bonds != source.bonds or result.source_rows != source.source_rows:
-        raise MappingError("relaxed CIF changed the actual source bond graph")
-    return result
-
-
 def write_relaxed_cif(source: SourceStructure, pose: Any, mapping: PoseMapping,
                       path: Path) -> None:
-    """Verify the native graph, then atomically replace only the owned output."""
-    path = Path(path).resolve()
+    """Publish one XYZ-only replacement of the retained source document."""
+    path = Path(path).expanduser().resolve()
     if path == source.path:
         raise MappingError("relaxed output cannot overwrite the source structure")
-    verify_pose(source, pose, mapping)
     coordinates = pose_coordinates(pose, mapping)
     if not np.isfinite(coordinates).all():
         raise MappingError("Rosetta returned nonfinite coordinates")
-    cif = _source_document(source.path)
-    if _category_values(cif, exclude_coordinates=False) != _category_values(
-            source.cif, exclude_coordinates=False):
-        raise MappingError("source structure changed during native execution")
+    cif = deepcopy(source.cif)
     category = cif[source.block_name]["atom_site"]
     for axis, column in enumerate(("Cartn_x", "Cartn_y", "Cartn_z")):
         values = _column(category, column)
@@ -581,159 +629,6 @@ def write_relaxed_cif(source: SourceStructure, pose: Any, mapping: PoseMapping,
     temporary = Path(temporary_name)
     try:
         cif.write(temporary)
-        result = validate_relaxed_file(source, temporary)
-        if not np.array_equal(result.coordinates, coordinates):
-            raise MappingError("relaxed CIF did not retain native coordinate precision")
-        with temporary.open("rb") as handle:
-            os.fsync(handle.fileno())
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
-
-
-def native_state_document(source: SourceStructure, pose: Any, mapping: PoseMapping) -> dict:
-    """Primitive private geometry needed to reproduce scoring after a restart."""
-    verify_pose(source, pose, mapping)
-    residues = []
-    for pose_index in range(1, pose.total_residue() + 1):
-        residue = pose.residue(pose_index)
-        names = [str(residue.atom_name(i)).strip() for i in range(1, residue.natoms() + 1)]
-        bonds = sorted({tuple(sorted((names[i - 1], names[int(j) - 1])))
-                        for i in range(1, residue.natoms() + 1) for j in residue.bonded_neighbor(i)})
-        connections = []
-        for connection in range(1, residue.n_possible_residue_connections() + 1):
-            partner = int(residue.residue_connection_partner(connection))
-            if partner:
-                atom = int(residue.residue_connect_atom_index(connection))
-                partner_connection = int(residue.residue_connection_conn_id(connection))
-                partner_atom = int(pose.residue(partner).residue_connect_atom_index(partner_connection))
-                connections.append([names[atom - 1], partner,
-                    str(pose.residue(partner).atom_name(partner_atom)).strip()])
-        type_name = str(residue.type().name())
-        residues.append({"pose_index": pose_index, "name3": str(residue.name3()).strip(),
-            "type_name": type_name, "variants": type_name.split(":")[1:], "atom_names": names,
-            "elements": [str(residue.atom_type(i).element()).upper() for i in range(1, residue.natoms() + 1)],
-            "coordinates": [[float(v) for v in residue.xyz(i)] for i in range(1, residue.natoms() + 1)],
-            "bonds": [list(edge) for edge in bonds], "connections": sorted(connections)})
-    state = {"version": 1, "residues": residues,
-        "atom_ids": [list(value) for value in mapping.atom_ids],
-        "pose_residues": list(mapping.pose_residues),
-        "public_categories": _category_values(source.cif, exclude_coordinates=True),
-        "public_coordinates": pose_coordinates(pose, mapping).tolist(),
-        "relax_effective": mapping.details.get("relax_effective")}
-    validate_native_state_document(source, state, expected_coordinates=pose_coordinates(pose, mapping))
-    return state
-
-
-def validate_native_state_document(source: SourceStructure, state: dict,
-                                   *, expected_coordinates: np.ndarray | None = None) -> None:
-    """Validate saved public correspondence and actual mapped native bonds."""
-    if not isinstance(state, dict) or state.get("version") != 1:
-        raise MappingError("private native state has an unsupported version")
-    if state.get("public_categories") != _category_values(source.cif, exclude_coordinates=True):
-        raise MappingError("private native state changed public identities or categories")
-    try:
-        coordinates = np.asarray(state["public_coordinates"], dtype=np.float64)
-        expected = source.coordinates if expected_coordinates is None else expected_coordinates
-        if coordinates.shape != expected.shape or not np.isfinite(coordinates).all() or not np.allclose(
-                coordinates, expected, rtol=0, atol=1e-12):
-            raise MappingError("private native state does not match completed public coordinates")
-        residues = state["residues"]
-        if not isinstance(residues, list) or len(residues) != len(source.residues):
-            raise MappingError("private native state has different residue occurrences")
-        atom_ids = state["atom_ids"]
-        pose_residues = state["pose_residues"]
-        if (not isinstance(atom_ids, list) or len(atom_ids) != len(source.atoms)
-                or sorted(pose_residues) != list(range(1, len(residues) + 1))):
-            raise MappingError("private native state has invalid public atom mapping")
-        reverse: dict[tuple[int, str], int] = {}
-        all_atoms: dict[tuple[int, str], tuple[str, np.ndarray]] = {}
-        native_edges: set[tuple[tuple[int, str], tuple[int, str]]] = set()
-        for pose_index, saved in enumerate(residues, 1):
-            if saved["pose_index"] != pose_index or saved["name3"] not in _AA:
-                raise MappingError("private native state has invalid residue identity")
-            if not isinstance(saved["type_name"], str) or not saved["type_name"]:
-                raise MappingError("private native state lacks the native residue type")
-            if saved["variants"] != saved["type_name"].split(":")[1:]:
-                raise MappingError("private native state variant list is inconsistent")
-            names, elements = saved["atom_names"], saved["elements"]
-            xyz = np.asarray(saved["coordinates"], dtype=np.float64)
-            if (not isinstance(names, list) or not names or len(names) != len(set(names))
-                    or any(not isinstance(name, str) or not name for name in names)
-                    or not isinstance(elements, list) or len(elements) != len(names)
-                    or xyz.shape != (len(names), 3) or not np.isfinite(xyz).all()):
-                raise MappingError("private native state has malformed atom coordinates")
-            for name, element, coordinate in zip(names, elements, xyz, strict=True):
-                all_atoms[(pose_index, name)] = (element, coordinate)
-            for left, right in saved["bonds"]:
-                if left not in names or right not in names or left == right:
-                    raise MappingError("private native state has an invalid intra-residue bond")
-                native_edges.add(tuple(sorted(((pose_index, left), (pose_index, right)))))
-            for name, partner, other_name in saved["connections"]:
-                if name not in names or type(partner) is not int or not 1 <= partner <= len(residues):
-                    raise MappingError("private native state has an invalid residue connection")
-                native_edges.add(tuple(sorted(((pose_index, name), (partner, other_name)))))
-        for occurrence, pose_index in zip(source.residues, pose_residues, strict=True):
-            if residues[pose_index - 1]["name3"] != occurrence.name:
-                raise MappingError("private native state changed a source residue")
-        for index, pair in enumerate(atom_ids):
-            if not isinstance(pair, list) or len(pair) != 2 or any(type(i) is not int for i in pair):
-                raise MappingError("private native state has an invalid AtomID")
-            atom, residue_index = pair
-            if not 1 <= residue_index <= len(residues):
-                raise MappingError("private native state AtomID names an absent residue")
-            names = residues[residue_index - 1]["atom_names"]
-            if not 1 <= atom <= len(names):
-                raise MappingError("private native state AtomID names an absent atom")
-            name = names[atom - 1]
-            key = (residue_index, name)
-            if (key in reverse or name != str(source.atoms.atom_name[index])
-                    or all_atoms[key][0] != str(source.atoms.element[index])
-                    or residue_index != pose_residues[source.atom_residues[index] - 1]
-                    or not np.allclose(all_atoms[key][1], coordinates[index], rtol=0, atol=1e-12)):
-                raise MappingError("private native state does not map public atoms exactly")
-            reverse[key] = index
-        actual = {tuple(sorted((reverse[left], reverse[right]))) for left, right in native_edges
-                  if left in reverse and right in reverse}
-        if actual != {(a, b) for a, b, _ in source.bonds}:
-            raise MappingError("private native state has a different public bond graph")
-        if any(left not in all_atoms or right not in all_atoms for left, right in native_edges):
-            raise MappingError("private native state has a bond to an absent atom")
-    except MappingError:
-        raise
-    except (KeyError, TypeError, ValueError, IndexError) as exc:
-        raise MappingError(f"private native state is malformed: {exc}") from exc
-
-
-def restore_native_state(source: SourceStructure, pose: Any, mapping: PoseMapping,
-                         state: dict, pr: Any) -> None:
-    """Restore exact saved native variants, hydrogens and terminal preparation."""
-    validate_native_state_document(source, state)
-    if (state["pose_residues"] != list(mapping.pose_residues)
-            or state["atom_ids"] != [list(value) for value in mapping.atom_ids]):
-        raise MappingError("reloaded Pose changed the saved public atom mapping")
-    for pose_index, saved in enumerate(state["residues"], 1):
-        residue = pose.residue(pose_index)
-        if str(residue.type().name()) != saved["type_name"]:
-            types = pose.residue_type_set_for_pose(pr.rosetta.core.chemical.FULL_ATOM_t)
-            residue_type = types.name_map(saved["type_name"])
-            replacement = pr.rosetta.core.conformation.ResidueFactory.create_residue(
-                residue_type, residue, pose.conformation())
-            pose.replace_residue(pose_index, replacement, False)
-            residue = pose.residue(pose_index)
-        names = [str(residue.atom_name(i)).strip() for i in range(1, residue.natoms() + 1)]
-        elements = [str(residue.atom_type(i).element()).upper() for i in range(1, residue.natoms() + 1)]
-        if names != saved["atom_names"] or elements != saved["elements"]:
-            raise MappingError("reloaded native atoms differ from the saved residue type")
-        for atom_number, coordinate in enumerate(saved["coordinates"], 1):
-            pose.set_xyz(pr.rosetta.core.id.AtomID(atom_number, pose_index),
-                         pr.rosetta.numeric.xyzVector_double_t(*map(float, coordinate)))
-    verify_pose(source, pose, mapping)
-    current = native_state_document(source, pose, mapping)
-    for key in ("residues", "atom_ids", "pose_residues", "public_categories", "public_coordinates"):
-        if current[key] != state[key]:
-            raise MappingError(f"restored native state differs in {key}")
-    if state.get("relax_effective") is not None:
-        if not isinstance(state["relax_effective"], dict):
-            raise MappingError("saved effective relax settings are malformed")
-        mapping.details["relax_effective"] = dict(state["relax_effective"])

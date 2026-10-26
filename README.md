@@ -65,9 +65,10 @@ instead. It includes the same redesign, folding, MSA, chemistry, refinement and
 docking tools. CUDA 13 requires Linux x86_64, glibc 2.34 or newer, and NVIDIA
 driver 580 or newer. See the [environment guide](docs/environments.md).
 
-Both environment definitions support PyRosetta, DSSP, and DAlphaBall for CPU
-postfiltering of successful protein and standard peptide complexes. See the
-[postfilter installation guide](docs/postfilter.md#dependencies-and-execution-settings).
+Both environment definitions include Ray, PyRosetta, and DSSP for CPU
+postfiltering of successful protein and standard peptide complexes. Source
+checkouts provide DAlphaBall; wheel-only installations provision its executable.
+See the [postfilter installation guide](docs/postfilter.md#dependencies-and-execution-settings).
 
 The environment definition installs PartiDesign, bundled backend sources, and
 build dependencies. Check the active Python/PyTorch environment and GPU:
@@ -316,7 +317,7 @@ binding rates or end-to-end throughput.
 | [Task YAML](docs/task_schema.md) | Task fields, molecules, lengths, constraints, and antibody CDRs |
 | [Commands](docs/commands.md) | A separate reference page for each CLI command |
 | [Validation](docs/validate.md) | Methods, MPNN sequence sources, passing criteria, reports, reuse, and reruns |
-| [Postfilter](docs/postfilter.md) | Rosetta relaxation, automatic protein/peptide rules, cyclic closure, filtering and recovery for successful refolds |
+| [Postfilter](docs/postfilter.md) | Persistent Ray CPU relaxation, protein/peptide structural screening, physical cyclic closure, and sample-level resume |
 | [Example index](configs/examples/README.md) | Named runnable tasks by modality and topology |
 | [Performance](docs/performance.md) | Complete budget tables, definitions, and evaluation scope |
 

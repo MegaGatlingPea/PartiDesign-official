@@ -1,3 +1,9 @@
+defaults:
+  protein: [bc1_protein_structural, bc2_protein_geometry]
+  peptide: [bc1_peptide_structural]
+protocol:
+  scorefunction: beta_nov16
+  relax: {max_iter: 200, repeats: 1}
 # BC1 7713aa0 and BC2 b6fb3ae: structural projections, per refold.
 presets:
   bc1_protein_structural:

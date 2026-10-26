@@ -878,6 +878,7 @@ def _chem_comp_atom_charges(block: Any) -> dict[tuple[str, str], int]:
 def _read_cif_rows(
     path: Path,
     *,
+    cif_document: Any | None = None,
     parent_sources: Mapping[str, str | None] | None = None,
     declared_polymer_chain_modalities: Mapping[str, str] | None = None,
     canonical_polymer_order: bool = False,
@@ -887,10 +888,13 @@ def _read_cif_rows(
     list[dict[str, Any]],
     tuple[_AltlocResidueSelection, ...],
 ]:
-    try:
-        cif = pdbx.CIFFile.read(path)
-    except Exception as exc:
-        raise DesignInputError(f"cannot parse CIF {path}: {exc}") from exc
+    if cif_document is None:
+        try:
+            cif = pdbx.CIFFile.read(path)
+        except Exception as exc:
+            raise DesignInputError(f"cannot parse CIF {path}: {exc}") from exc
+    else:
+        cif = cif_document
     if not cif:
         raise DesignInputError(f"CIF contains no data block: {path}")
     block = cif[next(iter(cif.keys()))]
@@ -1506,16 +1510,21 @@ def _ccd_topologies(path: Path) -> ABCMapping[str, _CcdTopology]:
     return _ccd_cif_topologies(path)
 
 
-def load_ccd_standard_parents(path: Path) -> dict[str, str | None]:
+def load_ccd_standard_parents(
+    path: Path, *, cif_document: Any | None = None
+) -> dict[str, str | None]:
     """Read explicit non-standard parents without importing training parsers."""
 
     if path.name.endswith(".json.gz"):
         return {}
 
-    try:
-        cif = pdbx.CIFFile.read(path)
-    except Exception as exc:
-        raise DesignInputError(f"cannot parse CCD file {path}: {exc}") from exc
+    if cif_document is None:
+        try:
+            cif = pdbx.CIFFile.read(path)
+        except Exception as exc:
+            raise DesignInputError(f"cannot parse CCD file {path}: {exc}") from exc
+    else:
+        cif = cif_document
     result: dict[str, str | None] = {}
     for block_name in cif.keys():
         block = cif[block_name]
@@ -1877,17 +1886,20 @@ class StructureReader:
         self,
         path: str | Path,
         *,
+        cif_document: Any | None = None,
         strict_type_bond_chains: frozenset[str] = frozenset(),
         polymer_parent_sources: Mapping[str, str | None] | None = None,
         declared_polymer_chain_modalities: Mapping[str, str] | None = None,
         canonical_polymer_order: bool = False,
     ) -> struc.AtomArray:
         source = Path(path).expanduser().resolve()
-        if not source.is_file():
+        if cif_document is None and not source.is_file():
             raise DesignInputError(f"input structure does not exist: {source}")
         suffix = source.suffix.lower()
         if suffix not in {".pdb", ".cif"}:
             raise DesignInputError("standalone reader accepts only .pdb and .cif")
+        if cif_document is not None and suffix != ".cif":
+            raise DesignInputError("an in-memory CIF document requires a .cif source name")
         parent_sources = (
             dict(polymer_parent_sources)
             if polymer_parent_sources is not None
@@ -1898,7 +1910,7 @@ class StructureReader:
             )
         )
         if polymer_parent_sources is None and suffix == ".cif":
-            parent_sources.update(load_ccd_standard_parents(source))
+            parent_sources.update(load_ccd_standard_parents(source, cif_document=cif_document))
         try:
             if suffix == ".pdb":
                 atoms, file_bonds, _ = _read_pdb(
@@ -1909,6 +1921,7 @@ class StructureReader:
             else:
                 atoms, block, _, altloc_ledger = _read_cif_rows(
                     source,
+                    cif_document=cif_document,
                     parent_sources=parent_sources,
                     declared_polymer_chain_modalities=declared_polymer_chain_modalities,
                     canonical_polymer_order=canonical_polymer_order,
@@ -1948,6 +1961,7 @@ class StructureReader:
 def read_structure(
     path: Path,
     *,
+    cif_document: Any | None = None,
     ccd_path: Path | None = None,
     strict_type_bond_chains: frozenset[str] = frozenset(),
     polymer_parent_sources: Mapping[str, str | None] | None = None,
@@ -1958,6 +1972,7 @@ def read_structure(
 
     return StructureReader(ccd_path=ccd_path).read(
         path,
+        cif_document=cif_document,
         strict_type_bond_chains=strict_type_bond_chains,
         polymer_parent_sources=polymer_parent_sources,
         declared_polymer_chain_modalities=declared_polymer_chain_modalities,

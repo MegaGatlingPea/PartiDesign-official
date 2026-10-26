@@ -10,7 +10,9 @@ Use `<repo>/README.md` and `<repo>/docs/environments.md`: Linux with an
 NVIDIA GPU, using `partidesign_cu12.yaml` / `partidesign` or
 `partidesign_cu13.yaml` / `partidesign_cu13`. Create the environment from the
 checkout root, activate it, then run `partidesign --help`. Both support CPU
-postfiltering with PyRosetta, DSSP, and checkout-provided DAlphaBall. For CUDA
+postfiltering through persistent Ray actors with PyRosetta, DSSP, and
+checkout-provided DAlphaBall. Wheel-only users provision the DAlphaBall
+executable; see `<repo>/docs/postfilter.md` for pinned manual setup. For CUDA
 issues, inspect
 `nvidia-smi` and the active Python/PyTorch build using
 `<repo>/docs/check.md`. A CPU resource check does not prove GPU readiness.
@@ -143,8 +145,8 @@ results with selected methods, sequence sources and criteria; `gt:1` means the
 original generated identities, not experimental ground truth. `relax` retries
 OpenMM refinement. `postfilter` uses actual successful protein–protein or
 standard peptide–protein complex refolds for optional CPU Rosetta relaxation
-and structural screening; it does
-not refold or alter upstream results. Generation task `score: true` and
+and structural screening through persistent Ray actors. It preserves upstream
+results and runs no sequence redesign or PartiScore scoring. Generation task `score: true` and
 Best-of-N reward ranking are also separate choices. Read `<repo>/docs/score.md`,
 `<repo>/docs/validate.md`, `<repo>/docs/relax.md`, and `<repo>/docs/postfilter.md`
 for the intended step and its assets.
@@ -195,8 +197,13 @@ assemblies, including antibody–antigen and physical head-to-tail cyclic
 peptides. Saved roles and actual refold topology select the peptide path
 automatically; no new flag or bond inference from `cyclic_offset` is needed.
 Nucleic acids, ligands, nonstandard residues, and monomers remain unsupported.
-`postfilter --plan` checks selection and tools without native scoring.
-Postfilter criteria are all required, unlike validation's OR across criteria.
+`partidesign postfilter inference/RUN --plan` checks metadata selection and
+tools without parsing CIFs or initializing PyRosetta. Protein/peptide defaults,
+protocol, and thresholds live in `configs/postfilter_presets.yaml`; runtime
+resource/tool settings live in `configs/postfilter.yaml`. Every selected
+postfilter preset is required, unlike validation's OR across criteria.
+Ordinary resume reuses complete samples with existing CIFs; `--rerun` repeats
+selected samples, and older output formats require a fresh `--out`.
 Its relaxed refolds are separate from clustering, which compares original
 generated polymer backbones. Use [postfilter.md](postfilter.md) for the workflow
-and `<repo>/docs/postfilter.md` for maintained criteria and recovery details.
+and `<repo>/docs/postfilter.md` for maintained criteria and sample-level resume.

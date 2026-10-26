@@ -217,9 +217,14 @@ new Vina thresholds or `--rerun` to dock again.
 Keep the saved named decisions, `.state/` plan, sequence records, and refold
 files when handing eligible protein–protein complexes, including
 antibody–antigen assemblies, or standard peptide–protein complexes to optional
-CPU [postfiltering](postfilter.md).
-Postfilter selects actual complete predictions that passed the named upstream
-criteria; a success link or CSV alone is insufficient. Linear and physical
+[postfiltering](postfilter.md) with persistent Ray CPU actors.
+Postfilter selects the union of actual complete predictions passing saved named
+upstream criteria; a success link or CSV alone is insufficient. Use
+`partidesign postfilter inference/RUN --plan` for metadata/tool checks before
+requested execution. Scientific defaults and thresholds live in
+`configs/postfilter_presets.yaml`; runtime resources/tools use
+`configs/postfilter.yaml`. Complete samples resume together with their relaxed
+CIFs, while older output formats require a fresh `--out`. Linear and physical
 head-to-tail cyclic peptides are supported automatically, while nonstandard
 residues, nucleic acids, and ligands remain unsupported. Upstream results are
 preserved.
