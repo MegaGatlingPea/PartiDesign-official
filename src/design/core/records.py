@@ -131,6 +131,15 @@ class CropSpec:
 
 
 @dataclass(frozen=True)
+class PartialSpec:
+    """One complete candidate structure used as a partial-denoising reference."""
+
+    reference: Path
+    result_csv: Path | None
+    fraction: float
+
+
+@dataclass(frozen=True)
 class TaskSpec:
     name: str
     input_path: Path | None
@@ -149,6 +158,7 @@ class TaskSpec:
     format: str = "normal"
     antibody: Any | None = None
     rm_token_type: tuple[str, ...] | None = None
+    partial: PartialSpec | None = None
 
 
 @dataclass(frozen=True)
@@ -206,7 +216,9 @@ class EdgePolicy:
     ``complete_graph`` makes every unlisted atom pair in the selected scope a
     hard non-edge.  ``hard_positive_edges`` always contains canonical AtomUID
     pairs; bond order remains authoritative in ``TopologyCondition`` and the
-    AtomArray bond list rather than being duplicated here.
+    AtomArray bond list rather than being duplicated here. Explicit
+    ``hard_negative_edges`` forbid only the listed pairs, leaving all other
+    unlisted pairs free unless ``complete_graph`` is set.
     """
 
     component_uid: int | None = None
@@ -214,21 +226,29 @@ class EdgePolicy:
     complete_graph: bool = False
     hard_positive_edges: tuple[tuple[int, int], ...] = ()
     required_output: bool = False
+    # Appended to preserve the positional constructor used by existing callers.
+    hard_negative_edges: tuple[tuple[int, int], ...] = ()
 
     def __post_init__(self) -> None:
         if (self.component_uid is None) == (self.molecule_uid is None):
             raise ValueError(
                 "EdgePolicy requires exactly one of component_uid or molecule_uid"
             )
-        normalized: list[tuple[int, int]] = []
-        for edge in self.hard_positive_edges:
-            if len(edge) != 2:
-                raise ValueError("hard_positive_edges entries must be AtomUID pairs")
-            atom_uid_a, atom_uid_b = sorted((int(edge[0]), int(edge[1])))
-            if atom_uid_a == atom_uid_b:
-                raise ValueError("hard_positive_edges cannot contain self-edges")
-            normalized.append((atom_uid_a, atom_uid_b))
-        object.__setattr__(self, "hard_positive_edges", tuple(sorted(set(normalized))))
+        for field_name in ("hard_positive_edges", "hard_negative_edges"):
+            normalized: set[tuple[int, int]] = set()
+            for edge in getattr(self, field_name):
+                if len(edge) != 2:
+                    raise ValueError(f"{field_name} entries must be AtomUID pairs")
+                atom_uid_a, atom_uid_b = sorted((int(edge[0]), int(edge[1])))
+                if atom_uid_a == atom_uid_b:
+                    raise ValueError(f"{field_name} cannot contain self-edges")
+                normalized.add((atom_uid_a, atom_uid_b))
+            object.__setattr__(self, field_name, tuple(sorted(normalized)))
+        conflict = set(self.hard_positive_edges).intersection(self.hard_negative_edges)
+        if conflict:
+            raise ValueError(
+                f"hard edge policy has positive/negative conflicts: {sorted(conflict)}"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -468,6 +488,10 @@ class CompiledSample:
     # Empty for crop=None, preserving the canonical tensor path exactly.
     forced_chain_break_token_uids: tuple[int, ...] = ()
     antibody_metadata: Mapping[str, Any] = field(default_factory=dict, repr=False)
+    # Same authoring UID/inventory axis as atoms; current candidate identities and
+    # complete geometry are kept separate from original task conditions.
+    reference_atoms: AtomArray | None = field(default=None, repr=False)
+    partial_fraction: float | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -680,6 +704,8 @@ class CompiledSample:
             self.validated_ligand_identities = {}
         if "antibody_metadata" not in self.__dict__:
             self.antibody_metadata = {}
+        self.__dict__.setdefault("reference_atoms", None)
+        self.__dict__.setdefault("partial_fraction", None)
         self.__post_init__()
 
 
@@ -730,10 +756,12 @@ class SearchCandidate:
     )
 
     antibody_metadata: Mapping[str, Any] = field(default_factory=dict, repr=False)
+    partial_metadata: Mapping[str, Any] = field(default_factory=dict, repr=False)
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update(state)
         self.__dict__.setdefault("antibody_metadata", {})
+        self.__dict__.setdefault("partial_metadata", {})
 
     def __post_init__(self) -> None:
         if not isinstance(self.fixed_modified_residue_names, MappingABC):

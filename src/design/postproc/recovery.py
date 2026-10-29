@@ -660,7 +660,7 @@ def candidate_from_existing(base_cif: Path, row: Any, task: Any, *, ccd_path: Pa
             try:
                 if mode == "smiles":
                     private[molecule_uid] = _smiles_private(atoms, component_rows, _condition(task, chain_id).get("smiles"))
-                elif mode in {"free", "backbone"}:
+                elif mode in {"free", "backbone", "atom_motif"}:
                     private[molecule_uid] = _generated_private(atoms, component_rows, sequence)
                 elif mode in {"ccd", "type_bond"}:
                     private[molecule_uid] = _trusted_private(atoms, component_rows, task, chain_id, mode, ccd_path)

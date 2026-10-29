@@ -2,9 +2,9 @@
 
 [Command index](commands.md)
 
-Retry OpenMM refinement of existing PartiDesign CIF results without generating
-new molecules or loading the generation model. Use the original task names,
-source inputs, and chemistry to interpret the saved results correctly.
+Relax saved PartiDesign CIF structures with OpenMM. Supply the matching
+task YAML so the command can recover their chain roles, source inputs, and
+chemistry. The generation model is not loaded.
 
 ## Inputs and a minimal example
 
@@ -23,17 +23,22 @@ partidesign relax configs/examples/ligand.yaml --task ligand_fixture \
   --out inference/ligand_example --platform CPU --limit 1
 ```
 
-The first command counts eligible saved samples without refining them. Remove
-`--plan` for actual execution. CPU refinement runs sequentially. To use the
-visible GPUs through Ray:
+The first command previews the eligible samples; the second refines one sample.
+CPU refinement runs sequentially. To use the visible GPUs through Ray:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 partidesign relax configs/examples/ligand.yaml \
   --task ligand_fixture --out inference/ligand_example --platform CUDA
 ```
 
-`--out` must point to the existing run root, not the individual task directory.
-For example, use `inference/ligand_example`, not its `ligand_fixture` subdirectory.
+Set `--out` to the existing run root, such as `inference/ligand_example`.
+`--task ligand_fixture` selects the task subdirectory within that run.
+
+For a fixed ligand context defined by SMILES, retain its original
+`condition.ligand.<chain>` declaration in this task YAML. Refinement recovers
+that chemistry from the declared SMILES and the matching CIF graph, so custom
+residue names such as `LIG01` do not need a CCD entry. See
+[fixed SMILES ligand context](task_schema.md#fixed-smiles-ligand-context).
 
 ## Key options
 
@@ -46,7 +51,7 @@ Defaults come from [relax.yaml](../configs/relax.yaml).
 | `--out PATH` | Existing inference run root; required. |
 | `--platform CPU\|CUDA` | Refinement platform; default CUDA. CPU is sequential; CUDA uses Ray. |
 | `--charge-method gasteiger\|am1bcc` | Ligand charge method; default `gasteiger`. |
-| `--limit N` | Positive maximum number of samples to retry per task. |
+| `--limit N` | Positive maximum number of samples to refine per task. |
 | `--rerun` | Include completed samples and allow their refined staging files to be replaced. |
 | `--plan` | Count selected samples without refinement. |
 | `--model-dir PATH` | Model root for any requested scoring assets. |

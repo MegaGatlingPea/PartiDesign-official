@@ -9,18 +9,28 @@ because validation finished.
 
 ## Preserve the validation handoff
 
-`partidesign postfilter` consumes named passing decisions from
-`partidesign validate` and their actual complete complex refolds. Inputs can
-be a run, task, validation method directory, or its `success/` directory.
-Keep `.state/plan.json`, per-sequence records under `refolds/`, and selected
-refold files. A loose success CSV or PDB/CIF cannot establish eligibility;
-original generated files and `result.csv` are not required.
+`partidesign postfilter` accepts saved successes from validation and accepted
+final representatives from a pipeline. Supply a run, task, validation method,
+pipeline `final/`, or the corresponding `success/` directory. A loose success
+CSV or PDB/CIF does not carry enough information to establish acceptance.
 
-Selection takes the union of saved named criteria's `passing_prediction_keys`.
-A linked monomer, a model that did not individually pass, or completion-only
-`unfiltered` status is insufficient. Duplicate nominations of one prediction
-are scored once; different sequence/model slots stay separate. Workers map
-saved labels to exact actual sequences and reject ambiguous chain mappings.
+For standalone validation, keep the published success records and their
+complete complex refolds together. Older records may also need the saved task
+configuration or `.state/plan.json` for partner roles. Original generated
+structures and the generation `result.csv` are not required. Selection takes
+the union of named criteria's `passing_prediction_keys`: a linked monomer, a
+model that did not individually pass, or completion-only `unfiltered` status
+is insufficient. Duplicate nominations are scored once; different
+sequence/model slots stay separate.
+
+For pipeline inputs, keep `final/` intact, including its result and selection
+CSVs, prediction records, `success/` structures, and hidden state. Postfilter
+uses the saved final selection policy and screens only each accepted published
+representative. With the PPI preset, both selected AF2 model winners and their
+matching monomers must have passed; retain both selected pairs as evidence.
+Other raw predictions and isolated monomers do not become postfilter inputs.
+Workers map saved chain labels to the exact sequences in the selected complex
+and reject ambiguous mappings.
 
 Supported structures use the twenty standard amino acids in protein–protein
 or peptide–protein complexes. Antibody heavy/light chains form one binder
@@ -38,6 +48,7 @@ coordinates.
 ```bash
 partidesign postfilter inference/RUN --task protein_fixture --plan
 partidesign postfilter inference/RUN/TASK/validate/af2_ig/success --plan
+partidesign postfilter inference/PIPELINE_RUN/TASK/final/success --plan
 partidesign postfilter inference/RUN --task protein_fixture \
   --config postfilter-local.yaml --out postfilter/protein_fixture
 ```

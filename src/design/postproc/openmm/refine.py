@@ -1013,13 +1013,26 @@ def _run_openmm_minimizer(simulation: Any, unit: Any) -> None:
         )
 
 
+def _check_context_motion_support(payload: SampleParameterizationPayload, *, move_context: bool) -> None:
+    """Do not release context whose force field relies on fixed coordinates."""
+    if not isinstance(move_context, bool):
+        raise TypeError("move_context must be a boolean")
+    if move_context and payload.fixed_coordination_records:
+        raise OpenMMPostprocessError(
+            "full-complex motion is unsupported for fixed coordination context: "
+            "its nonbonded-only parameters require fixed coordinates"
+        )
+
+
 def _ordinary_minimize(
     atom_array: struc.AtomArray,
     *,
     platform_name: str,
     payload: SampleParameterizationPayload,
     charge_method: str,
+    move_context: bool = False,
 ) -> tuple[struc.AtomArray, float, float, float]:
+    _check_context_motion_support(payload, move_context=move_context)
     from openmm import CustomExternalForce, Platform, VerletIntegrator, unit
     from openmm.app import ForceField, HBonds, Modeller, NoCutoff, Simulation
     from openmmforcefields.generators import GAFFTemplateGenerator
@@ -1122,11 +1135,13 @@ def _ordinary_minimize(
             atom.residue.name,
             atom.name,
         )
-        if (native_moving and key[:4] not in moving_residues) or key[:4] in fixed_context_residues:
+        if not move_context and ((native_moving and key[:4] not in moving_residues)
+                                 or key[:4] in fixed_context_residues):
             system.setParticleMass(atom.index, 0)
         if key in key_set:
             xyz = np.asarray(position.value_in_unit(unit.nanometer), dtype=float)
-            if (not native_moving or key in native_moving) and key not in fixed_context_keys:
+            if move_context or ((not native_moving or key in native_moving)
+                                and key not in fixed_context_keys):
                 restraint.addParticle(atom.index, xyz.tolist())
             key_by_particle[atom.index] = key
     system.addForce(restraint)
@@ -1191,7 +1206,8 @@ def _ordinary_minimize(
     recovered: set[AtomKey] = set()
     for particle_index, key in key_by_particle.items():
         row = row_by_key[key]
-        if (native_moving and key not in native_moving) or key in fixed_context_keys:
+        if not move_context and ((native_moving and key not in native_moving)
+                                 or key in fixed_context_keys):
             if not np.allclose(positions_nm[particle_index] * 10.0, atom_array.coord[row], rtol=0, atol=1e-5):
                 raise OpenMMPostprocessError("native polymer minimization moved fixed context")
         else:
@@ -1208,8 +1224,14 @@ def refine_one(
     *,
     config: Mapping[str, Any],
     payload: SampleParameterizationPayload,
+    move_context: bool = False,
 ) -> tuple[float, float, float]:
-    """Refine one accepted base CIF without changing its public topology/identity."""
+    """Refine one accepted CIF; optionally move context without changing ownership.
+
+    The private motion override affects minimization and coordinate map-back only.
+    Design flags and accepted chemical payloads keep their original meaning.
+    """
+    _check_context_motion_support(payload, move_context=move_context)
 
     from ...utils.reader import read_structure
     atom_array = read_structure(Path(base_cif), ccd_path=None)
@@ -1262,7 +1284,8 @@ def refine_one(
             refined, initial_energy, final_energy, rms_force = minimize_modified_nucleic_context(
                 atom_array, payload=payload,
                 platform_name=str(config.get("platform", "CUDA")).upper(),
-                charge_method=charge_method, component_overrides=component_overrides)
+                charge_method=charge_method, component_overrides=component_overrides,
+                move_context=move_context)
         with _sample_postprocess_stage("modified nucleic coordinate serialization"):
             write_result(refined)
         return initial_energy, final_energy, rms_force
@@ -1273,7 +1296,8 @@ def refine_one(
             refined, initial_energy, final_energy, rms_force = minimize_modified_protein_context(
                 atom_array, payload=payload,
                 platform_name=str(config.get("platform", "CUDA")).upper(),
-                charge_method=charge_method, component_overrides=component_overrides)
+                charge_method=charge_method, component_overrides=component_overrides,
+                move_context=move_context)
         with _sample_postprocess_stage("modified context coordinate serialization"):
             write_result(refined)
         return initial_energy, final_energy, rms_force
@@ -1285,6 +1309,7 @@ def refine_one(
             atom_array, payload=payload,
             platform_name=str(config.get("platform", "CUDA")).upper(),
             charge_method=charge_method,
+            move_context=move_context,
         )
         with _sample_postprocess_stage("local product serialization"):
             write_result(refined)
@@ -1296,6 +1321,7 @@ def refine_one(
             atom_array, payload=payload,
             platform_name=str(config.get("platform", "CUDA")).upper(),
             charge_method=charge_method,
+            move_context=move_context,
         )
         with _sample_postprocess_stage("peptide serialization"):
             write_result(refined)
@@ -1316,6 +1342,7 @@ def refine_one(
             platform_name=str(config.get("platform", "CUDA")).upper(),
             payload=payload,
             charge_method=charge_method,
+            move_context=move_context,
         )
     else:
         if payload.covalent_link is not None:
@@ -1325,6 +1352,7 @@ def refine_one(
             platform_name=str(config.get("platform", "CUDA")).upper(),
             payload=payload,
             charge_method=charge_method,
+            move_context=move_context,
         )
     if not math.isfinite(final_energy):
         raise OpenMMPostprocessError("postprocess energy summary is non-finite")

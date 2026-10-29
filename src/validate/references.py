@@ -90,11 +90,12 @@ def recover_reference(input):
     from ..design.utils.reader import read_structure
     from ..design.utils.atoms import assign_identity_uids
 
-    snapshot = input.task_dir / "resolved_config.yaml"
-    if not snapshot.is_file():
+    from .metadata import snapshot_path, task_config as saved_task
+    snapshot = snapshot_path(input.task_dir)
+    if snapshot is None:
         raise ReferenceUnavailable("no saved resolved_config.yaml for source motif recovery")
     config = load_yaml(snapshot)
-    task_config = config.get("tasks", {}).get(input.task_dir.name)
+    task_config = saved_task(config, input.task_dir)
     if not isinstance(task_config, Mapping):
         raise ReferenceUnavailable("saved configuration does not identify this task")
     raw_path = task_config.get("input")

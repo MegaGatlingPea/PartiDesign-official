@@ -376,10 +376,16 @@ pocket ligands; it is not the general fixed-identity docking workflow.
 ## Optional protein-complex postfiltering
 
 After named validation criteria pass, [postfilter](postfilter.md) can relax and
-screen the actual successful protein–protein complex refolds on CPU, including
-eligible antibody–antigen assemblies. It uses saved validation decisions,
-`.state/` plans, sequence records, and refold files; retain them for the handoff.
-Explicit peptide tasks, nucleic acids, and ligands are outside this workflow.
+screen successful protein–protein and standard peptide–protein complexes on
+CPU, including eligible antibody–antigen and physical head-to-tail cyclic
+peptide assemblies. Retain the published success records and their complete
+refold files for the handoff. Saved plans provide partner metadata for older
+records when needed. Nucleic acids, ligands, and nonstandard residues are excluded.
+
+For standalone validation, postfilter selects the saved named criteria's passing
+complex predictions. For [pipeline](pipeline.md) results, it selects only the
+published final representative and verifies final acceptance evidence, including
+both PPI model winners. Pass the pipeline run, task, `final/`, or `final/success/`.
 
 ```bash
 partidesign postfilter inference/first_run --task protein_fixture --plan

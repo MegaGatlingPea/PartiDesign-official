@@ -1,0 +1,74 @@
+# Protein workflow; common pipeline and model settings use their native defaults.
+# Iteration criteria derive geometric relaxations from configs/criteria.yaml.
+preset: protein
+criteria_routes:
+  monomer:
+    screen:
+      esmfold2-fast:
+      - pipeline_af3_protein_monomer
+      af3:
+      - pipeline_af3_protein_monomer
+      af2_ig:
+      - pipeline_af2_ig_protein
+    final:
+    - af3_protein_monomer
+  protein:
+    screen:
+      esmfold2-fast:
+      - pipeline_protein_binder
+      af3:
+      - pipeline_protein_binder
+      af2_ig:
+      - pipeline_af2_ig_protein
+    final:
+    - af3_basic
+  peptide:
+    screen:
+      esmfold2-fast:
+      - pipeline_protein_binder
+      af3:
+      - pipeline_protein_binder
+      af2_ig:
+      - pipeline_af2_ig_peptide
+    final:
+    - af3_basic
+  nuc:
+    screen:
+      esmfold2-fast:
+      - pipeline_af3_protein_bind_na
+      af3:
+      - pipeline_af3_protein_bind_na
+    final:
+    - af3_protein_bind_na
+  ligand:
+    screen:
+      esmfold2-fast:
+      - pipeline_af3_protein_bind_ligand
+      af3:
+      - pipeline_af3_protein_bind_ligand
+    final:
+    - af3_protein_bind_ligand
+  antibody:
+    screen:
+      esmfold2-fast:
+      - pipeline_af3_antibody
+      af3:
+      - pipeline_af3_antibody
+    final:
+    - af3_antibody
+  ame:
+    screen:
+      esmfold2-fast:
+      - pipeline_af3_ame
+      af3:
+      - pipeline_af3_ame
+    final:
+    - af3_ame
+  joint:
+    screen:
+      esmfold2-fast:
+      - pipeline_af3_protein_na_complex
+      af3:
+      - pipeline_af3_protein_na_complex
+    final:
+    - af3_protein_na_complex

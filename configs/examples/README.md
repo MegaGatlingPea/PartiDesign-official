@@ -24,7 +24,8 @@ name or output root for another generation run. Read the task's `sample_num` and
 length plan before running it: one named task can request several lengths and
 multiple samples. `--batch-size` controls execution, not the total sample count.
 
-[Protein](#protein) · [Nucleic acids](#nucleic-acids) · [Ligands](#ligands) ·
+[Protein](#protein) · [Partial diffusion](#partial-diffusion) · [Pipeline demo](#pipeline-demo) ·
+[Nucleic acids](#nucleic-acids) · [Ligands](#ligands) ·
 [Motifs](#motifs) · [Peptide topologies](#peptide-topologies-preview) ·
 [Docking](#docking-preview) · [Antibodies](#antibodies-preview)
 
@@ -56,6 +57,70 @@ current formal benchmark:
 | `ligand_binder_ethyl_maltol_fixed` | Ethyl maltol. |
 | `ligand_binder_vanillin_fixed` | Vanillin. |
 
+## Partial diffusion
+
+[partial_diffusion.yaml](partial_diffusion.yaml) restarts from one actual reference
+CIF bundled under [structures/partial_diffusion/](structures/partial_diffusion/).
+The task YAML supplies its molecular conditions. Run directly:
+
+```bash
+partidesign design configs/examples/partial_diffusion.yaml --run-name protein_partial
+```
+
+The example restarts the bundled 100-residue ESMFold2-fast refold, retaining
+its alpha secondary-structure condition, and requests four replicas of chain `P` at
+`fraction: 0.625`: the last 250 of 400 native intervals, starting at index 150.
+Actual lengths come from the reference. For your own structure, define the
+conditions, motifs, context and bonds in its task YAML, then set `partial.reference`
+to your CIF. This route requires a flex-context checkpoint. No input CSV is
+required; new children still receive the normal output `result.csv`. See the
+[partial guide](../../docs/partial.md) for conditions, exact contig gaps and
+optional saved metadata.
+
+## Pipeline demo
+
+[pipeline_tasks.yaml](pipeline_tasks.yaml) is a plain native task collection,
+usable by both `partidesign design` and `partidesign pipeline`. It contains no
+workflow settings:
+
+| Task | Request |
+| --- | --- |
+| `protdbench_insulin_receptor` | Length-80 insulin receptor protein binder. |
+| `protdbench_pdl1` | Length-80 PD-L1 protein binder. |
+| `protdbench_bhrf1` | Length-80 BHRF1 protein binder. |
+| `pepdbench_mdm2_linear` | Length-13 MDM2 linear peptide. |
+| `pepdbench_mdm2_cyclic` | Length-13 MDM2 peptide with terminal C-N bond and cyclic offsets. |
+| `pepdbench_mdm2_disulfide` | Length-13 MDM2 peptide with fixed cysteines and an SG-SG bond. |
+
+Each task requests 32 initial backbones. Select tasks exactly as in design:
+
+```bash
+partidesign pipeline configs/examples/pipeline_tasks.yaml \
+  --task protdbench_insulin_receptor --preset ppi --run-name insulin_receptor
+```
+
+Workflow presets live in `configs/pipeline/`: protein/nuc use AF3 final;
+ppi uses AF2-IG models 1 and 2, five matched pairs per model, requiring both
+winners to pass. The normal first/later selection caps are 200.
+
+For the previous small, strict demo behavior, select
+[configs/pipeline/demo.yaml](../pipeline/demo.yaml) instead:
+
+```bash
+partidesign pipeline configs/examples/pipeline_tasks.yaml \
+  --task protdbench_insulin_receptor --config configs/pipeline/demo.yaml \
+  --run-name insulin_receptor_demo
+```
+
+The demo workflow uses production sequence counts (GT1+MPNN1 first,
+GT1+MPNN4 later), three rounds, strict native `af3_basic` filtering,
+first-round K=200, later/final max-pass=200, partial fraction 0.625 with four replicas
+and parent retention, and no OpenMM. Middle rounds that continue retain at most
+two candidates from each parent/partial family before the task-wide cap. Add `--plan` to preview without loading
+models or creating output. Repeat `--task` to select several; omitting it selects
+all six tasks. Strict criteria can end a task early or produce no final pass.
+See the [pipeline guide](../../docs/pipeline.md).
+
 ## Nucleic acids
 
 Tasks in [nucleic_acids.yaml](nucleic_acids.yaml):
@@ -71,6 +136,33 @@ Tasks in [nucleic_acids.yaml](nucleic_acids.yaml):
 | `rna_ss_guided`, `dna_ss_guided` | Secondary-structure guidance combining chain-level, nucleotide-level, and pair conditions. |
 | `rna_motif_all_atom` | RNA scaffolding around a retained all-atom motif. |
 | `rna_motif_base_atoms` | RNA scaffolding around selected base atoms. |
+| `rna_sequence_prediction`, `rna_ss_prediction` | Predict a fixed 12-nucleotide RNA sequence, with optional nucleotide and pair secondary-structure conditions. |
+| `dna_sequence_prediction`, `dna_ss_prediction` | Predict a fixed 16-nucleotide DNA sequence, with optional nucleotide and pair secondary-structure conditions. |
+| `rna_bind_protein_unpaired` | Design a 20-nucleotide unpaired RNA chain around the supplied protein chain A. |
+| `dna_bind_protein_unpaired` | Design a 35-nucleotide unpaired DNA chain around the supplied protein chain A. |
+| `rna_ligand_binder_ethyl_maltol_unpaired` | Design a 30-nucleotide unpaired RNA chain around fixed ethyl maltol, defined by SMILES. |
+| `dna_ligand_binder_vanillin_unpaired` | Design a 20-nucleotide unpaired DNA chain around fixed vanillin, defined by SMILES. |
+
+The sequence-only and SS-annotated controls fix nucleotide identities and supply
+no reference coordinates. In the unpaired aptamer cases, nucleotide identities
+remain free; `unpaired` is their secondary-structure condition. The sequence-control
+and unpaired aptamer tasks request five samples with OpenMM refinement. Their inputs reuse structures
+already included under `configs/benchmarks/inputs/`.
+
+For example:
+
+```bash
+partidesign design configs/examples/nucleic_acids.yaml \
+  --task rna_ss_prediction --run-name rna_ss_prediction \
+  --batch-size 1 --compile false
+
+partidesign design configs/examples/nucleic_acids.yaml \
+  --task dna_ligand_binder_vanillin_unpaired --run-name dna_vanillin \
+  --batch-size 1 --compile false
+```
+
+Fixed-sequence RNA docking examples from this file are listed under
+[Docking](#docking-preview).
 
 ## Ligands
 
@@ -81,11 +173,31 @@ Tasks in [ligand.yaml](ligand.yaml):
 | `ligand_fixture` | Pocket-conditioned generation of ligand chemistry and coordinates, with ligand size sampled from the configured heavy-atom count distribution. |
 | `ligand_scaffold_hopping` | Ligand redesign conditioned on the supplied ligand backbone. |
 | `ligand_motif_scaffolding` | Ligand generation around selected source atoms. |
+| `ligand_decoration` | Retain a six-atom scaffold and grow from C9, sampling 12, 13, or 14 total heavy atoms before fragment selection. |
+| `ligand_decoration_two_sites` | Use the same sizes with simultaneous attachment sites at C12 and C10. |
 
 The fixed-identity ligand tasks from this file are listed under
 [Docking](#docking-preview). See
 [ligand identity modes](../../docs/task_schema.md#ligand-identity-modes) for the
 distinction between fixed chemistry, partial chemistry, and unconstrained design.
+
+Run the decoration example with:
+
+```bash
+partidesign design configs/examples/ligand.yaml \
+  --task ligand_decoration --task ligand_decoration_two_sites \
+  --run-name ligand_decoration \
+  --batch-size 1 --compile false
+```
+
+Each task requests five samples at each size: 15 samples per task, with scoring
+and OpenMM relaxation. Keep just one `--task` flag to run only that example.
+The two-site task requires both scaffold-to-new bonds; bonds among new atoms
+remain generated, so the two sites can form separate branches or a bridge.
+Unattached fragments may be discarded while retaining the motif and required
+connections, so the final molecule can be smaller than the sampling size. See
+[ligand decoration](../../docs/task_schema.md#ligand-decoration) for attachment
+indexing and geometry.
 
 ## Motifs
 
@@ -145,6 +257,9 @@ illustrate supported inputs without claiming benchmark performance.
 | `ligand_smiles_fixture` | [ligand.yaml](ligand.yaml) | Dock the ligand specified by a complete SMILES into a protein receptor. |
 | `ligand_covalent_docking` | [ligand.yaml](ligand.yaml) | Dock with the source ligand's atom types and bonds fixed by `mode: type_bond`. |
 | `peptide_dock_protein` | [peptide.yaml](peptide.yaml) | Dock a fully specified peptide with an explicit linker and bonds into a protein receptor. |
+| `peptide_dock_protein_cyclic_disulfide` | [peptide.yaml](peptide.yaml) | Dock a fixed peptide with head-to-tail closure, a disulfide bond and cyclic offsets into the supplied protein receptor. |
+| `rna_dock_protein` | [nucleic_acids.yaml](nucleic_acids.yaml) | Dock fixed RNA sequence `UAAUUU` into the supplied protein receptor. |
+| `rna_dock_larp1` | [nucleic_acids.yaml](nucleic_acids.yaml) | Dock fixed RNA sequence `AAAA` into the LARP1 receptor. |
 | `ssrna_dock_7tuv_b0_1_4` | [ssRNA task file](../benchmarks/ssrna_docking/tasks.yaml) | Dock a specified ssRNA sequence into a protein receptor. |
 | `nuc_ligand_3gx5` | [Ligand–nucleic acid task file](../benchmarks/nuc_ligand/tasks.yaml) | Dock a fixed ligand into an RNA receptor. |
 

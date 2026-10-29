@@ -5,7 +5,8 @@
 Generate molecular identity and structure from a task YAML. The YAML specifies
 the molecules, sample count, lengths, context, and constraints; command options
 select tasks and execution settings. See the [task reference](task_schema.md)
-and [example index](../configs/examples/README.md).
+and [example index](../configs/examples/README.md). To run design, refinement,
+and validation in one command, use [pipeline](pipeline.md).
 
 ## A first run
 
@@ -30,6 +31,23 @@ or generating structures. Automatic execution remains pending until runtime.
 Remove it to generate after checking the inputs and assets. The generation
 bundle must include the model, autoencoder, and
 experiment configuration; see [model setup](download.md#generation-weights-and-bundled-assets).
+
+## Partial generation from a candidate
+
+Write a normal task with its design chains, conditions, motifs, context, bonds
+and offsets, then add `partial` with one actual reference CIF and `fraction`.
+The task supplies permissions; the CIF supplies current geometry and lengths.
+`sample_num` requests replicas, so `design_length` is not required when chain
+sizes are resolved from the reference. Standalone input does not need a CSV.
+An explicit `result_csv` can restore native saved locators and motif mappings;
+the pipeline supplies that metadata internally.
+
+The [partial task example](../configs/examples/partial_diffusion.yaml) bundles
+its reference CIF and needs no prior inference run. Its `fraction: 0.625` runs
+the native 400-interval grid's last 250 intervals, starting at index 150. The
+[partial guide](partial.md) gives the task contract, command and outputs.
+For repeated redesign, refolding, selection and partial transitions, use a
+[pipeline](pipeline.md).
 
 ## Routing and task selection
 

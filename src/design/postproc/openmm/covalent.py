@@ -910,9 +910,11 @@ class CovalentPatchCompiler:
         return _map_and_audit(atoms, keys, edges, sg_row, ligand_row, expected_total_charge, work / "full.prmtop", work / "full.inpcrd")
 
 
-def minimize_covalent(atoms: struc.AtomArray, *, platform_name: str, payload: SampleParameterizationPayload, charge_method: str) -> tuple[struc.AtomArray, float, float, float]:
-    """Run the fixed restrained-vacuum minimizer for the one supported link."""
+def minimize_covalent(atoms: struc.AtomArray, *, platform_name: str, payload: SampleParameterizationPayload, charge_method: str, move_context: bool = False) -> tuple[struc.AtomArray, float, float, float]:
+    """Run the restrained-vacuum minimizer; this route already moves context."""
 
+    from .refine import _check_context_motion_support
+    _check_context_motion_support(payload, move_context=move_context)
     _scope(atoms, payload)
     with tempfile.TemporaryDirectory(prefix="partidesign-covalent-") as temporary:
         prmtop, inpcrd, particle_to_key, link, parm = CovalentPatchCompiler().compile(

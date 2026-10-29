@@ -59,3 +59,51 @@ ligand_motif_scaffolding:
         - O3
   postprocess: true
   score: true
+ligand_decoration:
+  input: ./configs/examples/structures/ligand_design/lig_redesign_prot.cif
+  sample_num: 5  # Samples per size in design_length.
+  design_chains:
+  - L: ligand
+  design_length:
+    L: [12, 13, 14]  # Six retained atoms plus six, seven, or eight new heavy atoms.
+  condition:
+    ligand:
+      L:
+        mode: atom_motif
+        atoms: [C9, C13, C12, C11, N5, C10]
+        attachments:
+        - atom: C9
+          new_atom: 1  # Endpoint index among new atoms, not a branch size.
+          order: single
+  postprocess: true
+  score: true
+ligand_decoration_two_sites:
+  input: ./configs/examples/structures/ligand_design/lig_redesign_prot.cif
+  sample_num: 5  # Samples per size in design_length.
+  design_chains:
+  - L: ligand
+  design_length:
+    L:
+    - 12
+    - 13
+    - 14
+  condition:
+    ligand:
+      L:
+        mode: atom_motif
+        atoms:
+        - C9
+        - C13
+        - C12
+        - C11
+        - N5
+        - C10
+        attachments:
+        - atom: C12
+          new_atom: 1  # Endpoint index among new atoms, not a branch size.
+          order: single
+        - atom: C10
+          new_atom: 2  # Attach this site to new-atom slot 2.
+          order: single
+  postprocess: true
+  score: true

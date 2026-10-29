@@ -1,41 +1,54 @@
 # Postfilter successful protein and peptide complexes
 
 `partidesign postfilter` relaxes successful refold complexes and applies the
-structural rules saved in its preset configuration. It consumes named passing
-decisions from `partidesign validate` and preserves upstream structures,
-validation results, reward values, and rankings. It performs no sequence
-redesign, folding predictions, or PartiScore scoring.
+structural rules saved in its preset configuration. It consumes passing
+results from `partidesign validate` or the published final representatives from
+`partidesign pipeline`, preserving upstream structures, validation results,
+reward values, and rankings. It performs no sequence redesign, folding
+predictions, or PartiScore scoring.
 
-## Select validated inputs
+## Select passing inputs
 
 ```bash
 partidesign postfilter inference/RUN --plan
 partidesign postfilter inference/RUN/TASK/validate/af2_ig/success --plan
+partidesign postfilter inference/PIPELINE_RUN/TASK/final/success --plan
 partidesign postfilter inference/RUN --task protein_fixture --task peptide_fixture \
   --config postfilter-local.yaml --out postfilter/RUN
 ```
 
-An input may be a run, task, validation method directory, or its `success/`
-directory. Multiple input paths can be supplied together. Keep the published
-success sequence records and their selected complete refold files together.
-Saved task configuration or `.state/plan.json` is read only when older records
-need additional partner-role metadata. A loose PDB/CIF or success CSV cannot
-establish eligibility. Original generated structures and `result.csv` are not
-required.
+Supply a run, task, validation method directory, pipeline `final/`, or its
+`success/` directory. You can combine several input paths. Keep published
+success records beside their selected complete refold files; a loose structure
+or success CSV does not carry enough acceptance metadata.
 
-Selection uses every saved named passing criterion's
+For standalone validation, keep the validation output; the original generation
+CIFs and `result.csv` are unnecessary. Older records may also need saved task
+configuration or `.state/plan.json` to recover partner roles. For a pipeline,
+keep the complete `final/` directory, including `result.csv`, `selection.csv`,
+`predictions/`, `success/`, and `.work/`. These records identify the accepted
+representatives and the final validation policy.
+
+For standalone validation, selection uses every saved named passing criterion's
 `passing_prediction_keys`. It keeps the union of their actual complete complex
 predictions, scoring duplicate nominations once. Different sequence/model slots
-remain distinct. A success directory can also contain linked monomers or
-predictions that did not individually pass; those links do not establish
-eligibility. Completion-only `unfiltered` decisions are ineligible.
+remain distinct. Linked monomers and predictions that did not individually pass
+do not establish eligibility. Completion-only `unfiltered` decisions are ineligible.
 
-Repeat `--task NAME` to select task names. The command's options are `--out`,
-`--config`, `--task`, `--plan`, and `--rerun`. `--plan` reports metadata selection,
-exclusions, and dependency availability without parsing candidate CIFs,
-initializing PyRosetta, or creating postfilter output. Actual chemistry checks
-run when a worker reads the selected structure. Normal package startup may
-initialize its cache directories.
+For a pipeline, postfilter screens the published final representative for each
+accepted candidate, using the saved final validation policy. The default PPI
+preset requires the selected winners from AF2 models 1 and 2 to pass, with
+their matching monomer comparisons. Other final samples remain supporting
+prediction evidence. A missing representative or incomplete final acceptance
+record is reported as an input-selection failure.
+
+Repeat `--task NAME` to select tasks. Use `--plan` to preview selected samples,
+exclusions, and dependency availability. It reads metadata without parsing
+candidate CIFs, initializing PyRosetta, or creating postfilter output; normal
+package startup may create cache directories. Workers check the actual
+chemistry when they read each selected structure. `--out` chooses the output
+directory, `--config` supplies execution settings, and `--rerun` reprocesses
+previously completed samples.
 
 Supported inputs use the twenty standard amino acids in protein–protein or
 peptide–protein complexes. Linear and physical head-to-tail cyclic peptides
@@ -159,25 +172,27 @@ supplied. Existing structural connections are preserved; saved design
 disulfide constraints are not added to a refold.
 
 Only metrics required by the selected presets and their calculation
-dependencies run. BC1 Rosetta metrics use the relaxed Pose. BC1 loop percentage
-uses one DSSP assignment of the input success refold; required BC2 geometry
-also uses that input structure. Unused PackStat, auxiliary SASA ratios,
+dependencies run. Measurements use two coordinate views:
+
+| Calculation | Coordinates and outcome |
+| --- | --- |
+| Binder energy, surface hydrophobicity, interface complementarity, binding energy, buried surface, contacts, and hydrogen bonds (`bc1_*`) | The relaxed complex supplies the Rosetta measurements. Floating values are rounded to two decimals before threshold comparison. |
+| Binder loop percentage (`bc1_binder_loop_percent`) | One DSSP assignment of the input successful refold measures the percentage outside helix and sheet, rounded to two decimals. |
+| Backbone clashes (`bc2_backbone_clashes`) | The input refold supplies the count of interchain Cα pairs within 2.5 Å. The default protein preset requires zero. |
+| Interface size (`bc2_interface_residues`) | The input refold supplies the count of binder residues with target-atom contacts within 4 Å. The default protein preset requires at least seven. |
+
+Buried unsatisfied hydrogen bonds count heavy atoms that become unsatisfied in
+the bound assembly. Two- or three-chain complexes use Rosetta's XML filter;
+assemblies with four or more chains use an atomwise calculation of the complete
+bound and separated partners. All partner chains and their chemical context
+remain present.
+
+Geometry metrics use raw finite values. Unused PackStat, auxiliary SASA ratios,
 composition reports, and terminal/sequence properties are not calculated.
 Missing, NaN, or infinite required metrics produce `unavailable` and cannot pass.
-
-For two or three chains, buried unsatisfied hydrogen bonds use the pinned BC1
-XML filter. For four or more chains, the pinned SDK's XML filter rejects the
-assembly, so the native atomwise calculator uses the complete bound and
-separated partner assemblies and counts heavy atoms unsatisfied only in the
-bound state. All partner chains and their chemical context remain present.
-
-BC1 floats and DSSP percentages use the upstream two-decimal comparison
-values. BC2 compares raw finite values. The separate `bc1_` and `bc2_` metric
-families retain their own definitions: the BC2 CA clash count uses interchain
-pairs within 2.5 Å, and its binder interface residue count uses 4 Å contacts.
-These structural projections preserve the pinned upstream rules; AF confidence,
-reference RMSDs, binder-alone predictions, and prediction averages remain
-upstream validation responsibilities.
+A measured value outside its threshold is a failed preset; the relaxed structure
+and measurements remain available. Prediction confidence, reference RMSDs,
+binder-alone refolds, and prediction averages come from validation.
 
 ## Outputs and sample-level resume
 
@@ -237,11 +252,8 @@ configuration or run-level error.
 Clustering independently compares original generated polymer backbones;
 postfilter relaxed refolds do not replace those inputs.
 
-## Upstream definitions and licenses
+## Third-party licenses
 
-The reference definitions are pinned to
-[BC1 7713aa0](https://github.com/martinpacesa/BindCraft/tree/7713aa0d0d351e4117a8befeb8541f3a8ebd3368)
-and [BC2 b6fb3ae](https://github.com/PacesaLab/BindCraft2/tree/b6fb3ae15ab6a702f1156cffc11bcc3323c2fd06).
-BC1 is MIT; BC2's adapted definitions carry its hosting-restricted source
-license. See the separate notices in `licenses/`. This command does not imply
-official association with either project.
+See the [third-party licenses and notices](../licenses/) for source attribution
+and usage terms, including the [structural metric license](../licenses/BindCraft-LICENSE)
+and [geometry metric license](../licenses/BindCraft2-LICENSE).

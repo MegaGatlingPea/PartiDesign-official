@@ -448,7 +448,9 @@ def _restored_source_atoms(path: Path, payload: Mapping[str, Any], mapping: Mapp
     output_rows = [index for group, *_ in restorations for index in group]
     result = atoms[np.asarray(output_rows, dtype=np.int64)].copy()
     row_identity: list[tuple[str, int]] = []
-    full_sequences: list[Any] = []
+    full_sequences: list[tuple[str, int | None] | None] = []
+    sequence_records: dict[tuple[str, int | None], list[str]] = {}
+    design_chains = {str(chain) for chain in payload.get("design_chains", ())}
     values: dict[str, list[Any]] = {name: [] for name in (
         "chain_id", "res_id", "ins_code", "label_asym_id", "label_seq_id", "auth_asym_id", "auth_seq_id", "auth_ins_code",
         "source_format", "source_graph_complete", "source_break_before", "source_polymer_position", "asym_uid", "entity_uid", "residue_uid", "component_uid")}
@@ -460,7 +462,21 @@ def _restored_source_atoms(path: Path, payload: Mapping[str, Any], mapping: Mapp
         full_index = metadata.get("source_polymer_sequence_index")
         full = (payload[SOURCE_MAPPING]["source_polymer_sequence_values"][int(full_index)] if full_index is not None
                 else payload[SOURCE_MAPPING].get("source_polymer_sequences", {}).get(logical_chain))
-        full_sequences.extend([None if full is None else tuple(full)] * count)
+        sequence_key = None
+        if full is not None:
+            sequence_key = (logical_chain, None if full_index is None else int(full_index))
+            if sequence_key not in sequence_records:
+                sequence_records[sequence_key] = list(full)
+            components = sequence_records[sequence_key]
+            if logical_chain in design_chains and components:
+                # Redesign changes observed identities, while the source record
+                # still owns unresolved positions. Keep shared context records
+                # separate and retain exact native CCD names at modified sites.
+                position = int(metadata.get("source_polymer_position", 0))
+                if not 0 < position <= len(components):
+                    raise ValueError("ESMFold2 design full-sequence position is outside its source record")
+                components[position - 1] = str(atoms.res_name[group[0]])
+        full_sequences.extend([sequence_key] * count)
         for name in ("chain_id", "res_id", "ins_code", "label_asym_id", "label_seq_id", "auth_asym_id", "auth_seq_id", "auth_ins_code", "source_format"):
             values[name].extend([locator[name]] * count)
         for name, default in (("source_graph_complete", True), ("source_break_before", False), ("source_polymer_position", 0)):
@@ -482,8 +498,9 @@ def _restored_source_atoms(path: Path, payload: Mapping[str, Any], mapping: Mapp
     result.set_annotation("token_uid", np.asarray(token_values, dtype=np.int64))
     result.set_annotation("atom_uid", np.arange(len(result), dtype=np.int64))
     full_annotation = np.empty(len(result), dtype=object)
-    for index, sequence in enumerate(full_sequences):
-        full_annotation[index] = sequence
+    frozen_sequences = {key: tuple(sequence) for key, sequence in sequence_records.items()}
+    for index, key in enumerate(full_sequences):
+        full_annotation[index] = None if key is None else frozen_sequences[key]
     result.set_annotation("source_polymer_sequence", full_annotation)
     # A native chain can connect consecutive positions even when the observed
     # source graph declares a real break. Keep only source-authorized bridges.

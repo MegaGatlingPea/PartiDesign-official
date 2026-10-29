@@ -322,6 +322,38 @@ def _modified_proxy_error(
     return None
 
 
+def _has_terminal_na_op3(
+    atoms: AtomArray, token: np.ndarray, first_token_uid: int,
+) -> bool:
+    """Prove a standard chain's first-residue phosphate oxygen exception.
+
+    AF3 may retain a terminal OP3 outside the NA-MPNN feature atom inventory.
+    Accept that atom only when the public graph proves one same-residue P--O
+    single bond. The native parser ignores OP3; this check never edits atoms,
+    identity permissions, coordinates, or topology.
+    """
+    if int(atoms.token_uid[token[0]]) != first_token_uid:
+        return False
+    if len(set(int(value) for value in atoms.residue_uid[token])) != 1:
+        return False
+    names = np.asarray(atoms.atom_name[token]).astype(str)
+    oxygen = token[names == "OP3"]
+    phosphorus = token[names == "P"]
+    if len(oxygen) != 1 or len(phosphorus) != 1:
+        return False
+    oxygen_row, phosphorus_row = int(oxygen[0]), int(phosphorus[0])
+    if str(atoms.element[oxygen_row]) != "O" or str(atoms.element[phosphorus_row]) != "P":
+        return False
+    if atoms.bonds is None:
+        return False
+    bonds = atoms.bonds.as_array()
+    incident = bonds[(bonds[:, 0] == oxygen_row) | (bonds[:, 1] == oxygen_row)]
+    if len(incident) != 1:
+        return False
+    left, right, order = (int(value) for value in incident[0])
+    return order == 1 and {left, right} == {oxygen_row, phosphorus_row}
+
+
 def _validate_na_candidate(
     candidate: SearchCandidate,
 ) -> tuple[str, tuple[ProteinToken, ...]]:
@@ -429,6 +461,9 @@ def _validate_na_candidate(
                         f"{residue!r}"
                     )
                 unknown = set(atom_names) - expected_atoms
+                if (unknown == {"OP3"} and not is_modified
+                        and _has_terminal_na_op3(atoms, token, token_uids[0])):
+                    unknown = set()
                 if unknown and not is_modified:
                     raise ValueError(
                         f"na_mpnn chain {chain!r} has noncanonical atoms "

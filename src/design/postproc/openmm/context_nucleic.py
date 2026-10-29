@@ -114,7 +114,7 @@ def _charged_records(private, groups, source_charges, component_overrides=None):
                  for ordinal, record in enumerate(records))
 
 
-def minimize_modified_nucleic_context(atoms, *, payload, platform_name, charge_method, component_overrides=None):
+def minimize_modified_nucleic_context(atoms, *, payload, platform_name, charge_method, component_overrides=None, move_context=False):
     from .context_polymer import (_atom_key, _components, _build_parameterization_topology,
                                   _repair_parameterization_topology,
                                   _private_heavy_atom_array, _map_back)
@@ -151,7 +151,8 @@ def minimize_modified_nucleic_context(atoms, *, payload, platform_name, charge_m
                               native_moving_keys=design_keys)
     refined, initial, final, force = minimize_peptides(
         private, payload=private_payload, platform_name=platform_name,
-        charge_method=charge_method, fixed_product_record_ids=tuple(r.record_id for r in records))
+        charge_method=charge_method, fixed_product_record_ids=tuple(r.record_id for r in records),
+        move_context=move_context)
     if not np.isfinite([initial, final, force]).all():
         raise OpenMMPostprocessError("modified nucleic minimization returned non-finite summaries")
-    return _map_back(atoms, private, refined, groups), initial, final, force
+    return _map_back(atoms, private, refined, groups, move_context=move_context), initial, final, force

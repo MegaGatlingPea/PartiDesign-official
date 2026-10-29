@@ -168,10 +168,10 @@ def context_unknowns(atoms: Any, design_chain: str) -> Any:
     return atoms[keep]
 
 
-def write_private_af2_pdb(
-    atoms: Any, output_path: Path, *, ledger: Mapping[str, Any],
-) -> None:
-    """Write the exact occurrence ledger as a coordinate-only native template."""
+def private_af2_pdb(
+    atoms: Any, *, ledger: Mapping[str, Any],
+) -> pdb.PDBFile:
+    """Build the coordinate-only native template on the private occurrence axis."""
 
     private = copy.deepcopy(atoms)
     encode_private_af2_indices(private, ledger)
@@ -184,10 +184,18 @@ def write_private_af2_pdb(
             private = private[valid]
     private.bonds = None
     private.set_annotation("atom_id", np.arange(1, len(private) + 1, dtype=np.int64))
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     file = pdb.PDBFile()
     pdb.set_structure(file, private, hybrid36=False)
-    file.write(output_path)
+    return file
+
+
+def write_private_af2_pdb(
+    atoms: Any, output_path: Path, *, ledger: Mapping[str, Any],
+) -> None:
+    """Write the exact occurrence ledger as a coordinate-only native template."""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    private_af2_pdb(atoms, ledger=ledger).write(output_path)
 
 
 def normalize_private_override(

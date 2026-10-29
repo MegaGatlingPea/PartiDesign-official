@@ -1,0 +1,98 @@
+# Native tasks shared by partidesign design and pipeline.
+# Select with --task; each task requests 32 initial backbones at one length.
+protdbench_insulin_receptor:
+  input: ./configs/benchmarks/inputs/protdbench/Insulin_4zxb_crop.pdb
+  sample_num: 32
+  postprocess: false
+  score: false
+  design_chains:
+  - Z: protein
+  design_length:
+    Z:
+    - 80
+  hotspot: E64/E88/E96
+protdbench_pdl1:
+  input: ./configs/benchmarks/inputs/protdbench/PDL1_5o45_crop.pdb
+  sample_num: 32
+  design_chains:
+  - Z: protein
+  design_length:
+    Z:
+    - 80
+  hotspot: A56/A115/A123
+  score: false
+  postprocess: false
+protdbench_bhrf1:
+  input: ./configs/benchmarks/inputs/protdbench/BHRF1_2wh6_crop.pdb
+  sample_num: 32
+  design_chains:
+  - Z: protein
+  design_length:
+    Z:
+    - 80
+  hotspot: A65/A74/A77/A82/A85/A93
+  score: false
+  postprocess: false
+pepdbench_mdm2_linear:
+  input: ./configs/benchmarks/inputs/pepdbench/mdm2.pdb
+  sample_num: 32
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 13
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  score: false
+  postprocess: false
+pepdbench_mdm2_cyclic:
+  input: ./configs/benchmarks/inputs/pepdbench/mdm2.pdb
+  sample_num: 32
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 13
+  cyclic_offset: true
+  condition:
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: -1
+        atom: C
+      order: single
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  score: false
+  postprocess: false
+pepdbench_mdm2_disulfide:
+  input: ./configs/benchmarks/inputs/pepdbench/mdm2.pdb
+  sample_num: 32
+  design_chains:
+  - P: peptide
+  design_length:
+    P:
+    - 13
+  rm_token_type: []
+  condition:
+    sequence:
+      P:
+      - resid: 2
+        residue: C
+      - resid: -2
+        residue: C
+    bond:
+    - atom1:
+        chain: P
+        resid: 2
+        atom: SG
+      atom2:
+        chain: P
+        resid: -2
+        atom: SG
+      order: single
+  hotspot: A29/A33/A36-37/A42/A47/A68/A71
+  score: false
+  postprocess: false

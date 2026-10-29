@@ -1,0 +1,36 @@
+# Nucleic-acid workflow; common pipeline and model settings use native defaults.
+# Iteration criteria derive geometric relaxations from configs/criteria.yaml.
+preset: nuc
+criteria_routes:
+  monomer:
+    screen:
+      esmfold2-fast:
+      - pipeline_af3_na_monomer
+      af3:
+      - pipeline_af3_na_monomer
+    final:
+    - af3_na_monomer
+  protein:
+    screen:
+      esmfold2-fast:
+      - pipeline_af3_na_bind_protein
+      af3:
+      - pipeline_af3_na_bind_protein
+    final:
+    - af3_na_bind_protein
+  ligand:
+    screen:
+      esmfold2-fast:
+      - pipeline_af3_na_bind_ligand
+      af3:
+      - pipeline_af3_na_bind_ligand
+    final:
+    - af3_na_bind_ligand
+  joint:
+    screen:
+      esmfold2-fast:
+      - pipeline_af3_protein_na_complex
+      af3:
+      - pipeline_af3_protein_na_complex
+    final:
+    - af3_protein_na_complex

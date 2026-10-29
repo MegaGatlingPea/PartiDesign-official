@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from types import MappingProxyType
 from typing import Any, Mapping, Sequence
@@ -320,7 +320,9 @@ def _chain_breaks(
     return breaks
 
 
-def compile_canonical_sample(compiled: CompiledSample) -> dict[str, Any]:
+def compile_canonical_sample(
+    compiled: CompiledSample, *, reference: bool = False,
+) -> dict[str, Any]:
     """Compile the authoring IR to the exact checkpoint-facing canonical schema."""
 
     atoms = compiled.atoms
@@ -396,6 +398,11 @@ def compile_canonical_sample(compiled: CompiledSample) -> dict[str, Any]:
             sample["ligand_mask"][token_uid] = True
             element = str(atoms.element[center]).strip().upper()
             sample["ligand_element_type"][token_uid] = ELEMENT_TO_ID.get(element, UNKNOWN_ELEMENT_ID)
+            if reference and atoms.formal_charge[center] is not None:
+                charge = float(atoms.formal_charge[center])
+                if not np.isfinite(charge) or not charge.is_integer():
+                    raise DesignSampleError("partial reference has an invalid ligand formal charge")
+                sample["ligand_charge"][token_uid] = charge
             if bool(coordinate_condition[center]) and bool(atoms.coord_valid[center]):
                 sample["ligand_motif_mask"][token_uid] = True
                 sample["ligand_motif_token_center_coords_nm"][token_uid] = coords[center]
@@ -785,14 +792,41 @@ def _materialize_topology_conditions(
                 sample["condition_bond_type_known_mask"][token_i, token_j] = True
                 sample["condition_bond_type_known_mask"][token_j, token_i] = True
 
+    positive_uid_pairs = {
+        edge for policy in compiled.edge_policies for edge in policy.hard_positive_edges
+    }
     for policy in compiled.edge_policies:
-        if not policy.complete_graph:
+        if not policy.complete_graph and not policy.hard_negative_edges:
             continue
         if policy.component_uid is not None:
             atom_scope = np.asarray(atoms.component_uid, dtype=np.int64) == int(policy.component_uid)
         else:
             atom_scope = np.asarray(atoms.molecule_uid, dtype=np.int64) == int(policy.molecule_uid)
         atom_scope &= np.asarray(atoms.mol_type).astype(str) == "ligand"
+        for uid_a, uid_b in policy.hard_negative_edges:
+            if uid_a not in uid_to_row or uid_b not in uid_to_row:
+                raise ValueError("hard negative edge references missing AtomUID")
+            row_i, row_j = uid_to_row[uid_a], uid_to_row[uid_b]
+            if not bool(atom_scope[row_i] and atom_scope[row_j]):
+                raise ValueError("hard negative edge lies outside its ligand policy scope")
+            token_i = int(layout.model_token_by_row[row_i])
+            token_j = int(layout.model_token_by_row[row_j])
+            if token_i == token_j:
+                raise ValueError("hard negative edge aliases one model token")
+            if (uid_a, uid_b) in positive_uid_pairs or bool(
+                sample["condition_bond_pair_mask"][token_i, token_j]
+            ):
+                raise ValueError(
+                    f"hard negative edge conflicts with a positive condition: {(uid_a, uid_b)}"
+                )
+            sample["condition_bond_pair_mask"][token_i, token_j] = False
+            sample["condition_bond_pair_mask"][token_j, token_i] = False
+            sample["condition_bond_type"][token_i, token_j] = LIGAND_BOND_TYPES["none"]
+            sample["condition_bond_type"][token_j, token_i] = LIGAND_BOND_TYPES["none"]
+            sample["condition_bond_type_known_mask"][token_i, token_j] = True
+            sample["condition_bond_type_known_mask"][token_j, token_i] = True
+        if not policy.complete_graph:
+            continue
         token_scope = sorted(
             set(
                 int(layout.model_token_by_row[row])
@@ -899,6 +933,8 @@ class PredictBatch:
     samples: tuple[CompiledSample, ...]
     requests: tuple[ExpandedRequest, ...]
     canonical: Mapping[str, Any]
+    reference: Mapping[str, Any] | None = None
+    partial_fraction: float | None = None
 
 
 def _cyclic_periods(compiled: CompiledSample, canonical: Mapping[str, Any]) -> torch.Tensor:
@@ -952,6 +988,14 @@ def collate_compiled_samples(
     samples: Sequence[CompiledSample], *, pad_max_size: int | None = None,
     token_buckets: Sequence[int] | None = None,
 ) -> PredictBatch:
+    partial = [sample.reference_atoms is not None for sample in samples]
+    if any(partial) and not all(partial):
+        raise DesignSampleError("partial and ordinary samples require separate batches")
+    fractions = {sample.partial_fraction for sample in samples}
+    if len(fractions) != 1 or (any(partial) and None in fractions):
+        raise DesignSampleError("a batch requires one homogeneous partial fraction")
+    if not any(partial) and fractions != {None}:
+        raise DesignSampleError("partial fraction requires reference atoms")
     canonical_samples = [compile_canonical_sample(sample) for sample in samples]
     canonical = dense_pad_canonical_collate(
         canonical_samples, pad_max_size=pad_max_size, token_buckets=token_buckets,
@@ -964,10 +1008,37 @@ def collate_compiled_samples(
         period = _cyclic_periods(sample, unbatched)
         periods[row, :len(period)] = period
     canonical["cyclic_period"] = periods
+    reference = None
+    if any(partial):
+        reference_samples = [
+            compile_canonical_sample(replace(
+                sample, atoms=sample.reference_atoms, reference_atoms=None,
+                partial_fraction=None,
+            ), reference=True)
+            for sample in samples
+        ]
+        for compiled, unbatched in zip(samples, reference_samples, strict=True):
+            # The VAE's ordinary polymer view needs its native local frame.
+            # Carriers are atomized ligand tokens and have no polymer frame.
+            invalid_frames = (
+                unbatched["token_mask"] & ~unbatched["ligand_mask"]
+                & ~unbatched["token_frame_mask"]
+            )
+            if bool(invalid_frames.any()):
+                tokens = torch.where(invalid_frames)[0].tolist()
+                raise DesignSampleError(
+                    f"partial reference {compiled.request.sample_id} has non-encodable polymer frames at model tokens {tokens}"
+                )
+        reference = dense_pad_canonical_collate(
+            reference_samples, pad_max_size=canonical["token_mask"].shape[1],
+        )
+        reference["cyclic_period"] = periods
     return PredictBatch(
         samples=tuple(samples),
         requests=tuple(sample.request for sample in samples),
         canonical=canonical,
+        reference=reference,
+        partial_fraction=next(iter(fractions)),
     )
 
 

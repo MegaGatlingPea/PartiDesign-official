@@ -37,14 +37,18 @@ DSSP `4.6.1`, compatible `libmcfp 2.0.1`, and `packaging 24.2`. Use the same
 environment for design, validation and postfiltering; no separate postfilter
 environment is required. Each definition retains its own PyTorch/JAX CUDA stack.
 
-After creating either environment from its normal YAML:
+After creating either environment, check dependency metadata and CLI availability:
 
 ```bash
 conda activate partidesign
 # Or: conda activate partidesign_cu13
 python -m pip check
-partidesign postfilter --show-config
+partidesign postfilter --help
 ```
+
+`--help` displays the command options. To inspect a particular run and its
+postfilter dependencies, use `partidesign postfilter inference/RUN --plan` with
+an existing run directory; see [selecting passing inputs](postfilter.md#select-passing-inputs).
 
 For an environment created before these dependencies were added, follow the
 [manual postfilter setup](postfilter.md#dependencies-and-execution-settings).

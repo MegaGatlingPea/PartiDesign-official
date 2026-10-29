@@ -1276,6 +1276,7 @@ def _add_authoritative_component_graphs(
     published_graph: dict[str, Any] | None = None
     for instance in component_instances:
       mapped_names: dict[str, str] = {}
+      omitted_names: set[str] = set()
       rows_by_name: dict[str, list[Mapping[str, Any]]] = {}
       rows_by_native_name: dict[str, list[Mapping[str, Any]]] = {}
       for row in instance:
@@ -1288,6 +1289,13 @@ def _add_authoritative_component_graphs(
         candidates = rows_by_name.get(graph_name, [])
         if len(candidates) != 1:
           candidates = rows_by_native_name.get(graph_name, [])
+        if (not candidates and graph_name == "OXT" and atom["element"] == "O"
+            and all(row.get("mol_type") == "protein" for row in instance)):
+          # Product polymer inventories may omit terminal oxygen. Keep its
+          # full CCD definition so internal/terminal instances share one graph.
+          mapped_names[graph_name] = graph_name
+          omitted_names.add(graph_name)
+          continue
         if len(candidates) != 1:
           raise AF3InputError(
               f"published component {source_component!r} cannot map CCD atom "
@@ -1301,7 +1309,7 @@ def _add_authoritative_component_graphs(
           )
         mapped_names[graph_name] = str(row["atom_name"])
       output_names = {str(row.get("atom_name", "")).strip() for row in instance}
-      if output_names != set(mapped_names.values()):
+      if output_names != set(mapped_names.values()) - omitted_names:
         raise AF3InputError(
             f"published component {source_component!r} has an atom inventory "
             "different from its authoritative CCD graph"
@@ -1490,6 +1498,7 @@ def _restore_authoritative_cif(
   source_ledger = list(payload.get("source_atom_ledger", ()))
   source_rows_by_residue: dict[tuple[str, int, str], list[Mapping[str, Any]]] = {}
   source_atoms_by_key: dict[tuple[str, int, str, str], Mapping[str, Any]] = {}
+  source_atoms_by_row: dict[int, Mapping[str, Any]] = {}
   for row in source_ledger:
     source_chain = str(row.get("chain_id", ""))
     source_res_id = int(row.get("res_id", 0))
@@ -1500,6 +1509,18 @@ def _restore_authoritative_cif(
     if atom_key in source_atoms_by_key:
       raise AF3InputError(f"duplicate source atom ledger key {atom_key!r}")
     source_atoms_by_key[atom_key] = row
+    source_atoms_by_row[int(row["row"])] = row
+
+  # A source inter-residue covalent bond already occupies a peptide carbonyl
+  # carbon. An offset feature alone is not a chemical connection.
+  occupied_carbonyls: set[tuple[str, int, str]] = set()
+  for left, right, order in payload.get("source_inter_residue_bonds", ()):
+    if int(order) != 1:
+      continue
+    for endpoint in (source_atoms_by_row[int(left)], source_atoms_by_row[int(right)]):
+      if endpoint.get("mol_type") == "protein" and endpoint.get("atom_name") == "C":
+        occupied_carbonyls.add((str(endpoint["chain_id"]), int(endpoint["res_id"]),
+                               str(endpoint.get("ins_code", ""))))
 
   source_atoms_by_uid: dict[int, Mapping[str, Any]] = {}
   for row in source_ledger:
@@ -1649,6 +1670,7 @@ def _restore_authoritative_cif(
     return str(source_atom.get("atom_name", native_atom_name)).strip()
 
   restored_rows: list[dict[str, Any]] = []
+  omitted_native_oxt = set()
   native_lookup: dict[tuple[str, int, str, str], dict[str, Any]] = {}
   native_atoms_by_residue: dict[tuple[str, int], list[Mapping[str, Any]]] = {}
   seen_residue_ids: dict[str, set[int]] = {}
@@ -1664,7 +1686,7 @@ def _restore_authoritative_cif(
     if rows is None:
       raise AF3InputError(f"native chain {native_chain!r} has no residue ledger")
     native_res_id = int(atom.get("res_id", 0))
-    native_atoms_by_residue.setdefault((native_chain, native_res_id), []).append(atom)
+    native_atoms_by_residue.setdefault((native_chain, native_res_id), [])
     if native_res_id < 1 or native_res_id > len(rows):
       raise AF3InputError(
           f"native chain {native_chain!r} residue {native_res_id} is outside "
@@ -1680,6 +1702,7 @@ def _restore_authoritative_cif(
         raise AF3InputError(f"native AF3 CIF element {atom_index} disagrees with structure iterator")
     residue = rows[native_res_id - 1]
     if residue is None:
+      native_atoms_by_residue[(native_chain, native_res_id)].append(atom)
       # Confirmed full-sequence positions have native predictions but no source
       # occurrences. They stay in the private native file and are not restored.
       continue
@@ -1731,6 +1754,11 @@ def _restore_authoritative_cif(
               f"native atom {native_chain!r}/{native_atom_name!r} changed source element"
           )
         source_atom = candidate
+    if (modality == "protein" and native_atom_name == "OXT" and source_atom is None
+        and source_key in occupied_carbonyls):
+      omitted_native_oxt.add((native_chain, native_res_id, native_res_name, native_atom_name))
+      continue
+    native_atoms_by_residue[(native_chain, native_res_id)].append(atom)
     component_names = {
         str(row.get("res_name", "")).strip()
         for row in source_residue_rows
@@ -1970,8 +1998,29 @@ def _restore_authoritative_cif(
           f"native/source residue count mismatch for chain {native_chain!r}"
       )
 
+  # Every chemical edge is already preserved by source_inter_residue_bonds.
+  # The independent relative-position feature must not invent a closing bond.
+  restoration_payload = dict(payload, cyclic_chains=())
+
+  if omitted_native_oxt and "struct_conn" in block:
+    connections = block["struct_conn"]
+    keep = []
+    arrays = {name: connections[name].as_array(str) for name in connections}
+    for index in range(connections.row_count):
+      omitted = False
+      for side in ("ptnr1", "ptnr2"):
+        sequence = arrays[f"{side}_label_seq_id"][index]
+        if sequence in {".", "?"}:
+          sequence = arrays[f"{side}_auth_seq_id"][index]
+        key = (arrays[f"{side}_label_asym_id"][index], int(sequence),
+               arrays[f"{side}_label_comp_id"][index], arrays[f"{side}_label_atom_id"][index])
+        omitted |= key in omitted_native_oxt
+      if not omitted:
+        keep.append(index)
+    block["struct_conn"] = pdbx.CIFCategory({name: values[keep] for name, values in arrays.items()})
+
   from .af3_restore import rebuild_source_categories
-  rebuild_source_categories(block, payload, restored_rows, native_lookup)
+  rebuild_source_categories(block, restoration_payload, restored_rows, native_lookup)
 
   _add_authoritative_component_graphs(
       block,

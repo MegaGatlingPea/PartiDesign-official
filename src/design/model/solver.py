@@ -10,6 +10,8 @@ trajectory collection remain outside this module.
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+import math
+from numbers import Real
 from typing import Any
 
 import torch
@@ -42,6 +44,20 @@ class SimulationState:
     step_index: int
     x: Mapping[str, Tensor]
     previous_clean: Mapping[str, Tensor] | None
+
+
+def reference_start_steps(fraction: float) -> tuple[int, int]:
+    """Return the common grid index and Python-rounded retained interval count."""
+
+    if isinstance(fraction, bool) or not isinstance(fraction, Real):
+        raise TypeError("partial diffusion fraction must be a real number")
+    value = float(fraction)
+    if not math.isfinite(value) or not 0.0 < value <= 1.0:
+        raise ValueError("partial diffusion fraction must be finite and in (0, 1]")
+    interval_count = round(value * _EXPECTED_STEPS)
+    if interval_count == 0:
+        raise ValueError("partial diffusion fraction rounds to zero intervals")
+    return _EXPECTED_STEPS - interval_count, interval_count
 
 
 def validate_context_constraint_mode(value: Any) -> str:
@@ -945,6 +961,31 @@ class ProductSpaceSolver:
         start_step: int,
         end_step: int,
     ) -> SimulationState:
+        """Continue a simulation, retaining the original clean-state checks."""
+
+        return self._advance_simulation(
+            batch=batch,
+            predict_for_sampling=predict_for_sampling,
+            sampling_config=sampling_config,
+            state=state,
+            start_step=start_step,
+            end_step=end_step,
+        )
+
+    @torch.no_grad()
+    def _advance_simulation(
+        self,
+        *,
+        batch: Mapping[str, Any],
+        predict_for_sampling: Callable[
+            [Mapping[str, Any]], Mapping[str, Mapping[str, Tensor]]
+        ],
+        sampling_config: Mapping[str, Any],
+        state: SimulationState,
+        start_step: int,
+        end_step: int,
+        reference_start: bool = False,
+    ) -> SimulationState:
         """Advance ``state`` over the half-open interval ``[start_step, end_step)``."""
 
         validate_sampling_config(sampling_config)
@@ -962,9 +1003,11 @@ class ProductSpaceSolver:
         fixed_context = self._fixed_context(batch, token_mask, denoising_mask)
         self._validate_state(state.x, token_mask, "state.x")
         if state.previous_clean is None:
-            if start_step != 0:
+            if start_step != 0 and not reference_start:
                 raise ValueError("a simulation after step zero requires previous_clean")
         else:
+            if reference_start:
+                raise ValueError("a reference start cannot have previous_clean")
             if start_step == 0:
                 raise ValueError("a step-zero simulation cannot have previous_clean")
             self._validate_state(
@@ -1062,6 +1105,61 @@ class ProductSpaceSolver:
             x=current,
             previous_clean=previous_clean,
         )
+
+    @torch.no_grad()
+    def simulation_from_reference(
+        self,
+        *,
+        batch: Mapping[str, Any],
+        reference: Mapping[str, Tensor],
+        predict_for_sampling: Callable[
+            [Mapping[str, Any]], Mapping[str, Mapping[str, Tensor]]
+        ],
+        sampling_config: Mapping[str, Any],
+        fraction: float,
+    ) -> tuple[dict[str, Tensor], dict[str, Any]]:
+        """Corrupt a flex reference and run the untouched full-grid tail kernels."""
+
+        start_index, interval_count = reference_start_steps(fraction)
+        validate_sampling_config(sampling_config)
+        if self.rigid_context:
+            raise ValueError("reference-start partial diffusion requires flex context")
+        token_mask = self._token_mask(batch)
+        denoising_mask = self._denoising_mask(batch, token_mask)
+        self._validate_state(reference, token_mask, "reference")
+        for component in STATE_COMPONENTS:
+            if not bool(torch.isfinite(reference[component][denoising_mask]).all().item()):
+                raise ValueError(f"reference.{component} must be finite on active tokens")
+        times, _ = self.sample_schedule(sampling_config["model"])
+        initial: dict[str, Tensor] = {}
+        for component in STATE_COMPONENTS:
+            prior = self._flows[component].sample_noise(denoising_mask)
+            clean = torch.where(
+                denoising_mask[..., None],
+                reference[component],
+                torch.zeros_like(reference[component]),
+            )
+            time = times[component][start_index].to(prior)
+            initial[component] = (1.0 - time) * prior + time * clean
+        final = self._advance_simulation(
+            batch=batch,
+            predict_for_sampling=predict_for_sampling,
+            sampling_config=sampling_config,
+            state=SimulationState(start_index, initial, None),
+            start_step=start_index,
+            end_step=_EXPECTED_STEPS,
+            reference_start=True,
+        )
+        return dict(final.x), {
+            "mask": token_mask,
+            "denoising_mask": denoising_mask,
+            "start_index": start_index,
+            "interval_count": interval_count,
+            "start_times": {
+                component: float(times[component][start_index])
+                for component in STATE_COMPONENTS
+            },
+        }
 
     @torch.no_grad()
     def full_simulation(

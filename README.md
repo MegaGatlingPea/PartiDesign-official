@@ -37,8 +37,8 @@ identity in a shared space. Flow matching generates both together, and the
 decoder recovers identities and atom coordinates. **PartiScore**, an MDN network
 for molecular interface scoring, can score the resulting complexes.
 Optional workflow steps include Best-of-N ranking, OpenMM refinement, MPNN
-sequence redesign, refolding, protein/peptide-complex postfiltering, and structural
-clustering.
+sequence redesign, refolding, iterative sequence/structure optimization,
+protein/peptide-complex postfiltering, and structural clustering.
 
 ## Installation
 
@@ -117,7 +117,8 @@ The last command runs a small, real PartiScore inference check on CPU. It does
 not require the generation checkpoint, and temporary outputs are removed unless
 `--out PATH` is supplied. These CPU checks are separate from GPU readiness.
 
-The first generation example needs no additional prediction or redesign models.
+The standalone generation example below needs no additional prediction or
+redesign models.
 See [optional evaluation models](docs/download.md#optional-evaluation-models),
 [separate model storage](docs/download.md#use-a-separate-model-directory), and
 [installation troubleshooting](docs/check.md#installation-and-first-run-troubleshooting)
@@ -125,29 +126,104 @@ for other workflows.
 
 ## Inference
 
-### Input format
+### Run design, refinement, and validation
 
-A YAML file contains named tasks describing what to generate and what to retain.
-Start from a file in [configs/examples](configs/examples/README.md), select a task
-with `--task`, and edit its inputs and conditions using the
+Start with your first **insulin receptor binder design** using the PartiDesign
+pipeline. One command handles generation, iterative refinement, and final
+validation. Run it from the repository root:
+
+```bash
+partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor --preset ppi --run-name insulin_receptor
+```
+
+Prepare the generation, auto MPNN, ESMFold2-fast, and AF2 assets using the
+[model setup guide](docs/download.md#optional-evaluation-models). Add `--plan`
+to preview the selected tasks and workflow without loading models or creating
+run output.
+
+Candidate counts grow across rounds. Middle rounds keep at most **two refolds
+per partial family** before further expansion. For scale, a measured strict demo
+with this family cap disabled proposed **64 → 350 → 1,575** sequences and took
+about **3 hours** on a single RTX 4080 GPU, including final validation. See
+[candidate counts and runtime](docs/pipeline.md#candidate-counts-and-runtime)
+for the default limit and measured counts.
+
+This task requests **32 initial backbones**. The default workflow uses three
+rounds: the current sequence (GT1) plus auto MPNN1 in round 1, then GT1 plus
+auto MPNN4 in each later round. Between rounds, each selected parent continues
+alongside four partial-diffusion replicas at **fraction 0.625**. OpenMM
+relaxation is off by default. Up to 200 deduplicated historical candidates
+receive GT-only final validation.
+
+The explicit `ppi` preset runs AF2-IG models **1 and 2**, with five matched
+complex/monomer pairs per model: **ten pairs, twenty structures per candidate**.
+Each model selects its highest-ranked complex and the matching monomer; both
+model winners must pass. The `protein` and `nuc` presets use five AF3 samples,
+select the highest native `ranking_score`, then apply final criteria. Final
+selection never substitutes a lower-ranked passing prediction.
+
+**AF3 model terms:** AlphaFold 3 model parameters and outputs are restricted to
+non-commercial use under Google's
+[Model Parameters Terms of Use](https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md).
+The `pipeline` command uses AF3 for final validation with the `protein` and `nuc`
+presets, and whenever AF3 is explicitly selected.
+
+Start with these outputs:
+
+```text
+inference/insulin_receptor/
+  summary.csv
+  protdbench_insulin_receptor/
+    design/                   # initial structures and result.csv
+    round_1/ ... round_3/      # refolds, selection, partial replicas
+    final/
+      result.csv              # candidate outcomes and metadata
+      selection.csv           # final candidate selection
+      predictions/            # all final predictions
+      success/                # accepted final representatives
+```
+
+A completed workflow can have no final pass. All final predictions, metrics,
+structures, state, and task/workflow snapshots are retained. Per-prediction
+metrics, selection evidence, and rejection reasons are in
+`final/predictions/proposal*.json`. Completed runs
+remove raw prediction caches by default; add `--keep-cache` to retain them for
+raw PAE/PDE metric recomputation. Failed or interrupted runs retain their caches.
+See the [pipeline guide](docs/pipeline.md) for results, screening, and resume.
+
+### Tasks and workflow presets
+
+A normal task YAML defines the molecules, sample count, lengths, context,
+hotspots, motifs, and bonds. Use the same file with `design` or `pipeline` and
+select a named task with `--task`. Start from the
+[example index](configs/examples/README.md) and edit inputs using the
 [Task YAML reference](docs/task_schema.md).
 
-### Run inference
+`--preset protein`, `--preset nuc`, or `--preset ppi` selects the workflow;
+automatic selection chooses protein or nuc. A separate `--config FILE.yaml`
+changes the rounds and final validation. The shipped strict demo keeps the
+production candidate limits and the same three-round, 0.625-fraction flow:
 
+```bash
+partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor --config configs/pipeline/demo.yaml --run-name insulin_receptor_demo
+```
 
-Run the examples from the repository root with your selected PartiDesign
-environment active. The `protein_fixture` task requests five proteins of length
-40, with scoring and refinement disabled. Preview the configuration without loading weights:
+Protein, peptide, and RNA/DNA pipelines follow each backend's capabilities.
+Pure ligand design uses `partidesign design`. See the [pipeline guide](docs/pipeline.md)
+for presets and advanced configuration, and [partial diffusion](docs/partial.md)
+for generation from one reference CIF with task-defined conditions.
+
+### Generate structures
+
+`partidesign design` generates structures from the selected task YAML. The
+`protein_fixture` example requests five proteins of length 40 with scoring and
+refinement disabled. Preview its configuration, check the task, and generate:
 
 ```bash
 partidesign design configs/examples/protein.yaml \
   --task protein_fixture --run-name first_run \
   --batch-size 1 --show-config
-```
 
-After supplying the generation checkpoint, check the task and generate:
-
-```bash
 partidesign check configs/examples/protein.yaml --task protein_fixture
 
 CUDA_VISIBLE_DEVICES=0 partidesign design configs/examples/protein.yaml \
@@ -162,8 +238,6 @@ CUDA Graphs for eligible inputs and its eager kernels otherwise. The count
 includes selected tasks, length plans, `sample_num`, and Best-of-N replicas;
 batch size does not change it. See [execution settings](docs/design.md#execution-and-compilation).
 
-### Output format
-
 Results are written to one directory per task:
 
 ```text
@@ -175,13 +249,9 @@ inference/first_run/protein_fixture/
   ...
 ```
 
-Use a new run name or output root for each run; selected task directories must
-be new or empty. If a sample has no structure file, inspect `result.csv` and the
-log. For your own task, copy a request from the [example index](configs/examples/README.md)
-and edit its inputs, sample count, and conditions using the
-[Task YAML reference](docs/task_schema.md).
-
-### Common options
+Use a new run name or output root for generation; selected task directories
+must be new or empty. If a sample has no structure file, inspect `result.csv`
+and the log. Normal and antibody tasks should be submitted separately.
 
 | Common option | Purpose |
 | --- | --- |
@@ -194,11 +264,10 @@ and edit its inputs, sample count, and conditions using the
 | `--compile-strategy auto\|dynamic\|bucket` | Select automatic, dynamic, or bucket compilation |
 | `--show-config` | Print resolved settings without generating |
 
-The [generation guide](docs/design.md) covers all options. Separate guides explain
-[scoring](docs/score.md), [refinement](docs/relax.md),
-[validation](docs/validate.md), [postfiltering](docs/postfilter.md), and
-[clustering](docs/cluster.md).
-Normal and antibody tasks should be submitted separately.
+The [generation guide](docs/design.md) covers all options. Separate commands
+[score interfaces](docs/score.md), [refine existing structures](docs/relax.md),
+[validate saved designs](docs/validate.md), [postfilter passing complexes](docs/postfilter.md),
+and [cluster backbones](docs/cluster.md).
 
 ## Usage
 
@@ -316,8 +385,10 @@ binding rates or end-to-end throughput.
 | [User guide](docs/README.md) | Documentation overview and reading order |
 | [Task YAML](docs/task_schema.md) | Task fields, molecules, lengths, constraints, and antibody CDRs |
 | [Commands](docs/commands.md) | A separate reference page for each CLI command |
+| [Pipeline](docs/pipeline.md) | Run design, refinement, and validation in one command |
+| [Partial diffusion](docs/partial.md) | Reference-start sampling, task YAML, schedule semantics, and original constraints |
 | [Validation](docs/validate.md) | Methods, MPNN sequence sources, passing criteria, reports, reuse, and reruns |
-| [Postfilter](docs/postfilter.md) | Persistent Ray CPU relaxation, protein/peptide structural screening, physical cyclic closure, and sample-level resume |
+| [Postfilter](docs/postfilter.md) | Relax and screen passing protein and peptide complexes |
 | [Example index](configs/examples/README.md) | Named runnable tasks by modality and topology |
 | [Performance](docs/performance.md) | Complete budget tables, definitions, and evaluation scope |
 
@@ -348,6 +419,10 @@ We thank the developers of [La-Proteina](https://github.com/NVIDIA-BioNeMo/la-pr
 [ColabFold](https://github.com/sokrypton/ColabFold) for sharing their code and tools
 with the community.
 
+We also thank the [HalluDesign](https://github.com/MinchaoFang/HalluDesign) team
+for sharing their iterative sequence–structure co-optimization framework, which
+inspired the design of PartiDesign's pipeline workflow.
+
 Special thanks to Codex and Tibo — we couldn't have tackled this mountain of work
 without you! 🐸
 
@@ -359,6 +434,7 @@ without you! 🐸
 
 PartiDesign source code is released under the [Apache 2.0 License](LICENSE).
 
-Third-party source licenses are kept beside their code under `community_models/`.
-Resource licenses are kept under `configs/resources/`. Model weights are subject
-to their upstream terms.
+Third-party source licenses are kept beside their code under
+[community_models/](community_models/), with additional [licenses and notices](licenses/).
+Resource licenses are kept under [configs/resources/](configs/resources/).
+Model weights are subject to their upstream terms.

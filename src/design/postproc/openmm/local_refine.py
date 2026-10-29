@@ -1,4 +1,4 @@
-"""Minimize a fully assembled hybrid with an exactly fixed context."""
+"""Minimize a fully assembled hybrid with explicit context motion control."""
 import numpy as np
 
 
@@ -39,12 +39,14 @@ def prepare_local_products(candidate):
     return build_product_records(candidate, groups), tuple(atom_key(atoms, r) for r in sorted(moving))
 
 
-def minimize_local_products(atoms, *, payload, platform_name, charge_method):
+def minimize_local_products(atoms, *, payload, platform_name, charge_method, move_context=False):
     """Parameterize each local product fragment, assemble once, minimize once."""
     from pathlib import Path
     from tempfile import TemporaryDirectory
     from rdkit import Chem
-    from .refine import atom_key, OpenMMPostprocessError, _sample_postprocess_stage
+    from .refine import (atom_key, OpenMMPostprocessError, _sample_postprocess_stage,
+                         _check_context_motion_support)
+    _check_context_motion_support(payload, move_context=move_context)
     from .regions import plan_covalent_region
     from .hybrid import cap_product_record, parameterize_product_record
     from .mapping import product_atom_keys
@@ -88,10 +90,11 @@ def minimize_local_products(atoms, *, payload, platform_name, charge_method):
             atoms, region, reference_atoms=reference, scaffold=scaffold, scaffold_topology=topology,
             product=product, molecule=molecule, product_keys=keys, full_records=records,
         )
-        return minimize_assembled_product(atoms, assembled, final_keys, moving_rows, platform_name=platform_name)
+        return minimize_assembled_product(atoms, assembled, final_keys, moving_rows,
+                                          platform_name=platform_name, move_context=move_context)
 
 
-def minimize_assembled_product(atoms, structure, final_keys, moving_rows, *, platform_name):
+def minimize_assembled_product(atoms, structure, final_keys, moving_rows, *, platform_name, move_context=False):
     from openmm import CustomExternalForce, Platform, VerletIntegrator, unit
     from openmm.app import NoCutoff, Simulation
     from .mapping import heavy_parent
@@ -102,7 +105,7 @@ def minimize_assembled_product(atoms, structure, final_keys, moving_rows, *, pla
     moving_rows = set(map(int, moving_rows))
     if not moving_rows or any(row < 0 or row >= len(atoms) or not atoms.is_design[row] for row in moving_rows):
         raise OpenMMPostprocessError("hybrid motion selection includes invalid/context atoms")
-    moving = {atom_key(atoms, row) for row in moving_rows}
+    moving = set(public) if move_context else {atom_key(atoms, row) for row in moving_rows}
     if len(final_keys) != len(structure.atoms) or len(final_keys) != len(set(final_keys)) or not set(public).issubset(final_keys):
         raise OpenMMPostprocessError("hybrid minimization atom mapping is invalid")
     positions = np.asarray(structure.coordinates, dtype=float).copy() / 10
@@ -121,7 +124,7 @@ def minimize_assembled_product(atoms, structure, final_keys, moving_rows, *, pla
     fixed = []
     mobile = []
     for particle, key in enumerate(final_keys):
-        if heavy_parent(key) not in moving:
+        if not move_context and heavy_parent(key) not in moving:
             system.setParticleMass(particle, 0)
             fixed.append(particle)
         else:

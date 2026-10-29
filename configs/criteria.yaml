@@ -167,6 +167,17 @@ presets:
     - metric: has_ligand_clashes
       op: <
       value: 0.5
+  af3_na_motif:
+    methods:
+    - af3
+    - af3-la
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: motif_rmsd_reference
+      op: <=
+      value: 3.0
   af3_protein_monomer:
     methods:
     - af3

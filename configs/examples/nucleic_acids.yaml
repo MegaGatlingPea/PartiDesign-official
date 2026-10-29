@@ -206,3 +206,201 @@ dna_bind_ligand:
   design_length:
     D:
     - 24
+
+# Fixed-sequence prediction controls: sequence only versus sequence plus secondary structure.
+
+rna_sequence_prediction:
+  input: null
+  sample_num: 5
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: GGGCGCAAGCCU
+  postprocess: true
+  override: true
+  score: false
+
+rna_ss_prediction:
+  input: null
+  sample_num: 5
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: GGGCGCAAGCCU
+    secondary_structure:
+      token:
+        R:
+          paired: 1-5,8-12
+          unpaired: 6-7
+      pair:
+        paired:
+        - - R1
+          - R12
+        - - R2
+          - R11
+        - - R3
+          - R10
+        - - R4
+          - R9
+        - - R5
+          - R8
+  postprocess: true
+  override: true
+  score: false
+
+dna_sequence_prediction:
+  input: null
+  sample_num: 5
+  design_chains:
+  - D: dna
+  condition:
+    sequence:
+      D: ATCCTAGTTATAGGAT
+  postprocess: true
+  override: true
+  score: false
+
+dna_ss_prediction:
+  input: null
+  sample_num: 5
+  design_chains:
+  - D: dna
+  condition:
+    sequence:
+      D: ATCCTAGTTATAGGAT
+    secondary_structure:
+      token:
+        D:
+          paired: 1-7,10-16
+          unpaired: 8-9
+      pair:
+        paired:
+        - - D1
+          - D16
+        - - D2
+          - D15
+        - - D3
+          - D14
+        - - D4
+          - D13
+        - - D5
+          - D12
+        - - D6
+          - D11
+        - - D7
+          - D10
+  postprocess: true
+  override: true
+  score: false
+
+# Unpaired aptamer design with protein or fixed-SMILES ligand context.
+
+rna_bind_protein_unpaired:
+  input: ./configs/benchmarks/inputs/rna_bind_protein/8SWB_protein.pdb
+  sample_num: 5
+  postprocess: true
+  score: false
+  crop:
+    include:
+    - A
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 20
+  hotspot: A149/A210/A151/A153
+  condition:
+    secondary_structure:
+      coarse:
+        R: unpaired
+  override: true
+
+dna_bind_protein_unpaired:
+  input: ./configs/benchmarks/inputs/dna_bind_protein/8VX4_protein.pdb
+  sample_num: 5
+  postprocess: true
+  score: false
+  crop:
+    include:
+    - A
+  design_chains:
+  - R: dna
+  design_length:
+    R:
+    - 35
+  hotspot: A203/A154/A149/A294
+  condition:
+    secondary_structure:
+      coarse:
+        R: unpaired
+  override: true
+
+rna_ligand_binder_ethyl_maltol_unpaired:
+  input: ./configs/benchmarks/inputs/ligand_binder/ethyl_maltol.cif
+  sample_num: 5
+  score: false
+  design_chains:
+  - R: rna
+  design_length:
+    R:
+    - 30
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: CCC1=C(C(=O)C=CO1)O
+    secondary_structure:
+      coarse:
+        R: unpaired
+  hotspot: null
+  postprocess: true
+  override: true
+
+dna_ligand_binder_vanillin_unpaired:
+  input: ./configs/benchmarks/inputs/ligand_binder/vanillin.cif
+  sample_num: 5
+  score: false
+  design_chains:
+  - D: dna
+  design_length:
+    D:
+    - 20
+  condition:
+    ligand:
+      L:
+        mode: smiles
+        smiles: COC1=C(C=CC(=C1)C=O)O
+    secondary_structure:
+      coarse:
+        D: unpaired
+  hotspot: null
+  postprocess: true
+  override: true
+
+# Fixed-sequence RNA docking into protein context.
+
+rna_dock_protein:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_7uu4_b0_4_9.cif
+  sample_num: 5
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: UAAUUU
+  override: true
+
+rna_dock_larp1:
+  input: ./configs/benchmarks/inputs/ssrna_docking/ssrna_dock_7sos_b0_1_4.cif
+  sample_num: 5
+  score: true
+  postprocess: true
+  design_chains:
+  - R: rna
+  condition:
+    sequence:
+      R: AAAA
+  override: true

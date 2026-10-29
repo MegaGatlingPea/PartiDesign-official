@@ -10,18 +10,30 @@ partidesign --help
 partidesign <command> --help
 ```
 
-| Command | Guide |
+| Command | Use it to |
 | --- | --- |
-| [`partidesign download`](download.md) | Model inventory, downloads, optional backends, and model storage |
-| [`partidesign check`](check.md) | Task and resource checks, CPU loading, smoke checks, and troubleshooting |
-| [`partidesign design`](design.md) | Generation, task selection, model routing, ranking, and output files |
-| [`partidesign score`](score.md) | PartiScore interface scoring of saved structures |
-| [`partidesign relax`](relax.md) | OpenMM refinement of existing designs |
-| **[`partidesign validate`](validate.md)** | **Sequence redesign, structure prediction, criteria, reports, reuse, and reruns** |
-| [`partidesign postfilter`](postfilter.md) | Relax and evaluate successful protein–protein refolds |
-| [`partidesign cluster`](cluster.md) | Structural clustering of passing designs |
+| [`partidesign download`](download.md) | Prepare generation and optional model assets |
+| [`partidesign check`](check.md) | Check tasks, model assets, and the installation |
+| [`partidesign design`](design.md) | Generate molecular structures and identities |
+| [`partidesign pipeline`](pipeline.md) | Run design, refinement, and validation in one command |
+| [`partidesign score`](score.md) | Score interfaces in saved structures with PartiScore |
+| [`partidesign relax`](relax.md) | Refine existing structures with OpenMM |
+| [`partidesign validate`](validate.md) | Evaluate saved designs with selected sequences, predictors, and criteria |
+| [`partidesign postfilter`](postfilter.md) | Relax and screen passing protein and peptide complexes |
+| [`partidesign cluster`](cluster.md) | Group passing designs by backbone similarity |
 
 For a first run, follow the [main README](../README.md#inference). After generation,
 use the [validation guide](validate.md) to choose the method, sequence budget, and
 passing criteria before running an evaluation. The [performance guide](performance.md)
 explains the paper's computational budgets and evaluation protocols.
+
+## Pipeline
+
+`partidesign pipeline TASKS.yaml` runs design, refinement, and validation in one
+command. It generates once, then refines sequences and structures through MPNN,
+refolding, selection, and partial diffusion. OpenMM is optional. Final validation
+uses AF3 for protein/nuc presets or paired AF2-IG predictions for explicit `ppi`.
+See the [complete pipeline guide](pipeline.md) for
+presets, round/task overrides, the insulin receptor demo, outputs, and resume.
+For single-reference sampling with `partidesign design`, see
+[partial diffusion](partial.md).

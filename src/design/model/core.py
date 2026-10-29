@@ -17,6 +17,7 @@ from src.design.model.solver import (
     STATE_COMPONENTS,
     STATE_DIMS,
     ProductSpaceSolver,
+    reference_start_steps,
     validate_context_constraint_mode,
     validate_sampling_config,
 )
@@ -283,6 +284,90 @@ class PartiDesignInferenceModel(torch.nn.Module):
             batch=sampling_batch,
             predict_for_sampling=self.predict_for_sampling,
             sampling_config=sampling_config,
+        )
+
+    @torch.no_grad()
+    def generate_from_reference(
+        self,
+        batch: Mapping[str, Any],
+        reference_batch: Mapping[str, Any],
+        sampling_config: Mapping[str, Any],
+        fraction: float,
+    ) -> tuple[dict[str, Tensor], dict[str, Any]]:
+        """Start flex diffusion from a complete reference on the condition axis."""
+
+        start_index, interval_count = reference_start_steps(fraction)
+        if start_index == 0:
+            generated, info = self.generate(batch, sampling_config)
+            return generated, {
+                **info,
+                "start_index": start_index,
+                "interval_count": interval_count,
+                "start_times": {component: 0.0 for component in STATE_COMPONENTS},
+            }
+        validate_sampling_config(sampling_config)
+        if self.rigid_context:
+            raise ValueError("reference-start partial diffusion requires flex context")
+        sampling_batch = self.add_sampling_context(batch)
+        token_mask = self.solver._token_mask(sampling_batch)
+        reference_mask = reference_batch.get("token_mask")
+        if (
+            not isinstance(reference_mask, Tensor)
+            or reference_mask.dtype is not torch.bool
+            or reference_mask.device != token_mask.device
+            or not torch.equal(reference_mask, token_mask)
+        ):
+            raise ValueError("reference token_mask must match the condition batch")
+        reference_types = reference_batch.get("mol_type_id")
+        condition_types = sampling_batch.get("mol_type_id")
+        if (
+            not isinstance(reference_types, Tensor)
+            or not isinstance(condition_types, Tensor)
+            or reference_types.dtype is not torch.long
+            or reference_types.shape != token_mask.shape
+            or reference_types.device != token_mask.device
+            or condition_types.shape != token_mask.shape
+            or not torch.equal(reference_types[token_mask], condition_types[token_mask])
+        ):
+            raise ValueError("reference modalities must match the condition model axis")
+        centers = reference_batch.get("token_center_coords_nm")
+        if (
+            not isinstance(centers, Tensor)
+            or centers.shape != token_mask.shape + (STATE_DIMS["token_center"],)
+            or centers.device != token_mask.device
+            or not centers.is_floating_point()
+        ):
+            raise ValueError("reference token centers must match the condition model axis")
+        if not bool(torch.isfinite(centers[token_mask]).all().item()):
+            raise ValueError("reference token centers must be finite on active tokens")
+
+        encoder_input = self._masked_autoencoder_input(reference_batch, token_mask)
+        vae_dtype = next(self.autoencoder.encoder.parameters()).dtype
+        encoder_input = {
+            key: value.to(dtype=vae_dtype) if value.is_floating_point() else value
+            for key, value in encoder_input.items()
+        }
+        statistics = self.autoencoder.encode_statistics(encoder_input)
+        expected_shape = token_mask.shape + (STATE_DIMS["local_latents"],)
+        mean, log_scale = statistics["mean"], statistics["log_scale"]
+        for name, value in (("mean", mean), ("log_scale", log_scale)):
+            if value.shape != expected_shape or value.device != token_mask.device:
+                raise ValueError(f"VAE reference latent {name} has an invalid shape or device")
+            if not bool(torch.isfinite(value[token_mask]).all().item()):
+                raise ValueError(f"VAE reference latent {name} must be finite on active tokens")
+        visible = token_mask[..., None]
+        mean = torch.where(visible, mean, torch.zeros_like(mean))
+        log_scale = torch.where(visible, log_scale, torch.zeros_like(log_scale))
+        posterior = mean + log_scale.exp() * torch.randn_like(mean)
+        latents = self.autoencoder.encoder.ln_z(posterior)
+        latents = torch.where(visible, latents, torch.zeros_like(latents))
+        sampling_batch["mask"] = token_mask
+        return self.solver.simulation_from_reference(
+            batch=sampling_batch,
+            reference={"token_center": centers, "local_latents": latents.to(centers)},
+            predict_for_sampling=self.predict_for_sampling,
+            sampling_config=sampling_config,
+            fraction=fraction,
         )
 
     def decode_generated(

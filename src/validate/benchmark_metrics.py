@@ -370,7 +370,8 @@ def loose_clashes(atoms, design_chains, cutoff=1.5):
             "loose_clash_le2": int(count <= 2), "design_heavy_atom_count": design_count}
 
 
-def extra_geometry(input_data, predicted, chain_map, ligand_chain_map, ligand_atom_maps, source_reference):
+def extra_geometry(input_data, predicted, chain_map, ligand_chain_map, ligand_atom_maps,
+                   source_reference, *, motif_geometry=True):
     from . import metrics as m
     values, reasons = {}, {}
 
@@ -427,7 +428,7 @@ def extra_geometry(input_data, predicted, chain_map, ligand_chain_map, ligand_at
             ),
         )
 
-    if input_data.motif_positions and source_reference is not None:
+    if motif_geometry and input_data.motif_positions and source_reference is not None:
         def motif_backbone():
             ref, pred, _, missing = m._motif_pairs(input_data, predicted, chain_map,
                 reference=source_reference, atom_names_override=("N", "CA", "C"))
@@ -435,6 +436,9 @@ def extra_geometry(input_data, predicted, chain_map, ligand_chain_map, ligand_at
                 raise m.MetricUnavailable("incomplete source motif N/CA/C correspondence")
             return m._motif_rmsd_with_fit(ref, pred)
         calculate("motif_rmsd_reference_bb3", motif_backbone)
+    # Preserve the native missing-source behavior when motif geometry is enabled.
+    # Later pipeline rounds still compare the current input and refold scaffold.
+    if input_data.motif_positions and (source_reference is not None or not motif_geometry):
         def scaffold():
             refs, preds = [], []
             for chain in input_data.design_chains:

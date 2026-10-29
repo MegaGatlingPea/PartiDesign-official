@@ -366,9 +366,9 @@ def _context_fallback_allowed(candidate, rows) -> bool:
     return not bool(np.asarray(candidate.atoms.is_design, dtype=bool)[list(rows)].any())
 
 
-def _context_molecule_from_authoritative_graph(atom_array, rows, source_path=None) -> Chem.Mol:
+def _context_molecule_from_authoritative_graph(atom_array, rows, source_path=None, *, condition=None) -> Chem.Mol:
     from .context import context_private_molecule
-    return context_private_molecule(atom_array, rows, source_path=source_path)
+    return context_private_molecule(atom_array, rows, source_path=source_path, condition=condition)
 
 
 def _is_skippable_monatomic_ion(
@@ -758,10 +758,30 @@ def _build_parameterization_payload(
 
     from .openmm.linked_context import linked_context_specs, linked_context_view
     from .openmm.fixed_ligand import fixed_ligand_completions
+    from .context import context_smiles_condition
+    smiles_context_molecules = {}
+    smiles_context_keys = set()
+    task = candidate.base_request.task
+    declarations = task.condition.get("ligand") or {}
+    smiles_chains = {chain for chain, entry in declarations.items()
+                     if isinstance(entry, Mapping) and entry.get("mode") == "smiles"}
+    smiles_components = (np.unique(atom_array.component_uid[
+        np.isin(atom_array.chain_id, tuple(smiles_chains))]) if smiles_chains else ())
     try:
-        linked_specs = linked_context_specs(candidate)
+        for uid in smiles_components:
+            rows = tuple(int(row) for row in np.flatnonzero(atom_array.component_uid == uid))
+            if (any(atom_array.is_design[row] for row in rows)
+                    or not all(atom_array.mol_type[row] == "ligand" for row in rows)
+                    or context_smiles_condition(atom_array, rows, condition=task.condition) is None):
+                continue
+            smiles_context_molecules[int(uid)] = _context_molecule_from_authoritative_graph(
+                atom_array, rows, task.input_path, condition=task.condition)
+            smiles_context_keys.update(_atom_key(atom_array, row) for row in rows)
+        linked_specs = tuple(spec for spec in linked_context_specs(candidate)
+                             if not smiles_context_keys.intersection(spec.heavy_keys))
         linked_keys = {key for spec in linked_specs for key in spec.heavy_keys}
-        completions = fixed_ligand_completions(candidate, excluded_keys=linked_keys)
+        completions = fixed_ligand_completions(
+            candidate, excluded_keys=linked_keys | smiles_context_keys)
     except ValueError as error:
         raise PostprocessPreparationError(str(error)) from error
     completion_keys = {key for spec in completions for key in spec.heavy_keys}
@@ -861,15 +881,16 @@ def _build_parameterization_payload(
         if molecule_uid < 0 or component_uid < 0:
             raise RuntimeError("accepted ligand has an invalid molecule/component UID")
         seen_molecule_uids.add(molecule_uid)
-        if _is_skippable_monatomic_ion(candidate, rows):
+        smiles_context = component_uid in smiles_context_molecules
+        if not smiles_context and _is_skippable_monatomic_ion(candidate, rows):
             continue
-        if not np.any(atom_array.is_design[rows]):
+        if not smiles_context and not np.any(atom_array.is_design[rows]):
             from .context import context_component_name
             if context_component_name(atom_array, rows, source_path=candidate.base_request.task.input_path) == "NCO":
                 from .openmm.cobalt import validate_cobalt_heavy_group
                 cobalt_groups.append(validate_cobalt_heavy_group(atom_array, rows))
                 continue
-        if not np.any(atom_array.is_design[rows]):
+        if not smiles_context and not np.any(atom_array.is_design[rows]):
             from .context import context_component_name, _load_components, _CONTEXT_COMPONENTS
             name = context_component_name(atom_array, rows, source_path=candidate.base_request.task.input_path)
             _load_components({name})
@@ -885,7 +906,8 @@ def _build_parameterization_payload(
                     raise PostprocessPreparationError(str(error)) from error
                 continue
         components = {component_uid}
-        molecule = molecule_map.get(molecule_uid)
+        molecule = (smiles_context_molecules[component_uid] if smiles_context
+                    else molecule_map.get(molecule_uid))
         source_error = error_map.get(molecule_uid)
         if molecule is not None and source_error is not None:
             raise RuntimeError(
@@ -898,7 +920,8 @@ def _build_parameterization_payload(
                     f"ligand molecule {molecule_uid} is not parameterizable: {detail}"
                 )
             try:
-                molecule = _context_molecule_from_authoritative_graph(atom_array, rows, candidate.base_request.task.input_path)
+                molecule = _context_molecule_from_authoritative_graph(
+                    atom_array, rows, task.input_path, condition=task.condition)
             except Exception as error:
                 raise PostprocessPreparationError(
                     f"retained context component {component_uid} has no matching authoritative chemistry: {error}"

@@ -31,6 +31,7 @@ when you only want one. Their `*_fixture` tasks request **five samples** each.
 | RNA or DNA | [nucleic_acids.yaml](../configs/examples/nucleic_acids.yaml) | `rna_fixture` or `dna_fixture` |
 | New ligand chemistry or known-ligand pose | [ligand.yaml](../configs/examples/ligand.yaml) | `ligand_fixture` or `ligand_smiles_fixture` |
 | Preserve a source motif and generate its scaffold | [motif.yaml](../configs/examples/motif.yaml) | `motif_fixture` |
+| Resample near an existing candidate | [partial_diffusion.yaml](../configs/examples/partial_diffusion.yaml) | `partial_protein` (bundled reference) |
 | Antibody CDR design | [antibody.yaml](../configs/examples/antibody.yaml) | `antibody_fixture` |
 
 `protein_monomer` has five lengths and one sample per length. Most fixture tasks
@@ -44,11 +45,12 @@ separate schema.
 
 | Field | Required/default | Meaning |
 | --- | --- | --- |
-| `sample_num` | Required, positive integer | Base samples **per length plan**. |
+| `sample_num` | Required, positive integer | Base samples **per length plan**; partial tasks request replicas of one resolved reference. |
 | `design_chains` | Required, nonempty list | One-entry maps from chain ID to `protein`, `peptide`, `rna`, `dna`, or `ligand`. |
 | `input` | Optional; omitted/`null` for de novo | Local `.pdb` or `.cif` source. |
-| `design_length` | Needed unless conditions determine every chain's size | Polymer residue counts or ligand heavy-atom counts. |
+| `design_length` | Needed unless conditions or a partial reference determine every chain's size | Polymer residue counts or ligand heavy-atom counts. |
 | `condition` | Optional | Sequence, backbone, contig, secondary structure, ligand chemistry, and bonds. |
+| `partial` | Optional; absent for ordinary generation | `{reference, result_csv?, fraction}` for one actual candidate CIF; see the [partial guide](partial.md). |
 | `crop` | Optional | Select source context to retain. |
 | `hotspot` | Optional | Mark source context residues as the intended interface. |
 | `format` | `normal` | Use `antibody` only with its separate schema. |
@@ -124,9 +126,65 @@ keys. These are explicit combinations, not a Cartesian product. Ligands obtain
 counts from chemistry conditions and do not appear in `joint` rows. Multiple
 ligand-only design chains also need conditions to determine their counts.
 
-Omit `design_length` when full sequences, source backbones, contigs, or fixed
-ligand graphs determine every chain's size. A sparse sequence does not determine
+Omit `design_length` when full sequences, source backbones, contigs, fixed
+ligand graphs, or a partial reference determine every chain's size. A sparse sequence does not determine
 length. If independent conditions provide lengths, they must agree.
+
+## Partial reference tasks
+
+Write a normal task with its molecular conditions, then add `partial` to
+start from one reference CIF. No earlier task file or input CSV is required.
+The bundled example starts from a 100-residue protein chain `P`:
+
+```yaml
+partial_protein:
+  sample_num: 4
+  design_chains: [{P: protein}]
+  condition:
+    secondary_structure:
+      coarse: {P: alpha}
+  partial:
+    reference: ./configs/examples/structures/partial_diffusion/protein_refold.cif
+    fraction: 0.625
+```
+
+| Partial field | Meaning |
+| --- | --- |
+| `reference` | Required single actual candidate CIF with complete current complex geometry; directory input is unsupported. |
+| `result_csv` | Optional explicit native CSV for saved locators and motif mappings. Omitted: use the task and CIF directly, without sibling CSV lookup. Supplied: exactly one successful row must resolve to the reference filename. |
+| `fraction` | Required finite number in `(0, 1]` with `round(fraction * 400) >= 1`; retained fraction of native sampling intervals. |
+
+These are the only fields inside `partial`. Paths resolve from the invocation
+directory. The bundled demo uses one reference CIF and its task YAML. CIF-only
+input uses the task's design-chain labels, fixed identities, motifs, required
+bonds and offsets. Keep labels consistent with the reference. To restore native
+saved locator or motif mappings, supply `result_csv` explicitly; invalid or
+missing explicit metadata is an error.
+
+The task YAML supplies permissions, conditions, motifs, context and topology.
+The CIF supplies the current complete complex for both the reference state and
+coordinates at existing condition sites, using the same native centering and
+unit transform. Free design positions gain no extra conditions. The original
+source remains the independent motif evaluation reference; see
+[conditions and reference geometry](partial.md#conditions-and-reference-geometry).
+
+`sample_num` requests replicas of one reference. Actual lengths come from the
+reference, so `design_length` is not required when every chain's size is resolved.
+CIF-only contigs use the task's source input, exact source spans and gap lengths;
+resolve ambiguous random gaps in the task YAML. Explicit native CSV
+metadata can restore saved placement. No length or gap draw is repeated.
+This route requires a flex-context checkpoint.
+`fraction: 0.625` runs the last 250 intervals of the native 400-interval grid,
+starting at index 150; it is not a numeric start time or an RMSD bound.
+The [partial guide](partial.md) gives the command, optional metadata and outputs.
+
+`partidesign pipeline` reads this same native task YAML and selects names with
+`--task`, just like `design`. Keep workflow settings in a separate
+`configs/pipeline/` YAML selected through `--preset` or `--config`.
+The iteration operation
+`partial: {fraction: 0.625, replicas: 4, include_parent: true}` controls selected
+parents between rounds; the pipeline creates the same task-level `partial`
+reference input in memory. See the [pipeline guide](pipeline.md).
 
 ## Conditions
 
@@ -249,15 +307,80 @@ per design ligand chain:
 | Generate a known CCD component's pose | `ligand: {L: {mode: ccd, ccd: WHL}}` | Graph determines count; chain must be absent from input. |
 | Regenerate a source ligand's pose | `ligand: {L: {mode: type_bond}}` | Retain source elements/graph; omit `design_length`. |
 | Retain source centers, generate chemistry | `backbone: [L]` | Source fixes count; omit `design_length`. |
-| Retain selected source atoms, generate the remainder | `ligand: {L: {mode: atom_motif, atoms: [C24, C21, O3]}}` | Final heavy-atom count, at least the selected atom count; use an explicit count. |
+| Retain selected source atoms, generate the remainder | `ligand: {L: {mode: atom_motif, atoms: [C24, C21, O3]}}` | Sampling heavy-atom count, at least the selected atom count; use an explicit count. |
+| Grow a fragment at specified scaffold atoms | `atom_motif` with `attachments`; see below. | Explicit sampling heavy-atom count, including retained atoms. |
 
-The last three require the design ligand in `input`. Ligand backbone is expressed
+Source-based ligand modes and decoration require the design ligand in `input`.
+Ligand backbone is expressed
 through `condition.backbone`, not a ligand mode named `backbone`.
 `from_distribution` samples an unresolved count for exactly one ligand design
 chain and requires an input structure for pocket sizing. It cannot be combined
 with a fixed graph/backbone or multiple design chains. Source/supplied bonds
 remain authoritative during reconstruction. See
 [ligand.yaml](../configs/examples/ligand.yaml) for full tasks.
+
+### Ligand decoration
+
+Use `atom_motif` with `attachments` to retain a source scaffold and grow new
+chemistry from one or more specified atoms. A complete product SMILES is not
+required. For example, grow from two sites on a six-atom ring:
+
+```yaml
+design_length: {L: [12, 13, 14]}
+condition:
+  ligand:
+    L:
+      mode: atom_motif
+      atoms: [C9, C13, C12, C11, N5, C10]
+      attachments:
+        - atom: C12
+          new_atom: 1
+          order: single
+        - atom: C10
+          new_atom: 2
+          order: single
+```
+
+Supply the scaffold structure through `input` and declare `L` as a ligand
+design chain. `design_length` sets the sampling heavy-atom count: these three
+sizes retain six atoms and generate six, seven, or eight more. `sample_num` applies
+to each size. Use one attachment for single-site growth; the single-site
+example uses C9. `atom` must name one of the retained atoms.
+`new_atom` is a **1-based endpoint index among the new atoms**, excluding the
+retained scaffold. It is not the number of atoms to grow at that site; per-site
+branch sizes are not configurable. It does not choose an element or require a
+generated atom name. If
+omitted, it defaults to the attachment's position in the list. `order` defaults
+to `single`; supported values are `single`, `double`, `triple`, and `aromatic`.
+
+With `attachments`, the selected scaffold's internal bonds and non-bonds are
+preserved. Only the declared scaffold-to-new connections are allowed. Bonds
+among new atoms, their elements, and their coordinates remain generated. With
+two attachment sites, the generated atoms may form separate substituents or
+bridge the sites; `new_atom` does not divide them into independent fragments.
+Disconnected products use the existing valid-fragment selection. The retained
+fragment must contain every motif atom and required bond endpoint, including
+the declared attachment atoms. Unattached fragments can be discarded, so the
+output may contain fewer heavy atoms than requested for sampling. With no
+protected atoms, the largest chemically valid fragment is retained. Output
+SMILES and `result.csv` describe the actual retained molecule.
+
+The checkpoint must support bond-order and non-bond conditioning; incompatible
+checkpoints are rejected. Preserving the output graph does not guarantee bond
+geometry, motif placement, or useful molecular properties. Inspect generated
+structures and their relaxation results. The runnable `ligand_decoration` and
+`ligand_decoration_two_sites` tasks are in
+[ligand.yaml](../configs/examples/ligand.yaml).
+
+### Fixed SMILES ligand context
+
+A ligand omitted from `design_chains` is retained context. Declare its trusted
+chemistry using `condition.ligand.<chain>: {mode: smiles, smiles: "..."}` and keep
+its actual pose in `input`. OpenMM uses that declaration when its complete
+element and bond graph matches the retained component, including during
+recovery of saved CIFs. A custom residue name such as `LIG01` does not require a
+CCD entry. Keep the original SMILES declaration in the task YAML used for
+[relaxation](relax.md); a mismatched graph is an error.
 
 ### Explicit bonds
 
@@ -280,7 +403,8 @@ Side-chain endpoints need known identity, usually fixed by `sequence` or a
 contig. Identity-independent design backbone atoms can be used without fixing
 sequence. Designed ligand endpoints must be known atoms in `type_bond`, `ccd`, or
 the selected part of `atom_motif`; generated atoms and SMILES indices are not
-stable endpoint names.
+stable endpoint names. For a connection from a retained ligand atom to a new
+free atom, use [decoration attachments](#ligand-decoration).
 
 Use `single`, `double`, `triple`, or `aromatic` for known order. Omitted order,
 `any`, or `unknown` asserts existence without choosing an exact order; unresolved

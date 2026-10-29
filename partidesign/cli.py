@@ -87,22 +87,22 @@ def _msa_options(parser):
 
 def build_parser() -> argparse.ArgumentParser:
     from .download import TARGETS
-    parser = CLIParser(prog="partidesign", description="Local multimodal and antibody design")
+    parser = CLIParser(prog="partidesign", description="Molecular design and evaluation")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
-    download = commands.add_parser("download", help="Choose model weights interactively, or download explicit targets",
-                                   description="Open a model-selection dialog when no targets are given in a terminal.")
+    download = commands.add_parser("download", help="Download model weights and required resources",
+                                   description="Download explicit resource targets, or select interactively in a terminal when no targets are given.")
     download.add_argument("targets", nargs="*", choices=TARGETS, metavar="TARGET",
                           help="Resource targets; omit to select interactively")
     _model_location(download)
     download.add_argument("--all", action="store_true", help="Prepare every registered target")
     download.add_argument("--list", action="store_true", help="List local status and sources without network")
     download.add_argument("--force", action="store_true", help="Replace only after a complete new download succeeds")
-    design = commands.add_parser("design", help="Generate normal or antibody tasks from one task YAML")
+    design = commands.add_parser("design", help="Generate molecular designs from task YAML")
     design.add_argument("task_file", type=Path, metavar="TASK_FILE.yaml")
     _model_location(design)
     _task_options(design, generation=True)
-    check = commands.add_parser("check", help="Read-only checks, optional CPU loading or explicit real smoke")
+    check = commands.add_parser("check", help="Check installation, model files, and task inputs")
     check.add_argument("task_file", nargs="?", type=Path, metavar="TASK_FILE.yaml")
     _model_location(check)
     _task_options(check)
@@ -114,21 +114,21 @@ def build_parser() -> argparse.ArgumentParser:
     _single(check, "--out", type=Path, help="Keep smoke outputs here; otherwise use a temporary directory")
     _msa_options(check)
 
-    relax = commands.add_parser("relax", help="Retry OpenMM for existing inference samples without generation")
+    relax = commands.add_parser("relax", help="Optimize existing structures with OpenMM")
     relax.add_argument("task_file", type=Path, metavar="TASK_FILE.yaml")
     _model_location(relax)
     _single(relax, "--config", type=Path, help="Closed main configuration overlay (.yaml)")
     relax.add_argument("--task", action="append", help="Select a task name (repeatable)")
     _single(relax, "--out", type=Path, required=True, help="Existing inference run root containing task result.csv files")
-    _single(relax, "--limit", type=int, help="Positive maximum retry samples per task")
+    _single(relax, "--limit", type=int, help="Positive maximum number of samples to relax per task")
     _single(relax, "--platform", choices=("CUDA", "CPU"), help="CUDA uses all visible GPUs; CPU is a sequential diagnostic")
     _single(relax, "--charge-method", choices=("gasteiger", "am1bcc"))
     relax.add_argument("--override", action="append", default=[], metavar="KEY=VALUE",
                        help="Existing Hydra configuration override (repeatable)")
-    relax.add_argument("--rerun", action="store_true", help="Also retry completed samples and replace owned refined staging files")
+    relax.add_argument("--rerun", action="store_true", help="Also reprocess completed relaxations and replace their refined files")
     relax.add_argument("--plan", action="store_true", help="Count selected existing samples without relaxation")
 
-    score = commands.add_parser("score", help="Score direct-child PDB/CIF files into per-directory score.csv")
+    score = commands.add_parser("score", help="Score structures with PartiScore")
     score.add_argument("input_dirs", nargs="+", type=Path, metavar="INPUT_DIR")
     _model_location(score)
     _single(score, "--config", type=Path, help="Closed score configuration overlay (.yaml)")
@@ -143,17 +143,21 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_argument("--show-config", action="store_true",
                        help="Print resolved scoring configuration without scoring")
 
-    cluster = commands.add_parser("cluster", help="Cluster successful original design polymers on CPU")
+    cluster = commands.add_parser("cluster", help="Cluster designs that pass validation by structural similarity")
     from src.cluster.cli import add_arguments as cluster_arguments
     cluster_arguments(cluster)
 
-    postfilter = commands.add_parser("postfilter", help="Relax and filter successful protein and peptide complex refolds")
+    postfilter = commands.add_parser("postfilter", help="Relax and filter validated protein and peptide complexes")
     from src.postfilter.cli import add_arguments as postfilter_arguments
     postfilter_arguments(postfilter)
 
+    pipeline = commands.add_parser("pipeline", help="Run design, refinement, and validation in one command")
+    from src.pipeline.cli import add_arguments as pipeline_arguments
+    pipeline_arguments(pipeline)
+
     # Constants and configuration parsing in this package do not import models.
     from src.validate.config import METHODS
-    validate = commands.add_parser("validate", help="Validate existing run/task result.csv files")
+    validate = commands.add_parser("validate", help="Evaluate designs and apply quality filters")
     validate.add_argument("runs", nargs="+", metavar="RUN_OR_TASK_PATH")
     _model_location(validate)
     _single(validate, "--config", type=Path)
@@ -400,7 +404,8 @@ def build_score_config(args, root: Path, *, invocation_dir: Path | None = None) 
     return config
 
 
-def build_design_runner(args, root: Path, *, invocation_dir: Path | None = None):
+def build_design_runner(args, root: Path, *, invocation_dir: Path | None = None,
+                        task_payload: dict | None = None):
     """Normalize the new frontend without changing the legacy compose priority."""
     from hydra import compose, initialize_config_dir
     from hydra.core.override_parser.overrides_parser import OverridesParser
@@ -414,7 +419,8 @@ def build_design_runner(args, root: Path, *, invocation_dir: Path | None = None)
     from .paths import inference_config_dir
 
     cwd = Path.cwd().resolve() if invocation_dir is None else invocation_dir.resolve()
-    fields = {"tasks_file": str(_absolute(args.task_file, cwd))}
+    fields = ({"tasks_file": str(_absolute(args.task_file, cwd))} if task_payload is None
+              else {"tasks_file": None, "tasks": task_payload})
     mapping = {"ckpt": "model.checkpoint", "out": "output_dir", "run_name": "run_name",
                "seed": "seed", "batch_size": "batch_size", "num_workers": "num_workers",
                "route": "route", "route_ckpt": "route_ckpt", "compile": "model.compile.enabled",
@@ -682,6 +688,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "postfilter":
             from src.postfilter.cli import run as postfilter_run
             return postfilter_run(args)
+        if args.command == "pipeline":
+            from src.pipeline.cli import run as pipeline_run
+            return pipeline_run(args)
         root = model_dir(args.model_dir)
         if args.command == "download":
             from .download import TARGETS, download_targets, list_targets, selection_options

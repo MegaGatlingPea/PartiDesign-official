@@ -1209,9 +1209,18 @@ def _constraint_output_fields(
     }
 
 
+PARTIAL_RESULT_FIELDS = (
+    "partial_reference", "partial_result_csv", "partial_fraction",
+    "partial_start_index", "partial_intervals", "partial_t_center", "partial_t_latent",
+    "partial_latent_strategy", "partial_rng_seed", "partial_rng_stream",
+    "partial_checkpoint", "partial_checkpoint_member", "partial_context_mode",
+)
+
+
 def _candidate_generation_metadata(candidate: SearchCandidate) -> dict[str, Any]:
     """Primitive reporting only; sampled search groups never shrink on salvage."""
     result = dict(candidate.base_request.length_metadata)
+    result.update(candidate.partial_metadata)
     fragments = candidate.ligand_fragment_metadata
     if fragments:
         result["ligand_fragment_details"] = json.dumps(
@@ -1797,6 +1806,12 @@ def _move_predict_batch(batch: PredictBatch, device: torch.device) -> PredictBat
             else value
             for key, value in batch.canonical.items()
         },
+        reference=(None if batch.reference is None else {
+            key: value.to(device=device, non_blocking=True)
+            if isinstance(value, torch.Tensor) else value
+            for key, value in batch.reference.items()
+        }),
+        partial_fraction=batch.partial_fraction,
     )
 
 
@@ -1903,6 +1918,7 @@ def _numbered_search_candidate(
         private_ligand_errors=dict(candidate.private_ligand_errors),
         ligand_fragment_metadata=dict(candidate.ligand_fragment_metadata),
         motif_output_fields=dict(compiled.motif_output_fields),
+        partial_metadata=dict(candidate.partial_metadata),
     )
 
 
@@ -1948,7 +1964,12 @@ def build_terminal_candidates(
 ) -> tuple[TerminalResult, ...]:
     """Thin terminal adapter over the model, WP5 decode, and assembly APIs."""
 
-    generated, generation_info = model.generate(batch.canonical, sampling_config)
+    if batch.reference is None:
+        generated, generation_info = model.generate(batch.canonical, sampling_config)
+    else:
+        generated, generation_info = model.generate_from_reference(
+            batch.canonical, batch.reference, sampling_config, batch.partial_fraction,
+        )
     generated_token_mask = generation_info.get("denoising_mask")
     if not isinstance(generated_token_mask, torch.Tensor):
         raise RuntimeError("model generation omitted the denoising_mask contract")
@@ -1992,6 +2013,26 @@ def build_terminal_candidates(
                     private_ligand_errors=dict(assembled.private_ligand_errors),
                     ligand_fragment_metadata=dict(assembled.ligand_fragment_metadata),
                     motif_output_fields=dict(compiled.motif_output_fields),
+                    partial_metadata=(
+                        {} if request.task.partial is None else {
+                            "partial_reference": str(request.task.partial.reference),
+                            "partial_result_csv": (str(request.task.partial.result_csv)
+                                                   if request.task.partial.result_csv is not None else ""),
+                            "partial_fraction": request.task.partial.fraction,
+                            "partial_start_index": generation_info["start_index"],
+                            "partial_intervals": generation_info["interval_count"],
+                            "partial_t_center": generation_info["start_times"]["token_center"],
+                            "partial_t_latent": generation_info["start_times"]["local_latents"],
+                            "partial_latent_strategy": (
+                                "prior" if generation_info["start_index"] == 0 else "posterior"
+                            ),
+                            "partial_rng_seed": int(torch.initial_seed()),
+                            "partial_rng_stream": "rank-local sequential",
+                            "partial_checkpoint": str(getattr(model,"_checkpoint_source","")),
+                            "partial_checkpoint_member": getattr(model,"_checkpoint_member",None) or "standalone",
+                            "partial_context_mode": context_constraint_mode,
+                        }
+                    ),
                 )
             )
         except (DesignInputError, DesignSampleError, ValueError) as exc:
@@ -2310,6 +2351,8 @@ class _ExactShardBatchSampler(Sampler[list[int]]):
         sampler: int | Sampler[int],
         batch_size: int,
         drop_last: bool = False,
+        *,
+        batch_keys: Sequence[Any] | None = None,
     ) -> None:
         if drop_last:
             raise ValueError("exact inference sharding never drops requests")
@@ -2319,30 +2362,47 @@ class _ExactShardBatchSampler(Sampler[list[int]]):
             SequentialSampler(range(self.size)) if isinstance(sampler, int) else sampler
         )
         self.drop_last = False
+        self.batch_keys = None if batch_keys is None else tuple(batch_keys)
+        if self.batch_keys is not None and len(self.batch_keys) != self.size:
+            raise ValueError("batch keys must match the request count")
         if self.batch_size <= 0:
             raise ValueError("batch_size must be positive")
 
+    def _batches(self, rank: int, world_size: int) -> list[list[int]]:
+        indices = list(range(rank, self.size, world_size))
+        if self.batch_keys is None:
+            return [indices[start:start + self.batch_size]
+                    for start in range(0, len(indices), self.batch_size)]
+        batches: list[list[int]] = []
+        current: list[int] = []
+        previous = None
+        for index in indices:
+            key = self.batch_keys[index]
+            if current and (key != previous or len(current) == self.batch_size):
+                batches.append(current)
+                current = []
+            current.append(index)
+            previous = key
+        if current:
+            batches.append(current)
+        return batches
+
+    def _maximum_batches(self, world_size: int) -> int:
+        if self.batch_keys is None:
+            maximum_local_size = (self.size + world_size - 1) // world_size
+            return max(1, (maximum_local_size + self.batch_size - 1) // self.batch_size)
+        return max(1, max(len(self._batches(rank, world_size)) for rank in range(world_size)))
+
     def __iter__(self):
         rank, world_size = _distributed_rank_world()
-        indices = list(range(rank, self.size, world_size))
-        batches = [
-            indices[start : start + self.batch_size]
-            for start in range(0, len(indices), self.batch_size)
-        ]
-        maximum_local_size = (self.size + world_size - 1) // world_size
-        maximum_batches = max(
-            1,
-            (maximum_local_size + self.batch_size - 1) // self.batch_size,
-        )
-        # Empty collective-control batches equalize predict-step counts without
-        # owning, compiling, generating, writing, or accounting a fake sample.
-        batches.extend([[] for _ in range(maximum_batches - len(batches))])
+        batches = self._batches(rank, world_size)
+        # Equalize collective calls without creating or accounting fake requests.
+        batches.extend([[] for _ in range(self._maximum_batches(world_size) - len(batches))])
         yield from batches
 
     def __len__(self) -> int:
         _, world_size = _distributed_rank_world()
-        maximum_local_size = (self.size + world_size - 1) // world_size
-        return max(1, (maximum_local_size + self.batch_size - 1) // self.batch_size)
+        return self._maximum_batches(world_size)
 
 
 def _collate_prepared(
@@ -3951,6 +4011,8 @@ class _StandalonePredictModule(LightningModule):
             for name in ("fixed_restypes", "bond_constraints"):
                 values[name] = metadata.get(name, "") if values["status"] == "ok" else ""
             values["error"] = " | ".join(dict.fromkeys(errors))
+            if task_by_name[task_name].partial is not None:
+                values.update({name: metadata.get(name, "") for name in PARTIAL_RESULT_FIELDS})
             if task_name in antibody_tasks:
                 from ..antibody.results import ANTIBODY_RESULT_FIELDS
                 antibody_values = json.loads(metadata.get("_antibody_result", "{}"))
@@ -3987,6 +4049,7 @@ class _StandalonePredictModule(LightningModule):
                 continue
             fields = (
                 base_fields[:11] + ["fixed_restypes", "bond_constraints"]
+                + (list(PARTIAL_RESULT_FIELDS) if task_by_name[task_name].partial is not None else [])
                 + sorted(metric_fields_by_task[task_name])
                 + (["final_partiscore", "score_rank"] if task_by_name[task_name].score else [])
                 + ["postprocess_status", "error"]
@@ -4587,6 +4650,7 @@ def _prepare_output_dir(
     resolved_config: Any,
     *,
     task_names: Sequence[str],
+    compact_task_snapshots: bool = False,
 ) -> None:
     """Prepare one isolated output leaf for every selected task."""
 
@@ -4639,13 +4703,21 @@ def _prepare_output_dir(
                     f"(resume is unsupported): {task_dir}"
                 )
 
+    common = (OmegaConf.to_container(resolved_config, resolve=True)
+              if compact_task_snapshots else None)
     for task_name in task_names:
         task_dir = output_dir / task_name
         task_dir.mkdir(exist_ok=True)
         (task_dir / "logs").mkdir()
         temporary = task_dir / ".resolved_config.yaml.tmp"
+        snapshot = resolved_config
+        if common is not None:
+            snapshot = OmegaConf.create({
+                **common, "task_names": [task_name],
+                "tasks": {task_name: common["tasks"][task_name]},
+            })
         temporary.write_text(
-            OmegaConf.to_yaml(resolved_config, resolve=True), encoding="utf-8"
+            OmegaConf.to_yaml(snapshot, resolve=True), encoding="utf-8"
         )
         os.replace(temporary, task_dir / "resolved_config.yaml")
 
@@ -5236,6 +5308,7 @@ def run_runtime(
     trainer_factory: Callable[..., Trainer] = _default_trainer,
     fold_reward_runner: FoldRewardRunner = _run_deferred_fold_reward_batch,
     prepared_sources: Mapping[str, Any] | None = None,
+    compact_task_snapshots: bool = False,
 ) -> DesignRunResult:
     """Execute standalone inference with exact in-memory ID accounting."""
 
@@ -5275,6 +5348,12 @@ def run_runtime(
     ccd_path = None if config.ccd_path is None else Path(str(config.ccd_path))
     automatic_route = bool(config.get("route", True)) and config.get("route_ckpt") is None
     routing_sources = dict(prepared_sources or {})
+    partial_tasks = [task for task in tasks
+                     if task.partial is not None and task.name not in routing_sources]
+    if partial_tasks:
+        from .compiler import prepare_task_source
+        for task in partial_tasks:
+            routing_sources[task.name] = prepare_task_source(task, ccd_path=ccd_path)
     if automatic_route:
         missing_sources = [task for task in tasks if task.name not in routing_sources]
         routing_sources.update(prepare_routing_sources(missing_sources, ccd_path=ccd_path))
@@ -5390,6 +5469,7 @@ def run_runtime(
                     output_dir,
                     config,
                     task_names=task_names,
+                    **({"compact_task_snapshots": True} if compact_task_snapshots else {}),
                 )
                 logger = _runtime_logger(
                     output_dir,
@@ -5526,7 +5606,12 @@ def run_runtime(
         loader = DataLoader(
             dataset,
             batch_sampler=_ExactShardBatchSampler(
-                len(dataset), int(config.batch_size)
+                len(dataset), int(config.batch_size),
+                batch_keys=(
+                    tuple(None if request.task.partial is None else request.task.partial.fraction
+                          for request in requests)
+                    if any(request.task.partial is not None for request in requests) else None
+                ),
             ),
             num_workers=int(config.num_workers),
             collate_fn=partial(_collate_prepared, token_buckets=token_buckets),

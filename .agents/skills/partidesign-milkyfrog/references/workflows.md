@@ -165,7 +165,7 @@ along with scores. Existing reports are rejected by default; `--overwrite true`
 explicitly replaces them when recomputation is intended. This command does not
 rename structures or update generation `result.csv`.
 
-## Retry refinement of saved results
+## Relax saved structures with OpenMM
 
 Read `docs/relax.md`. Supply the original matching task YAML and its source
 inputs, plus the existing **run root**, not an individual task directory.
@@ -174,7 +174,7 @@ tasks with either false rather than enabling them. It does not load generation
 weights.
 
 For an existing `ligand_fixture` run whose YAML enables refinement, a bounded
-diagnostic plan and CPU retry are:
+plan and CPU relaxation command are:
 
 ```bash
 partidesign relax configs/examples/ligand.yaml --task ligand_fixture \
@@ -189,17 +189,18 @@ refinement is sequential; CUDA uses Ray on visible GPUs. Successful refinement
 replaces selected CIFs and updates `result.csv`; failures retain the usable base
 structure. Completed rows are normally skipped. `--rerun` includes completed
 samples and permits replacement of their refined staging files. If task scoring
-is enabled, retries may update scores, ranking, and filenames too; consult the
-updated report. These mutations are part of an authorized retry, not a read-only
-plan.
+is enabled, refinement may update scores, ranking, and filenames too; consult
+the updated report.
 
-## Optional postfilter of successful protein complexes
+## Postfilter successful protein and peptide complexes
 
-After named validation criteria pass, use [postfilter.md](postfilter.md) for
-requested CPU relaxation and structural screening of the actual successful
-protein–protein complex refolds, including antibody–antigen assemblies.
-Preserve validation state and refold records. Explicit peptides, nucleic acids,
-and ligands are outside that workflow. This step is independent of clustering.
+Use [postfilter.md](postfilter.md) for CPU relaxation and structural screening
+of passing protein–protein and standard peptide–protein complex refolds,
+including antibody–antigen assemblies and physical head-to-tail cyclic peptides.
+Inputs can come from named validation successes or accepted pipeline final
+representatives. Keep their saved acceptance records and complete complex
+structures together. Nucleic acids, ligands, and monomers are unsupported.
+Clustering is a separate step.
 
 ## Cluster passing polymer backbones
 

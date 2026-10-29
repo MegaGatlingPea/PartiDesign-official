@@ -1,6 +1,6 @@
 ---
 name: partidesign-milkyfrog
-description: "Use PartiDesign for molecular inference: write task YAML, plan or run generation, score and refine structures, validate saved designs, postfilter successful protein and peptide complexes, cluster generated backbones, and troubleshoot usage. For end users rather than model training or software development."
+description: "Use PartiDesign for molecular inference: write task YAML, plan or run generation, reference-start partial diffusion and iterative pipelines, score and refine structures, validate saved designs, postfilter successful protein and peptide complexes, cluster generated backbones, and troubleshoot usage. For end users rather than model training or software development."
 ---
 
 # PartiDesign MilkyFrog
@@ -13,9 +13,10 @@ runtime implementation, and software changes outside this skill's scope.
 
 | Need | Read |
 | --- | --- |
-| Environment/assets, generation, Best-of-N, existing-structure scoring, refinement retry, clustering, outputs | [workflows.md](references/workflows.md) |
+| Environment/assets, generation, Best-of-N, existing-structure scoring, OpenMM relaxation, clustering, outputs | [workflows.md](references/workflows.md) |
 | Select an example or author molecular inputs, identities, motifs, topology, and antibody tasks | [task-recipes.md](references/task-recipes.md) |
 | Choose validation methods, sequence sources, criteria, MSA policy, or reuse saved evaluation | [validation.md](references/validation.md) |
+| Restart from actual reference geometry or configure/run an iterative sequence–structure pipeline | [partial-pipeline.md](references/partial-pipeline.md) |
 | Relax and screen successful protein–protein or standard peptide–protein refolds, including physical head-to-tail cycles, with persistent Ray CPU actors | [postfilter.md](references/postfilter.md) |
 | Explain behavior, interpret a failure, or answer a common usage question | [faq.md](references/faq.md) |
 

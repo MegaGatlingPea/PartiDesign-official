@@ -1,0 +1,26 @@
+# Strict PPI demo with production candidate limits. Molecular tasks remain in configs/examples/pipeline_tasks.yaml.
+# Run: partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor --config configs/pipeline/demo.yaml --run-name insulin_receptor
+preset: ppi
+recycle: 3
+iteration:
+  mpnn: 4
+  refold:
+    method: esmfold2-fast
+    worker_gpus: 1.0
+  filter:
+  - af3_basic
+  selection:
+    max_pass: 200
+  partial:
+    fraction: 0.625
+    replicas: 4
+    include_parent: true
+  relax: false
+rounds:
+  1:
+    mpnn: 1
+    selection:
+      num_clusters: 200
+final:
+  max_pass: 200
+  worker_gpus: 1.0

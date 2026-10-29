@@ -93,6 +93,7 @@ dependencies:
       - ./community_models/esmfold2/source/dockq
       - ProDy==2.6.1
       - biopython==1.85
+      - rapidfuzz==3.14.6
       - joblib==1.5.3
       - ml-collections==1.1.0
       - dm-haiku==0.0.16

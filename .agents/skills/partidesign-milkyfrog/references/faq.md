@@ -142,12 +142,12 @@ See `<repo>/docs/check.md` and `<repo>/docs/validate.md`.
 `score` applies PartiScore to existing structures and writes `score.csv`; it
 does not refold or redesign sequences. `validate` evaluates saved run/task
 results with selected methods, sequence sources and criteria; `gt:1` means the
-original generated identities, not experimental ground truth. `relax` retries
-OpenMM refinement. `postfilter` uses actual successful protein–protein or
-standard peptide–protein complex refolds for optional CPU Rosetta relaxation
-and structural screening through persistent Ray actors. It preserves upstream
-results and runs no sequence redesign or PartiScore scoring. Generation task `score: true` and
-Best-of-N reward ranking are also separate choices. Read `<repo>/docs/score.md`,
+original generated identities, not experimental ground truth. `relax` runs OpenMM
+relaxation on existing structures. `postfilter` applies CPU Rosetta relaxation
+and structural screening to passing protein–protein or standard peptide–protein
+complex refolds, using persistent Ray actors. It preserves upstream
+results and runs no sequence redesign or PartiScore scoring. Generation task
+`score: true` and Best-of-N reward ranking are also separate choices. Read `<repo>/docs/score.md`,
 `<repo>/docs/validate.md`, `<repo>/docs/relax.md`, and `<repo>/docs/postfilter.md`
 for the intended step and its assets.
 
@@ -190,8 +190,11 @@ saved config. See `<repo>/docs/design.md` for explicit compile/strategy rules.
 
 ## 18. Can postfilter consume a success CSV or replace clustering?
 
-It needs saved named passing decisions, the validation plan and sequence records,
-and the actual complete complex refolds; a loose CSV, PDB, or CIF is insufficient.
+It needs saved acceptance records and complete complex refolds from validation
+or a pipeline final stage; a loose CSV, PDB, or CIF is insufficient. Keep the
+validation success records or the pipeline `final/` directory intact. Pipeline
+inputs select accepted published representatives using the saved final policy,
+rather than all raw predictions.
 Eligible complexes include protein–protein and standard peptide–protein
 assemblies, including antibody–antigen and physical head-to-tail cyclic
 peptides. Saved roles and actual refold topology select the peptide path

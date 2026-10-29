@@ -450,3 +450,36 @@ peptide_bind_protein_double_hydrocarbon_staple:
   postprocess: true
   cyclic_offset: false
   score: false
+
+# Fixed-sequence docking with head-to-tail cyclization and a disulfide.
+peptide_dock_protein_cyclic_disulfide:
+  input: ./configs/benchmarks/inputs/cpset/6d40_complex.pdb
+  sample_num: 5
+  postprocess: true
+  score: true
+  design_chains:
+  - P: peptide
+  condition:
+    sequence:
+      P: GRCYKSIPPICFPD
+    bond:
+    - atom1:
+        chain: P
+        resid: 1
+        atom: N
+      atom2:
+        chain: P
+        resid: 14
+        atom: C
+      order: single
+    - atom1:
+        chain: P
+        resid: 3
+        atom: SG
+      atom2:
+        chain: P
+        resid: 11
+        atom: SG
+      order: single
+  cyclic_offset: true
+  override: true

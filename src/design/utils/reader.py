@@ -1142,6 +1142,14 @@ def _cif_component_bonds(block: Any, atoms: struc.AtomArray) -> list[tuple[int, 
                     if endpoint_element in _HYDROGEN_ELEMENTS:
                         resolved.append(None)
                         continue
+                    if (modality == "protein" and endpoint_name == "OXT"
+                            and endpoint_element == "O"
+                            and endpoint_names in (("C", "OXT"), ("OXT", "C"))
+                            and bond_type == int(struc.BondType.SINGLE)):
+                        # A full CCD template includes terminal oxygen even
+                        # when this concrete polymer instance omits it.
+                        resolved.append(None)
+                        continue
                     raise DesignInputError(
                         "chem_comp_bond heavy endpoint is absent for "
                         f"{component}:{endpoint_name}"

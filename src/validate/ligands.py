@@ -64,12 +64,13 @@ def _task_config(
     task: Path, *, allow_missing: bool = False
 ) -> tuple[dict[str, Any], dict[str, Any], Path | None]:
     task = Path(task).expanduser().resolve()
-    snapshot = task / "resolved_config.yaml"
-    if not snapshot.is_file():
+    from .metadata import snapshot_path, task_config as saved_task
+    snapshot = snapshot_path(task)
+    if snapshot is None:
         if allow_missing:
             return {}, {}, None
         raise LigandResolutionError(
-            f"context ligand chemistry requires {snapshot}"
+            f"context ligand chemistry requires a resolved_config.yaml for {task}"
         )
     try:
         config = load_yaml(snapshot)
@@ -82,7 +83,7 @@ def _task_config(
         if allow_missing:
             return dict(config), {}, None
         raise LigandResolutionError(f"{snapshot} has no tasks mapping")
-    task_config = tasks.get(task.name)
+    task_config = saved_task(config, task)
     if not isinstance(task_config, Mapping):
         if allow_missing:
             return dict(config), {}, None

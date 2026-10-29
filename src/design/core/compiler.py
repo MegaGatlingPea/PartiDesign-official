@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Collection, Mapping, Sequence
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 import gzip
 import json
@@ -161,6 +161,7 @@ class PreparedTaskSource:
     packaged_ccd: Mapping[str, CCDComponent]
     condition: Mapping[str, Any]
     design_ids: frozenset[str]
+    partial_reference: Any | None = None
 
     def __getstate__(self) -> dict[str, Any]:
         """Return a pickle-safe copy of the immutable source snapshot.
@@ -202,6 +203,7 @@ class PreparedTaskSource:
             ),
             "condition": deepcopy(dict(self.condition)),
             "design_ids": frozenset(self.design_ids),
+            "partial_reference": self.partial_reference,
         }
 
     def __setstate__(self, state: Mapping[str, Any]) -> None:
@@ -282,6 +284,7 @@ class PreparedTaskSource:
             "design_ids",
             frozenset(state["design_ids"]),
         )
+        object.__setattr__(self, "partial_reference", state.get("partial_reference"))
 
 @dataclass(frozen=True, slots=True)
 class _SequenceResidue:
@@ -1394,6 +1397,8 @@ def _compile_polymer_chain(
     embedded_ccd: Mapping[str, CCDComponent],
     configured_ccd: Mapping[str, CCDComponent],
     packaged_ccd: Mapping[str, CCDComponent],
+    resolved_layout: Sequence[int | None] | None = None,
+    extra_atoms_by_position: Mapping[int, struc.AtomArray] | None = None,
 ) -> tuple[
     struc.AtomArray,
     list[int | None],
@@ -1451,14 +1456,18 @@ def _compile_polymer_chain(
             {"token", "polymer_atom", "motif_min_length", "motif_max_length"}
         ):
             raise DesignSampleError(f"unknown contig keys for {chain.chain_id!r}")
-        layout = _parse_contig(
-            contig_entry.get("token"),
-            chain_id=chain.chain_id,
-            source=source,
-            rng=rng,
-            motif_length_bounds=_contig_length_bounds(
-                contig_entry, chain_id=chain.chain_id
-            ),
+        layout = (
+            list(resolved_layout)
+            if resolved_layout is not None
+            else _parse_contig(
+                contig_entry.get("token"),
+                chain_id=chain.chain_id,
+                source=source,
+                rng=rng,
+                motif_length_bounds=_contig_length_bounds(
+                    contig_entry, chain_id=chain.chain_id
+                ),
+            )
         )
     elif backbone:
         if source is None or not existing:
@@ -1593,6 +1602,31 @@ def _compile_polymer_chain(
         carrier_components_by_position=carrier_components_by_position,
         minimum_proxy_positions=proxy_parents_by_position,
     )
+    if extra_atoms_by_position:
+        extra_parts = []
+        for position, extra_source in extra_atoms_by_position.items():
+            rows = np.flatnonzero(atoms.res_id == int(position))
+            if not len(rows):
+                raise DesignSampleError("partial terminal atom has no native residue")
+            extra = extra_source.copy()
+            first = int(rows[0])
+            for name in atoms.get_annotation_categories():
+                if name in {"atom_name", "element", "formal_charge"}:
+                    continue
+                extra.set_annotation(name, np.full(len(extra), atoms.get_annotation(name)[first],
+                                                   dtype=atoms.get_annotation(name).dtype))
+            for name in ("atom_uid", "token_uid", "entity_uid", "asym_uid",
+                         "component_uid", "molecule_uid", "residue_uid"):
+                getattr(extra, name)[:] = -1
+            extra.coord[:] = 0
+            extra.coord_valid[:] = False
+            extra.centre_atom_mask[:] = False
+            extra.identity_condition[:] = False
+            extra.motif_coord_condition[:] = False
+            extra.token_center_condition[:] = False
+            extra.bonds = None
+            extra_parts.append(extra)
+        atoms = concatenate_atom_arrays((atoms, *extra_parts))
     # A source UNK motif contributes backbone coordinates as model conditions;
     # its amino-acid identity remains a decoder prediction.
     unknown_residue = _UNKNOWN_RESIDUE[chain.modality]
@@ -1785,6 +1819,29 @@ def _ccd_ligand(
     return atoms
 
 
+def _ligand_attachments(entry):
+    if "attachments" not in entry:
+        return ()
+    declarations = entry["attachments"]
+    if not isinstance(declarations, list) or not declarations:
+        raise DesignSampleError("atom_motif attachments must be a non-empty list")
+    result = []
+    for index, raw in enumerate(declarations):
+        row = _native_mapping(raw, "atom_motif attachment")
+        if set(row).difference({"atom", "new_atom", "order"}) or "atom" not in row:
+            raise DesignSampleError("attachments require atom and optional new_atom/order")
+        atom, slot = row["atom"], row.get("new_atom", index + 1)
+        order = str(row.get("order", "single")).strip().lower()
+        if not isinstance(atom, str) or not atom or atom != atom.strip():
+            raise DesignSampleError("attachment atom must name a retained scaffold atom")
+        if type(slot) is not int or slot < 1:
+            raise DesignSampleError("attachment new_atom must be a positive new-atom ordinal")
+        if order not in _ORDER_TO_BIOTITE:
+            raise DesignSampleError("attachment order must be single, double, triple or aromatic")
+        result.append((atom, slot, order))
+    return tuple(result)
+
+
 def _compile_ligand_chain(
     request: ExpandedRequest,
     chain: DesignChainSpec,
@@ -1850,8 +1907,9 @@ def _compile_ligand_chain(
         atoms.identity_condition[:] = True
         return atoms, mode
     if mode == "atom_motif":
-        if set(entry) != {"mode", "atoms"}:
-            raise DesignSampleError("atom_motif requires exactly mode and atoms")
+        if set(entry).difference({"mode", "atoms", "attachments"}) or "atoms" not in entry:
+            raise DesignSampleError("atom_motif requires mode and atoms, with optional attachments")
+        attachments = _ligand_attachments(entry)
         atom_names = entry.get("atoms")
         if not isinstance(atom_names, list) or not atom_names or not all(isinstance(name, str) for name in atom_names):
             raise DesignSampleError("atom_motif atoms must be a non-empty atom-name list")
@@ -1867,6 +1925,11 @@ def _compile_ligand_chain(
             selected.append(int(matches[0]))
         if int(plan_length) < len(selected):
             raise DesignSampleError("atom_motif design_length is smaller than selected motif")
+        for anchor, slot, _ in attachments:
+            if anchor not in atom_names:
+                raise DesignSampleError(f"attachment atom {anchor!r} is not retained by atom_motif")
+            if slot > int(plan_length) - len(selected):
+                raise DesignSampleError("attachment new_atom exceeds newly generated atom count")
         motif = _subset_source_component(source, np.asarray(selected, dtype=np.int64))
         motif.identity_condition[:] = True
         motif.motif_coord_condition[:] = motif.coord_valid
@@ -3236,6 +3299,7 @@ def _edge_policies(
     atoms: struc.AtomArray,
     ligand_modes: Mapping[str, str],
     explicit_topology: Sequence[TopologyCondition],
+    hard_negative_by_chain: Mapping[str, tuple[tuple[int, int], ...]] | None = None,
 ) -> tuple[EdgePolicy, ...]:
     policies: list[EdgePolicy] = []
     bond_rows = np.empty((0, 3), dtype=np.uint32) if atoms.bonds is None else atoms.bonds.as_array()
@@ -3277,9 +3341,55 @@ def _edge_policies(
                     complete_graph=False,
                     hard_positive_edges=explicit_edges,
                     required_output=True,
+                    hard_negative_edges=(hard_negative_by_chain or {}).get(chain_id, ()),
                 )
             )
     return tuple(policies)
+
+
+def _decoration_topology(atoms, condition, ligand_modes):
+    topology, structural, negatives = [], [], {}
+    ligand = condition.get("ligand", {})
+    chains = [chain for chain, mode in ligand_modes.items()
+              if mode == "atom_motif" and "attachments" in ligand[chain]]
+    if not chains:
+        return topology, structural, negatives
+    edges = {} if atoms.bonds is None else {
+        tuple(sorted((int(i), int(j)))): int(order) for i, j, order in atoms.bonds.as_array()
+    }
+    for chain in chains:
+        rows = np.flatnonzero((atoms.chain_id == chain) & (atoms.mol_type == "ligand"))
+        scaffold = [int(row) for row in rows if bool(atoms.identity_condition[row])]
+        free = [int(row) for row in rows if not bool(atoms.identity_condition[row])]
+        by_name = {str(atoms.atom_name[row]): row for row in scaffold}
+        positive = {}
+        for offset, left in enumerate(scaffold):
+            for right in scaffold[offset + 1:]:
+                pair = tuple(sorted((left, right)))
+                if pair in edges:
+                    raw = edges[pair]
+                    order = "aromatic" if raw in _AROMATIC_BIOTITE_ORDERS else _BIOTITE_TO_ORDER.get(raw)
+                    if order is None:
+                        raise DesignSampleError("decoration scaffold requires concrete source bond orders")
+                    positive[pair] = order
+        for anchor, slot, order in _ligand_attachments(ligand[chain]):
+            if anchor not in by_name or slot > len(free):
+                raise DesignSampleError("decoration attachment endpoints cannot be resolved")
+            pair = tuple(sorted((by_name[anchor], free[slot - 1])))
+            if pair in positive and positive[pair] != order:
+                raise DesignSampleError("decoration attachment has conflicting bond orders")
+            positive[pair] = order
+            structural.append((*pair, _ORDER_TO_BIOTITE[order]))
+        forbidden = set()
+        for offset, left in enumerate(scaffold):
+            for right in [*scaffold[offset + 1:], *free]:
+                if tuple(sorted((left, right))) not in positive:
+                    forbidden.add(tuple(sorted((int(atoms.atom_uid[left]), int(atoms.atom_uid[right])))))
+        for (left, right), order in positive.items():
+            a, b = sorted((int(atoms.atom_uid[left]), int(atoms.atom_uid[right])))
+            topology.append(TopologyCondition(a, b, order, True))
+        negatives[chain] = tuple(sorted(forbidden))
+    return topology, structural, negatives
 
 
 def _source_atom_key(atoms: struc.AtomArray, row: int) -> tuple[str, str, str, str]:
@@ -3613,7 +3723,7 @@ def prepare_task_source(
         )
         for residue_uid, parent in source_parent_by_residue.items():
             parent_sources[_source_residue_name(source, residue_uid).upper()] = parent
-    return PreparedTaskSource(
+    prepared = PreparedTaskSource(
         task=task,
         ccd_path=ccd_path,
         source=_clone_source_atom_array(source),
@@ -3630,6 +3740,10 @@ def prepare_task_source(
         condition=MappingProxyType(deepcopy(dict(condition))),
         design_ids=frozenset(design_ids),
     )
+    if task.partial is not None:
+        from .partial import load_partial_reference
+        prepared = replace(prepared, partial_reference=load_partial_reference(task.partial, task=task))
+    return prepared
 
 
 def compile_request(
@@ -3639,8 +3753,17 @@ def compile_request(
     prepared_source: PreparedTaskSource | None = None,
     trusted_ccd_components: Mapping[str, TrustedCCDComponent] | None = None,
     rng: Any | None = None,
+    resolved_polymer_layouts: Mapping[str, Sequence[int | None]] | None = None,
+    polymer_extra_atoms: Mapping[str, Mapping[int, struc.AtomArray]] | None = None,
 ) -> CompiledSample:
     """Compile one expanded request into the sole authoring AtomArray IR."""
+
+    if request.task.partial is not None:
+        from .partial import compile_partial_request
+        return compile_partial_request(
+            request, ccd_path=ccd_path, prepared_source=prepared_source,
+            trusted_ccd_components=trusted_ccd_components,
+        )
 
     if request.task.format == "antibody":
         from ..antibody.compiler import compile_antibody_request
@@ -3713,6 +3836,14 @@ def compile_request(
                 embedded_ccd,
                 configured_ccd,
                 packaged_ccd,
+                resolved_layout=(
+                    None if resolved_polymer_layouts is None
+                    else resolved_polymer_layouts.get(chain.chain_id)
+                ),
+                extra_atoms_by_position=(
+                    None if polymer_extra_atoms is None
+                    else polymer_extra_atoms.get(chain.chain_id)
+                ),
             )
             actual_lengths[chain.chain_id] = len(layout)
             if motif_output is not None:
@@ -3735,6 +3866,17 @@ def compile_request(
     if not parts:
         raise DesignSampleError("compiled sample contains no atoms")
     atoms = concatenate_atom_arrays(parts)
+    if polymer_extra_atoms:
+        terminal_edges = []
+        for chain_id, positions in polymer_extra_atoms.items():
+            for position in positions:
+                rows = np.flatnonzero((atoms.chain_id == chain_id) & (atoms.res_id == int(position)))
+                oxygen = rows[atoms.atom_name[rows] == "OP3"]
+                phosphorus = rows[atoms.atom_name[rows] == "P"]
+                if len(oxygen) != 1 or len(phosphorus) != 1:
+                    raise DesignSampleError("partial terminal OP3 lacks a native phosphorus")
+                terminal_edges.append((int(oxygen[0]), int(phosphorus[0]), int(struc.BondType.SINGLE)))
+        _merge_current_bonds(atoms, terminal_edges)
     # De-novo bracket CCD residues need a source-origin sidecar so they can
     # reuse the exact atomized carrier/model-token lane.  Negative temporary
     # origins are disjoint from reader-assigned source AtomUIDs and are
@@ -3923,6 +4065,12 @@ def compile_request(
         condition,
         ligand_modes,
     )
+    decoration_topology, decoration_structural, decoration_negative = _decoration_topology(atoms, condition, ligand_modes)
+    topology_conditions.extend(decoration_topology)
+    structural_edges.extend(decoration_structural)
+    negative_pairs = {pair for pairs in decoration_negative.values() for pair in pairs}
+    if any(record.canonical_uids() in negative_pairs for record in topology_conditions):
+        raise DesignSampleError("a required bond conflicts with exclusive decoration attachment sites")
     explicit_topology = tuple(topology_conditions)
     inherited_topology, inherited_structural = _inherit_atom_motif_pl_edges(
         source, atoms, ligand_modes
@@ -3952,7 +4100,7 @@ def compile_request(
         ss_token,
         ss_pair,
     )
-    edge_policies = _edge_policies(atoms, ligand_modes, explicit_topology)
+    edge_policies = _edge_policies(atoms, ligand_modes, explicit_topology, decoration_negative)
     validate_atom_array(atoms, phase="tokenized")
     trusted_ligand_components: dict[int, TrustedCCDComponent] = {}
     type_bond_rows = (

@@ -1,4 +1,4 @@
-"""Owner-local authoritative CCD chemistry for retained molecular context.
+"""Owner-local authoritative chemistry for retained molecular context.
 
 Only compact requested components survive the source snapshot read.  These facts
 are never model inputs, public artifacts, or guesses about an unknown ligand.
@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import gc
 import pickle
+from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
@@ -231,6 +232,22 @@ def _apply_source_charges(molecule, atoms, rows, source_path, *, component_name=
     return result
 
 
+def context_smiles_condition(atoms, rows, *, condition=None):
+    """Return explicit SMILES ownership for one retained ligand component."""
+    ligand = condition.get("ligand", {}) if isinstance(condition, Mapping) else {}
+    if not isinstance(ligand, Mapping):
+        return None
+    chains = {str(atoms.chain_id[row]) for row in rows}
+    entries = [ligand.get(chain) for chain in chains]
+    explicit = [entry for entry in entries
+                if isinstance(entry, Mapping) and entry.get("mode") == "smiles"]
+    if not explicit:
+        return None
+    if len(chains) != 1:
+        raise ValueError("SMILES-owned retained component spans multiple chains")
+    return explicit[0]
+
+
 def preload_context_chemistry(tasks, ccd_path=None):
     """Read each relevant source once and extract needed CCD molecules once."""
     names = set()
@@ -266,6 +283,8 @@ def preload_context_chemistry(tasks, ccd_path=None):
                 continue
             if all(str(source.chain_id[row]) in design for row in rows):
                 continue
+            if context_smiles_condition(source, rows, condition=task.condition) is not None:
+                continue
             names.update(str(source.res_name[row]).upper() for row in rows)
     _load_components(names)
 
@@ -287,9 +306,16 @@ def context_component_name(atoms, rows, *, source_path=None):
     return name
 
 
-def context_private_molecule(atoms, rows, *, source_path=None):
-    """Use one exact named CCD graph, including its formal charge and H state."""
+def context_private_molecule(atoms, rows, *, source_path=None, condition=None):
+    """Match explicit SMILES first, otherwise use one exact named CCD graph."""
     rows = tuple(rows)
+    entry = context_smiles_condition(atoms, rows, condition=condition)
+    if entry is not None:
+        # Retained source names need not use the design-only A1... atom ledger.
+        # This matches the complete element/edge/order graph before transferring
+        # trusted SMILES charge/H chemistry into the current retained row order.
+        from .recovery import _generated_private
+        return _generated_private(atoms, rows, entry.get("smiles"))
     original_name = str(atoms.res_name[rows[0]]).strip().upper()
     name = context_component_name(atoms, rows, source_path=source_path)
     _load_components({name})

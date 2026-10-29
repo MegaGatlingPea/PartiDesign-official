@@ -116,16 +116,31 @@ def _is_ligand_chain(atoms: Any, chain: str) -> bool:
     return _chain_mol_type(atoms, chain) == "ligand"
 
 
-def _chain_sequence(atoms: Any, chain: str) -> str:
+def _sequence_parents(input_data: ValidationInput) -> dict[str, str]:
+    """Use the same declared fixed-CCD parents as native sequence generation."""
+
+    known = set(_AA3_TO_1) | {"A", "C", "G", "U", "DA", "DC", "DG", "DT"} | set(COMMON_STANDARD_PARENT)
+    if not any(
+        str(item.get("component_id", item.get("res_name", item.get("restype", "")))).strip().upper() not in known
+        for item in input_data.fixed_restypes
+    ):
+        return {}
+    from .sequences import _fixed_modified_map
+
+    names, parents = _fixed_modified_map(input_data)
+    return {component: parents[uid] for uid, component in names.items()}
+
+
+def _chain_sequence(atoms: Any, chain: str, *, parents: Mapping[str, str] | None = None) -> str:
     modality = _chain_mol_type(atoms, chain)
+    parents = parents or {}
     sequence: list[str] = []
     for item in _residue_rows(atoms, chain, polymer_only=modality in {"protein", "rna", "dna"}):
         value = str(item["res_name"]).strip().upper()
+        value = parents.get(value, COMMON_STANDARD_PARENT.get(value, value))
         if modality == "rna":
-            value = COMMON_STANDARD_PARENT.get(value, value)
             sequence.append(value if value in {"A", "C", "G", "U"} else "X")
         elif modality == "dna":
-            value = COMMON_STANDARD_PARENT.get(value, value)
             sequence.append({"DA": "A", "DC": "C", "DG": "G", "DT": "T"}.get(value, "X"))
         elif len(value) == 1 and value in set(_AA3_TO_1.values()):
             sequence.append(value)
@@ -183,6 +198,8 @@ def _expected_chain_sequences(
     reference: Any,
     input_data: ValidationInput,
     variant: Mapping[str, Any] | None,
+    *,
+    parents: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """Build the sequence contract used to identify prediction chains.
 
@@ -199,12 +216,12 @@ def _expected_chain_sequences(
         if chain in input_data.design_chains and chain in variant_sequences:
             expected[chain] = variant_sequences[chain]
         else:
-            expected[chain] = _chain_sequence(reference, chain)
+            expected[chain] = _chain_sequence(reference, chain, parents=parents)
     return expected
 
 
-def _sequence_matches(atoms: Any, chain: str, expected: str) -> bool:
-    actual = _chain_sequence(atoms, chain)
+def _sequence_matches(atoms: Any, chain: str, expected: str, *, parents: Mapping[str, str] | None = None) -> bool:
+    actual = _chain_sequence(atoms, chain, parents=parents)
     return bool(expected) and actual == expected
 
 
@@ -231,10 +248,14 @@ def _chain_map(
     input_data: ValidationInput,
     prediction: Mapping[str, Any],
     variant: Mapping[str, Any] | None,
+    *,
+    parents: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     ref_chains = _ordered_chains(reference)
     pred_chains = _ordered_chains(predicted)
-    expected_sequences = _expected_chain_sequences(reference, input_data, variant)
+    if parents is None:
+        parents = _sequence_parents(input_data)
+    expected_sequences = _expected_chain_sequences(reference, input_data, variant, parents=parents)
     available = set(pred_chains)
     result: dict[str, str] = {}
 
@@ -245,7 +266,7 @@ def _chain_map(
         # exact sequence match in addition to any topology proof.
         if not _is_ligand_chain(reference, ref_chain):
             expected = expected_sequences.get(ref_chain, "")
-            if not _sequence_matches(predicted, candidate, expected):
+            if not _sequence_matches(predicted, candidate, expected, parents=parents):
                 return False
         return _ligand_graph_matches(reference, predicted, ref_chain, candidate)
 
@@ -1111,7 +1132,10 @@ def _sequence_metrics(
     variant: Mapping[str, Any] | None,
     motif_reference: Any | None = None,
     motif_reference_requested: bool = False,
+    parents: Mapping[str, str] | None = None,
 ) -> None:
+    if parents is None:
+        parents = _sequence_parents(input_data)
     sequences = _variant_sequences(variant)
     if not sequences:
         row_sequence = input_data.row.get("design_sequence", "").strip()
@@ -1120,7 +1144,7 @@ def _sequence_metrics(
     recoveries: list[float] = []
     for chain in input_data.design_chains:
         expected = sequences.get(chain)
-        original = _chain_sequence(input_data.atoms, chain)
+        original = _chain_sequence(input_data.atoms, chain, parents=parents)
         if expected is None:
             _missing(metrics, reasons, "sequence_recovery", f"no variant sequence for design chain {chain!r}")
             continue
@@ -1572,7 +1596,10 @@ def evaluate_prediction(
     The return value is intentionally a pair of plain dictionaries so the
     incremental JSON/CSV writer can serialize it without a model-specific
     object.  ``prediction`` may contain an optional ``chain_map`` and optional
-    motif-reference path in addition to the public worker fields.
+    motif-reference path in addition to the public worker fields. The private
+    ``_parsed_atoms`` field reuses an already loaded prediction structure.
+    The private variant flag ``_pipeline_motif_geometry`` skips motif coordinate
+    work for one pipeline evaluation while retaining motif identity checks.
     """
 
     metrics: dict[str, Any] = {"complexa_aligned_ligand_rmsd": None}
@@ -1584,14 +1611,16 @@ def evaluate_prediction(
         for name in _METRIC_NAMES:
             _missing(metrics, reasons, name, reason)
         return {"metrics": metrics, "reasons": reasons}
+    predicted = prediction.get("_parsed_atoms")
     structure_path = prediction.get("structure_path")
-    if not structure_path:
+    if predicted is None and not structure_path:
         reason = "prediction has no structure_path"
         for name in _METRIC_NAMES:
             _missing(metrics, reasons, name, reason)
         return {"metrics": metrics, "reasons": reasons}
     try:
-        predicted = read_structure(Path(structure_path))
+        if predicted is None:
+            predicted = read_structure(Path(structure_path))
     except Exception as exc:
         reason = f"cannot read prediction structure: {exc}"
         for name in _METRIC_NAMES:
@@ -1599,7 +1628,8 @@ def evaluate_prediction(
         return {"metrics": metrics, "reasons": reasons}
 
     reference = input_data.atoms
-    chain_map = _chain_map(reference, predicted, input_data, prediction, variant)
+    sequence_parents = _sequence_parents(input_data)
+    chain_map = _chain_map(reference, predicted, input_data, prediction, variant, parents=sequence_parents)
     ligand_chain_map: dict[str, str] = {}
     ligand_atom_maps: dict[tuple[str, str], dict[int, int]] = {}
     ligand_mapping_reasons: dict[str, str] = {}
@@ -1882,18 +1912,31 @@ def evaluate_prediction(
         reasons.setdefault("complexa_aligned_ligand_rmsd", "requires mapped designed protein binder and ligand atoms")
     _na_design_metrics(metrics, reasons, reference, predicted, chain_map, design_chains)
 
-    motif_reference_requested = _motif_reference_requested(input_data, prediction, variant)
-    motif_reference_structure = _motif_reference_prediction(input_data, prediction, variant)
+    motif_geometry = variant is None or variant.get("_pipeline_motif_geometry", True)
+    motif_reference_requested = False
+    motif_reference_structure = None
     reference_provenance = {}
     reference_error = None
-    if not motif_reference_requested and input_data.motif_positions:
-        from .references import ReferenceUnavailable, recover_reference
-        try:
-            motif_reference_structure, reference_provenance = recover_reference(input_data)
-            motif_reference_requested = True
-        except (ReferenceUnavailable, OSError, ValueError, TypeError, KeyError) as exc:
-            reference_error = f"source motif recovery unavailable: {type(exc).__name__}: {exc}"
-            motif_reference_requested = (input_data.task_dir / "resolved_config.yaml").is_file()
+    if motif_geometry:
+        motif_reference_requested = _motif_reference_requested(input_data, prediction, variant)
+        motif_reference_structure = _motif_reference_prediction(input_data, prediction, variant)
+        if not motif_reference_requested and input_data.motif_positions:
+            from .references import ReferenceUnavailable, recover_reference
+            try:
+                cache = variant.get("_pipeline_motif_reference_cache") if variant else None
+                if cache is not None and "reference" in cache:
+                    motif_reference_structure, provenance = cache["reference"]
+                    reference_provenance = dict(provenance)
+                else:
+                    motif_reference_structure, reference_provenance = recover_reference(input_data)
+                    if cache is not None:
+                        cache["reference"] = (motif_reference_structure, reference_provenance)
+                motif_reference_requested = True
+            except (ReferenceUnavailable, OSError, ValueError, TypeError, KeyError) as exc:
+                reference_error = f"source motif recovery unavailable: {type(exc).__name__}: {exc}"
+                from .metadata import snapshot_path
+                motif_reference_requested = snapshot_path(input_data.task_dir) is not None
+    # Without source geometry, sequence checks use retained input/fixed identities.
     _confidence_metrics(
         metrics, reasons, prediction, reference, predicted, chain_map, design_chains, input_data,
         metric_provenance,
@@ -1907,54 +1950,60 @@ def evaluate_prediction(
         variant,
         motif_reference=motif_reference_structure,
         motif_reference_requested=motif_reference_requested,
+        parents=sequence_parents,
     )
 
-    motif_ref, motif_pred, _matched, missing = _motif_pairs(input_data, predicted, chain_map, reference=reference)
-    if len(motif_ref) and not missing:
-        try:
-            metrics["motif_rmsd_design"] = _motif_rmsd_with_fit(motif_ref, motif_pred)
-        except MetricUnavailable as exc:
-            _missing(metrics, reasons, "motif_rmsd_design", str(exc))
-    elif input_data.motif_positions:
-        _missing(metrics, reasons, "motif_rmsd_design", "no complete motif atom correspondence")
-    else:
-        _missing(metrics, reasons, "motif_rmsd_design", "no contig motif was declared")
-    if missing:
-        reasons.setdefault("motif_rmsd_design", f"motif atoms unavailable: {missing[:3]}")
-
-    if motif_reference_structure is None:
-        reason = reference_error or (
-            "explicit source/reference motif path could not be loaded"
-            if motif_reference_requested
-            else "source/reference motif coordinates were not supplied"
-        )
-        _missing(metrics, reasons, "motif_rmsd_reference", reason)
-    else:
-        reference_chain_map = prediction.get("motif_reference_chain_map")
-        if not isinstance(reference_chain_map, Mapping) and variant:
-            reference_chain_map = variant.get("motif_reference_chain_map")
-        if not isinstance(reference_chain_map, Mapping):
-            reference_chain_map = None
-        ref_ref, ref_pred, _matched_ref, missing_ref = _motif_pairs(
-            input_data,
-            predicted,
-            chain_map,
-            reference=motif_reference_structure,
-            reference_chain_map=reference_chain_map,
-        )
-        if len(ref_ref) and not missing_ref:
+    if motif_geometry:
+        motif_ref, motif_pred, _matched, missing = _motif_pairs(input_data, predicted, chain_map, reference=reference)
+        if len(motif_ref) and not missing:
             try:
-                metrics["motif_rmsd_reference"] = _motif_rmsd_with_fit(ref_ref, ref_pred)
+                metrics["motif_rmsd_design"] = _motif_rmsd_with_fit(motif_ref, motif_pred)
             except MetricUnavailable as exc:
-                _missing(metrics, reasons, "motif_rmsd_reference", str(exc))
+                _missing(metrics, reasons, "motif_rmsd_design", str(exc))
+        elif input_data.motif_positions:
+            _missing(metrics, reasons, "motif_rmsd_design", "no complete motif atom correspondence")
         else:
-            _missing(metrics, reasons, "motif_rmsd_reference", "no complete source/reference motif correspondence")
-        if missing_ref:
-            reasons.setdefault("motif_rmsd_reference", f"reference motif atoms unavailable: {missing_ref[:3]}")
+            _missing(metrics, reasons, "motif_rmsd_design", "no contig motif was declared")
+        if missing:
+            reasons.setdefault("motif_rmsd_design", f"motif atoms unavailable: {missing[:3]}")
+
+        if motif_reference_structure is None:
+            reason = reference_error or (
+                "explicit source/reference motif path could not be loaded"
+                if motif_reference_requested
+                else "source/reference motif coordinates were not supplied"
+            )
+            _missing(metrics, reasons, "motif_rmsd_reference", reason)
+        else:
+            reference_chain_map = prediction.get("motif_reference_chain_map")
+            if not isinstance(reference_chain_map, Mapping) and variant:
+                reference_chain_map = variant.get("motif_reference_chain_map")
+            if not isinstance(reference_chain_map, Mapping):
+                reference_chain_map = None
+            ref_ref, ref_pred, _matched_ref, missing_ref = _motif_pairs(
+                input_data,
+                predicted,
+                chain_map,
+                reference=motif_reference_structure,
+                reference_chain_map=reference_chain_map,
+            )
+            if len(ref_ref) and not missing_ref:
+                try:
+                    metrics["motif_rmsd_reference"] = _motif_rmsd_with_fit(ref_ref, ref_pred)
+                except MetricUnavailable as exc:
+                    _missing(metrics, reasons, "motif_rmsd_reference", str(exc))
+            else:
+                _missing(metrics, reasons, "motif_rmsd_reference", "no complete source/reference motif correspondence")
+            if missing_ref:
+                reasons.setdefault("motif_rmsd_reference", f"reference motif atoms unavailable: {missing_ref[:3]}")
+    else:
+        for name in ("motif_rmsd_design", "motif_rmsd_reference"):
+            _missing(metrics, reasons, name, "motif geometry skipped for this pipeline evaluation")
 
     from .benchmark_metrics import extra_geometry
     extra, extra_reasons = extra_geometry(input_data, predicted, chain_map,
-        ligand_chain_map, ligand_atom_maps, motif_reference_structure)
+        ligand_chain_map, ligand_atom_maps, motif_reference_structure,
+        motif_geometry=motif_geometry)
     metrics.update(extra)
     reasons.update(extra_reasons)
 
@@ -2058,6 +2107,9 @@ def _prediction_atoms(value: Any) -> Any:
     if hasattr(value, "get_annotation_categories") and hasattr(value, "coord"):
         return value
     if isinstance(value, Mapping):
+        parsed = value.get("_parsed_atoms")
+        if parsed is not None:
+            return parsed
         path = value.get("structure_path")
         if path:
             return read_structure(Path(path))

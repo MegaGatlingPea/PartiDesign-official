@@ -46,9 +46,18 @@ def _identifier(value):
             and value not in {".", ".."} and "/" not in value and "\\" not in value)
 
 
+def _pipeline_final(root):
+    return root.name == "final" and (
+        (root / "selection.csv").is_file() or (root / "predictions").is_dir()
+        or (root / ".work" / "state.json").is_file()
+    )
+
+
 def _method_roots(root):
     if root.name == "success":
         yield root.parent
+    elif _pipeline_final(root):
+        yield root
     elif root.parent.name == "validate":
         yield root
     elif root.name == "validate":
@@ -56,16 +65,22 @@ def _method_roots(root):
             path = root / method
             if path.is_dir():
                 yield path
-    elif (root / "validate").is_dir():
-        yield from _method_roots(root / "validate")
+    elif (root / "validate").is_dir() or _pipeline_final(root / "final"):
+        if (root / "validate").is_dir():
+            yield from _method_roots(root / "validate")
+        if _pipeline_final(root / "final"):
+            yield root / "final"
     else:
         with os.scandir(root) as entries:
             for entry in sorted(entries, key=lambda item: item.name):
                 if entry.name.startswith(".") or entry.name in {"original", "postfilter"}:
                     continue
                 path = root / entry.name
-                if entry.is_dir(follow_symlinks=False) and (path / "validate").is_dir():
-                    yield from _method_roots(path / "validate")
+                if entry.is_dir(follow_symlinks=False):
+                    if (path / "validate").is_dir():
+                        yield from _method_roots(path / "validate")
+                    if _pipeline_final(path / "final"):
+                        yield path / "final"
 
 
 def _chain_labels(value, description, *, empty=False):
@@ -305,7 +320,7 @@ def _published_prediction(prediction, key, record_path):
 
 
 def select_refolds(inputs, *, task_names=None) -> Selection:
-    """Enumerate published success JSONs once and retain actual passing complexes."""
+    """Select native validation successes and accepted pipeline final complexes."""
     if isinstance(inputs, (str, os.PathLike)):
         inputs = [inputs]
     tasks = _names(task_names)
@@ -329,6 +344,10 @@ def select_refolds(inputs, *, task_names=None) -> Selection:
             _diagnostic(selection, getattr(exc, "code", "invalid_input"), exc, **context)
     seen = set()
     for root in roots:
+        if _pipeline_final(root):
+            from .pipeline import select_final
+            select_final(root, selection, task_names=tasks)
+            continue
         task_dir = root.parent.parent
         context = {"task_dir": str(task_dir), "method_dir": str(root), "task": task_dir.name, "method": root.name}
         if tasks is not None and task_dir.name not in tasks:

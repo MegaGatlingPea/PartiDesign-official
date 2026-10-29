@@ -47,10 +47,26 @@ All paths in this table are beneath `<repo>/configs/examples/`.
 | Fold a supplied RNA/DNA sequence | `nucleic_acids.yaml`: `rna_monomer_folding`, `dna_monomer_folding` | Complete user sequence and alphabet; full identity determines length. Adding receptor context changes the goal to pose docking. |
 | RNA/DNA identity redesign on a backbone | `nucleic_acids.yaml`: `rna_invfold`, `dna_invfold` | Source design chain and representative-center constraints; backbone conditioning allows identities to change. |
 | RNA/DNA secondary-structure guidance | `nucleic_acids.yaml`: `rna_ss_guided`, `dna_ss_guided` | Coarse paired/unpaired intent, final token ranges, and any explicit compatible pair relations. |
+| Fixed RNA/DNA sequence controls | `nucleic_acids.yaml`: `rna_sequence_prediction`, `dna_sequence_prediction`; `rna_ss_prediction`, `dna_ss_prediction` add explicit pairing | Full sequence, optional pairing, and whether OpenMM is wanted; the examples enable it. |
+| Unpaired RNA/DNA aptamer for a protein | `nucleic_acids.yaml`: `rna_bind_protein_unpaired`, `dna_bind_protein_unpaired` | Retained receptor and unpaired regions; unpaired guidance does not fix the final conformation. |
+| Unpaired aptamer around a SMILES-defined ligand | `nucleic_acids.yaml`: `rna_ligand_binder_ethyl_maltol_unpaired`, `dna_ligand_binder_vanillin_unpaired` | Fixed ligand SMILES and aptamer length; the ligand remains context rather than new chemistry to generate. |
 | RNA motif scaffolding | `nucleic_acids.yaml`: `rna_motif_all_atom`, `rna_motif_base_atoms` | Source motif and atom subset, generated gaps and length limits. |
 | New ligand chemistry in a protein pocket | `ligand.yaml`: `ligand_fixture` | Pocket/context and heavy-atom budget. `from_distribution` needs input pocket context and exactly one ligand design chain. |
 | Ligand scaffold hopping | `ligand.yaml`: `ligand_scaffold_hopping` | Source ligand chain; `condition.backbone` retains centers while chemistry can change. |
 | Ligand growth around selected atoms | `ligand.yaml`: `ligand_motif_scaffolding` | Stable source atom names and final heavy-atom count; the example uses 41 heavy atoms. |
+| Ligand decoration at one or more retained atoms | `ligand.yaml`: `ligand_decoration`, `ligand_decoration_two_sites` | Grow from C9 alone, or C12 and C10 together, at 12, 13, or 14 total heavy atoms. `attachments` requires the declared retained-to-new bonds and forbids others. New atom identities and the remaining graph are generated; no complete product SMILES is needed. |
+
+For decoration, read the `atom_motif` attachment fields in
+`<repo>/docs/task_schema.md` and adapt `ligand_decoration` rather than inventing
+another bond syntax. `new_atom` indexes a generated endpoint from 1; it does
+not set the number of atoms in a branch;
+`design_length` counts retained and new heavy atoms together; `sample_num` applies
+to each listed size. Multiple attachments can use different retained atoms.
+New-to-new bonds remain free, so two sites may form separate branches or a bridge.
+Disconnected products reuse valid-fragment selection: retain all motif atoms
+and required attachment endpoints, and discard unattached fragments. Sampling
+count can exceed the retained output count. Attachments fix connectivity, not
+final bond lengths or chemical quality.
 
 For several generated chains, consult the length-plan section of
 `<repo>/docs/task_schema.md`. Explicit `design_length.joint` rows are complete
@@ -70,6 +86,8 @@ refolding pass gate.
 | Known SMILES ligand in a protein receptor | `examples/ligand.yaml`: `ligand_smiles_fixture` | Complete connected SMILES fixes the graph and determines the heavy-atom count. |
 | Source ligand with its graph fixed | `examples/ligand.yaml`: `ligand_covalent_docking` | `mode: type_bond` fixes source atom types/bonds. This example declares no receptor covalent bond; its name alone does not create one. |
 | Fixed peptide with a linker in a protein receptor | `examples/peptide.yaml`: `peptide_dock_protein` | Preserve only the user's intended full sequence, linker and explicit bonds; the shipped example includes them. |
+| Fixed cyclic peptide with a disulfide | `examples/peptide.yaml`: `peptide_dock_protein_cyclic_disulfide` | Full sequence, explicit terminal closure and disulfide, with offset encoding also enabled. |
+| Fixed short RNA in a protein receptor | `examples/nucleic_acids.yaml`: `rna_dock_protein`, `rna_dock_larp1` | Full sequence determines length; receptor context makes this docking rather than a monomer folding task. |
 | Fixed ssRNA in a protein receptor | `benchmarks/ssrna_docking/tasks.yaml`: `ssrna_dock_7tuv_b0_1_4` | Requests 40 samples as shipped. Copy/edit the selected task for a smaller trial. |
 | Known ligand in an RNA receptor | `benchmarks/nuc_ligand/tasks.yaml`: `nuc_ligand_3gx5` | Requests 40 samples as shipped, with scoring/refinement enabled. |
 

@@ -584,19 +584,39 @@ def reconcile_required_edges(
     required_edges: Iterable[tuple[int, int, int]],
     *,
     complete_components: Iterable[tuple[Sequence[int], Iterable[tuple[int, int]]]] = (),
+    forbidden_edges: Iterable[tuple[int, int]] = (),
 ) -> None:
-    """Overlay exact required edges and complete-graph hard non-edges by atom UID."""
+    """Overlay required edges and remove scoped hard non-edges by stable atom UID."""
 
     if "atom_uid" not in atom_array.get_annotation_categories():
         raise ValueError("hard reconciliation requires finalized atom_uid")
     uid_to_row = {
         int(uid): row for row, uid in enumerate(np.asarray(atom_array.atom_uid).tolist())
     }
+    required_edges = tuple(
+        (int(uid_i), int(uid_j), int(bond_type))
+        for uid_i, uid_j, bond_type in required_edges
+    )
+    forbidden = {tuple(sorted((int(uid_i), int(uid_j)))) for uid_i, uid_j in forbidden_edges}
+    if any(uid_i == uid_j for uid_i, uid_j in forbidden):
+        raise ValueError("forbidden edges cannot contain self-edges")
+    conflict = forbidden.intersection(
+        tuple(sorted((uid_i, uid_j))) for uid_i, uid_j, _ in required_edges
+    )
+    if conflict:
+        raise ValueError(f"hard graph has positive/negative conflicts: {sorted(conflict)}")
     edges: dict[tuple[int, int], int] = {}
     if atom_array.bonds is not None:
         for row_i, row_j, bond_type in atom_array.bonds.as_array():
             key = (min(int(row_i), int(row_j)), max(int(row_i), int(row_j)))
             edges[key] = int(bond_type)
+
+    for uid_i, uid_j in forbidden:
+        # An unprotected free atom may have been removed by legacy fragment
+        # salvage. A missing negative endpoint has no surviving edge to remove.
+        if uid_i not in uid_to_row or uid_j not in uid_to_row:
+            continue
+        edges.pop(tuple(sorted((uid_to_row[uid_i], uid_to_row[uid_j]))), None)
 
     for raw_uids, raw_positive in complete_components:
         rows = [uid_to_row[int(uid)] for uid in raw_uids]

@@ -176,7 +176,7 @@ def peptide_records(candidate):
     return tuple(records)
 
 
-def minimize_peptides(atoms, *, payload, platform_name, charge_method, fixed_product_record_ids=()):
+def minimize_peptides(atoms, *, payload, platform_name, charge_method, fixed_product_record_ids=(), move_context=False):
     import copy
     from dataclasses import replace
     from biotite import structure as struc
@@ -187,8 +187,9 @@ def minimize_peptides(atoms, *, payload, platform_name, charge_method, fixed_pro
     from .refine import (
         OpenMMPostprocessError, atom_key, _build_openmm_topology,
         _create_ordinary_system, _run_openmm_minimizer,
-        _sample_postprocess_stage,
+        _sample_postprocess_stage, _check_context_motion_support,
     )
+    _check_context_motion_support(payload, move_context=move_context)
 
     row_by_key = {atom_key(atoms, r): r for r in range(len(atoms))}
     if len(row_by_key) != len(atoms):
@@ -222,7 +223,7 @@ def minimize_peptides(atoms, *, payload, platform_name, charge_method, fixed_pro
             private.atom_name[r] = f"X{i}"
         private_records.append(replace(record, heavy_keys=tuple(atom_key(private, r) for r in rows)))
     # Add only a private terminal carboxyl OXT required by the receptor template.
-    # Its coordinates are fixed and it is never emitted in the public CIF.
+    # It is never emitted; legacy design-only motion keeps its receptor fixed.
     for r in range(len(atoms)):
         if r in selected or atoms.mol_type[r] != "protein" or atoms.atom_name[r] != "C":
             continue
@@ -284,13 +285,16 @@ def minimize_peptides(atoms, *, payload, platform_name, charge_method, fixed_pro
     restraint.addGlobalParameter("k", 10 * unit.kilocalories_per_mole / unit.angstrom**2)
     for name in ("x0", "y0", "z0"):
         restraint.addPerParticleParameter(name)
-    moving = selected_moving | {row_by_key[key] for key in payload.native_moving_keys}
+    if not set(payload.native_moving_keys).issubset(row_by_key):
+        raise OpenMMPostprocessError("native moving keys are absent from the peptide structure")
+    native_rows = {row_by_key[key] for key in payload.native_moving_keys}
+    moving = set(range(len(atoms))) if move_context else selected_moving | native_rows
     moving_residues = {atom_key(private, row)[:4] for row in moving}
     private_rows = {k: r for r, k in enumerate(keys)}
     mapping = {}
     for atom, position in zip(modeller.topology.atoms(), modeller.positions):
         key = (atom.residue.chain.id, int(atom.residue.id), atom.residue.insertionCode, atom.residue.name, atom.name)
-        if key[:4] not in moving_residues:
+        if not move_context and key[:4] not in moving_residues:
             system.setParticleMass(atom.index, 0)
         if key in private_rows and private_rows[key] in moving:
             mapping[atom.index] = private_rows[key]

@@ -1,0 +1,18 @@
+# Self-contained partial restart from the bundled 100-residue ESMFold2-fast refold (chain P).
+# Run from repository root: partidesign design configs/examples/partial_diffusion.yaml --task partial_protein --run-name protein_partial
+partial_protein:
+  input: null
+  sample_num: 4
+  design_chains:
+  - P: protein
+  condition:
+    secondary_structure:
+      coarse:
+        P: alpha
+  rm_token_type:
+  - CYS
+  score: false
+  postprocess: false
+  partial:
+    reference: ./configs/examples/structures/partial_diffusion/protein_refold.cif
+    fraction: 0.625

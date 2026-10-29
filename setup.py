@@ -65,7 +65,7 @@ _WEIGHT_SUFFIXES = {
 
 
 def _allowed_package(name: str) -> bool:
-    if name in {"partidesign", "src.design", "src.validate", "src.scoring", "src.common", "src.cluster", "src.postfilter"}:
+    if name in {"partidesign", "src.design", "src.validate", "src.scoring", "src.common", "src.cluster", "src.postfilter", "src.pipeline"}:
         return True
     if name.startswith("src.design."):
         return True
@@ -78,6 +78,8 @@ def _allowed_package(name: str) -> bool:
     if name.startswith("src.postfilter."):
         return True
     if name.startswith("src.cluster."):
+        return True
+    if name.startswith("src.pipeline.") and ".tests" not in name:
         return True
     return False
 
@@ -222,6 +224,7 @@ def _copy_source_closure(build_lib: Path) -> None:
     _copy_python_tree("src/validate", build_lib, exclude_dirs={"tests", "__pycache__"})
     _copy_python_tree("src/scoring", build_lib, exclude_dirs=set())
     _copy_python_tree("src/cluster", build_lib, exclude_dirs=set())
+    _copy_python_tree("src/pipeline", build_lib, exclude_dirs={"tests", "__pycache__"})
     _copy_python_tree("src/postfilter", build_lib, exclude_dirs={"__pycache__", "tests"})
     _copy_python_tree("src/common", build_lib, exclude_dirs={"__pycache__"})
     _copy_selected_files(

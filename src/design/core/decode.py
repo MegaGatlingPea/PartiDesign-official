@@ -296,8 +296,16 @@ def _decode_model_bond_types(
     bond_logits: Tensor,
     candidate_mask: Tensor,
     element_type: Tensor,
+    *,
+    required_types: Tensor | None = None,
+    forbidden_mask: Tensor | None = None,
 ) -> Tensor:
-    """Copy the current validation ``strategy='valence'`` path exactly."""
+    """Decode proposals, reserving opted-in hard edges before greedy valence use.
+
+    With no hard matrices this is the existing validation valence route. Keep
+    the full molecule candidate clique for chemical constraint classification;
+    forbidden edges are suppressed only when selecting proposals.
+    """
 
     logits = _finite_cpu(bond_logits, name="ligand_bond_logits")
     candidate = candidate_mask.detach().bool().cpu()
@@ -311,18 +319,59 @@ def _decode_model_bond_types(
     ):
         raise ValueError("ligand bond candidate mask must be symmetric and off-diagonal")
 
+    required = torch.zeros(candidate.shape, dtype=torch.long)
+    if required_types is not None:
+        if required_types.dtype not in {
+            torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64,
+        }:
+            raise TypeError("required ligand bond types must be integer classes")
+        required = required_types.detach().long().cpu()
+    forbidden = (
+        torch.zeros_like(candidate)
+        if forbidden_mask is None
+        else forbidden_mask.detach().bool().cpu()
+    )
+    if required.shape != candidate.shape or forbidden.shape != candidate.shape:
+        raise ValueError("hard ligand bond matrices disagree on token shape")
+    if bool(((required < 0) | (required >= len(LIGAND_BOND_TYPES))).any().item()):
+        raise ValueError("required ligand bond type is outside the five-class ABI")
+    if not torch.equal(required, required.transpose(0, 1)) or bool(
+        torch.diagonal(required).any().item()
+    ):
+        raise ValueError("required ligand bond types must be symmetric and off-diagonal")
+    if not torch.equal(forbidden, forbidden.transpose(0, 1)) or bool(
+        torch.diagonal(forbidden).any().item()
+    ):
+        raise ValueError("forbidden ligand bonds must be symmetric and off-diagonal")
+    hard_positive = required > LIGAND_BOND_TYPES["none"]
+    if bool(((hard_positive | forbidden) & ~candidate).any().item()):
+        raise ValueError("hard ligand bond constraint escaped its candidate molecule")
+    if bool((hard_positive & forbidden).any().item()):
+        raise ValueError("hard ligand bond has positive/negative conflicts")
+
     symmetric_logits = 0.5 * (logits + logits.transpose(0, 1))
     probability = torch.softmax(symmetric_logits, dim=-1)
     bond_score = 1.0 - probability[..., LIGAND_BOND_TYPES["none"]]
     proposed = symmetric_logits.argmax(dim=-1)
+    proposed[hard_positive] = required[hard_positive]
     eligible = (
-        torch.triu(candidate, diagonal=1)
+        torch.triu(candidate & ~forbidden & ~hard_positive, diagonal=1)
         & (proposed != LIGAND_BOND_TYPES["none"])
     )
-    accepted = torch.zeros_like(eligible)
+    accepted = torch.triu(hard_positive, diagonal=1)
     used_valence_x2 = [0] * int(proposed.shape[0])
     used_degree = [0] * int(proposed.shape[0])
     constraint = _constraint_enabled(candidate, elements)
+    for token_i, token_j in torch.nonzero(accepted).tolist():
+        order_x2 = _MIN_BOND_ORDER_HALF_UNITS[int(required[token_i, token_j])]
+        for token in (token_i, token_j):
+            used_valence_x2[token] += order_x2
+            used_degree[token] += 1
+            cap, degree = _element_cap(int(elements[token])) if constraint[token] else (None, None)
+            if cap is not None and used_valence_x2[token] > cap:
+                raise ValueError("required ligand bonds exceed the decoded element valence")
+            if degree is not None and used_degree[token] > degree:
+                raise ValueError("required ligand bonds exceed the decoded element degree")
     candidates = torch.nonzero(eligible).tolist()
     candidates.sort(
         key=lambda pair: (-float(bond_score[pair[0], pair[1]]), pair[0], pair[1])
@@ -352,6 +401,48 @@ def _decode_model_bond_types(
     if bool((result[~candidate] != LIGAND_BOND_TYPES["none"]).any().item()):
         raise AssertionError("decoded ligand edge escaped its candidate molecule")
     return result
+
+
+def _attachment_ligand_molecules(compiled: CompiledSample) -> frozenset[int]:
+    """Identify the new attachment opt-in even when no negative pairs exist."""
+
+    condition = compiled.request.task.condition
+    ligand = condition.get("ligand", {}) if isinstance(condition, Mapping) else {}
+    if not isinstance(ligand, Mapping):
+        return frozenset()
+    atoms = compiled.atoms
+    design_ligand = np.asarray(atoms.is_design, dtype=bool) & (atoms.mol_type == "ligand")
+    attached: set[int] = set()
+    for chain, entry in ligand.items():
+        if not isinstance(entry, Mapping) or str(entry.get("mode", "")).strip().lower() != "atom_motif":
+            continue
+        if not entry.get("attachments"):
+            continue
+        rows = np.where(design_ligand & (atoms.chain_id == str(chain)))[0]
+        if not len(rows):
+            raise ValueError("ligand attachment chain has no design ligand atoms")
+        attached.update(int(value) for value in np.unique(atoms.molecule_uid[rows]))
+    return frozenset(attached)
+
+
+def _scoped_ligand_molecules(compiled: CompiledSample) -> frozenset[int]:
+    """Return only molecules opting into attachment/scoped-negative decoding."""
+
+    scoped = set(_attachment_ligand_molecules(compiled))
+    atoms = compiled.atoms
+    for policy in compiled.edge_policies:
+        if not policy.hard_negative_edges:
+            continue
+        if policy.component_uid is not None:
+            rows = np.where(atoms.component_uid == int(policy.component_uid))[0]
+        else:
+            rows = np.where(atoms.molecule_uid == int(policy.molecule_uid))[0]
+        rows = rows[(atoms.mol_type[rows] == "ligand") & atoms.is_design[rows]]
+        molecule_uids = np.unique(atoms.molecule_uid[rows])
+        if len(rows) == 0 or len(molecule_uids) != 1:
+            raise ValueError("scoped ligand edge policy has an invalid molecule scope")
+        scoped.add(int(molecule_uids[0]))
+    return frozenset(scoped)
 
 
 def _complete_ligand_molecules(compiled: CompiledSample) -> frozenset[int]:
@@ -563,10 +654,36 @@ def decode_proposal(
             members = design_ligand & (mol_id_t == int(molecule_uid))
             candidate |= members[:, None] & members[None, :]
         candidate &= ~torch.eye(token_count, dtype=torch.bool)
+        required_types = None
+        forbidden_mask = None
+        scoped_molecules = _scoped_ligand_molecules(compiled).intersection(decoded_molecules)
+        if scoped_molecules:
+            scope = torch.zeros_like(candidate)
+            for molecule_uid in scoped_molecules:
+                members = design_ligand & (mol_id_t == int(molecule_uid))
+                scope |= members[:, None] & members[None, :]
+            scope &= candidate
+            condition_edge = _sample_tensor(
+                canonical_batch, "condition_bond_pair_mask", sample_index,
+            ).detach().bool().cpu()
+            condition_known = _sample_tensor(
+                canonical_batch, "condition_bond_type_known_mask", sample_index,
+            ).detach().bool().cpu()
+            condition_type = _sample_tensor(
+                canonical_batch, "condition_bond_type", sample_index,
+            ).detach().long().cpu()
+            if any(value.shape != candidate.shape for value in (condition_edge, condition_known, condition_type)):
+                raise ValueError("canonical hard ligand conditions disagree on token shape")
+            if bool((scope & condition_edge & ~condition_known).any().item()):
+                raise ValueError("scoped ligand hard edges require exact bond orders")
+            required_types = torch.where(scope & condition_edge, condition_type, 0)
+            forbidden_mask = scope & condition_known & ~condition_edge
         decoded = _decode_model_bond_types(
             bond_logits,
             candidate,
             predicted_element_ids,
+            required_types=required_types,
+            forbidden_mask=forbidden_mask,
         )
         for token_i, token_j in torch.nonzero(
             torch.triu(decoded > 0, diagonal=1)

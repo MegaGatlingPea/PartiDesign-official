@@ -479,6 +479,8 @@ def _map_back(
     private: Any,
     private_refined: Any,
     groups: Sequence[Sequence[int]],
+    *,
+    move_context: bool = False,
 ):
     error = _error_type()
     original_keys = [_atom_key(original, row) for row in range(len(original))]
@@ -493,7 +495,7 @@ def _map_back(
     if not np.isfinite(np.asarray(private_refined.coord, dtype=np.float64)).all():
         raise error("private minimization returned non-finite coordinates")
     context_rows = sorted({int(row) for group in groups for row in group})
-    if context_rows and not np.array_equal(
+    if not move_context and context_rows and not np.array_equal(
         np.asarray(private_refined.coord)[context_rows], np.asarray(private.coord)[context_rows]
     ):
         raise error("fixed modified protein context moved during minimization")
@@ -520,6 +522,7 @@ def minimize_modified_protein_context(
     platform_name: str,
     charge_method: str,
     component_overrides=None,
+    move_context: bool = False,
 ):
     """Minimize a modified fixed protein context with private GAFF chemistry."""
 
@@ -574,6 +577,7 @@ def minimize_modified_protein_context(
         platform_name=platform_name,
         charge_method=charge_method,
         fixed_product_record_ids=context_ids,
+        move_context=move_context,
     )
     try:
         initial_value, final_value, force_value = float(initial), float(final), float(force)
@@ -581,7 +585,7 @@ def minimize_modified_protein_context(
         raise error("modified protein minimization returned invalid summaries") from exc
     if not np.isfinite([initial_value, final_value, force_value]).all():
         raise error("modified protein minimization returned non-finite summaries")
-    refined = _map_back(atoms, private, private_refined, groups)
+    refined = _map_back(atoms, private, private_refined, groups, move_context=move_context)
     return refined, initial_value, final_value, force_value
 
 

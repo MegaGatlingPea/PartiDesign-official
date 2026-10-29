@@ -1,9 +1,17 @@
 # PartiDesign user guide
 
-Start with the [installation and first run](../README.md#installation), then
-choose a named request from the [example index](../configs/examples/README.md).
-The [Task YAML reference](task_schema.md) explains every input field and how to
-combine molecular context, identities, motifs, secondary structure, and bonds.
+After [installation](../README.md#installation), run design, refinement, and
+validation in one command:
+
+```bash
+partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor --preset ppi --run-name insulin_receptor
+```
+
+The [pipeline guide](pipeline.md) explains the default flow, final results,
+workflow presets, and resume. Add `--plan` to preview the command. To author your
+own molecules, choose a request from the [example index](../configs/examples/README.md)
+and use the [Task YAML reference](task_schema.md) for context, identities, motifs,
+secondary structure, and bonds.
 
 See [environments](environments.md) for complete CUDA 12/CUDA 13 installs,
 migration, and BioIR requirements. The [generation guide](design.md#execution-and-compilation)
@@ -13,18 +21,19 @@ explains automatic execution and compilation.
 
 Each command has a separate guide:
 
-| Command | Contents |
+| Command | Use it to |
 | --- | --- |
-| [`download`](download.md) | Generation and optional model assets, registered downloads, and model directories |
-| [`check`](check.md) | Input checks, strict CPU loading, real smoke jobs, and installation troubleshooting |
-| [`design`](design.md) | Generation, routing, Best-of-N ranking, and outputs |
-| [`score`](score.md) | PartiScore scoring for saved structures |
-| [`relax`](relax.md) | OpenMM refinement of existing results |
-| **[`validate`](validate.md)** | **A complete evaluation workflow: methods, sequences, criteria, reports, and reruns** |
-| [`postfilter`](postfilter.md) | Ray CPU relaxation, automatic protein/peptide screening, physical cyclic closure, and sample-level resume |
-| [`cluster`](cluster.md) | Clustering passing design backbones |
+| [`download`](download.md) | Prepare generation and optional model assets |
+| [`check`](check.md) | Check tasks, model assets, and the installation |
+| [`design`](design.md) | Generate molecular structures and identities |
+| [`pipeline`](pipeline.md) | Run design, refinement, and validation in one command |
+| [`score`](score.md) | Score interfaces in saved structures with PartiScore |
+| [`relax`](relax.md) | Refine existing structures with OpenMM |
+| [`validate`](validate.md) | Evaluate saved designs with selected sequences, predictors, and criteria |
+| [`postfilter`](postfilter.md) | Relax and screen passing protein and peptide complexes |
+| [`cluster`](cluster.md) | Group passing designs by backbone similarity |
 
-After generation, start with [validate](validate.md). Choosing a structure
+For saved generation results, use [validate](validate.md). Choosing a structure
 predictor, choosing sequence sources, and deciding what passes are separate
 steps; the guide explains how to make those choices and inspect the results.
 Successful protein–protein and standard peptide–protein complex refolds,
@@ -39,6 +48,10 @@ Clustering independently compares original generated polymer backbones.
   troubleshooting, and usage questions.
 - [Task YAML](task_schema.md): schema, lengths, structures, constraints, hotspots,
   chemistry, and antibody-specific fields.
+- [Partial diffusion](partial.md): one reference CIF with task-defined conditions,
+  schedule semantics, and optional native metadata recovery.
+- [Pipeline](pipeline.md): protein/nuc presets with final AF3, the explicit PPI preset
+  with final AF2 pairs, and insulin receptor examples.
 - [Example index](../configs/examples/README.md): named runnable tasks by modality
   and peptide topology.
 - [Command index](commands.md): all CLI entry points.

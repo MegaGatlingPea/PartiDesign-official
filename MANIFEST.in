@@ -24,6 +24,7 @@ include src/design/utils/notebook_theme.css
 recursive-include src/validate *.py
 recursive-include src/scoring *.py
 recursive-include src/cluster *.py
+recursive-include src/pipeline *.py
 recursive-include src/postfilter *.py
 
 
@@ -34,6 +35,7 @@ recursive-include src/postfilter *.py
 prune community_models/af3/ccd
 include community_models/af3/ccd/README.md
 prune src/validate/tests
+prune src/pipeline/tests
 prune partidesign.egg-info
 prune community_models/esmfold2/common
 prune community_models/esmfold2/source/dockq/build

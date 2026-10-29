@@ -26,7 +26,7 @@ from ..utils.chemistry import (
     reconcile_required_edges,
     trusted_ccd_private_molecule,
 )
-from .decode import DecodedProposal
+from .decode import DecodedProposal, _attachment_ligand_molecules
 from .modified_polymer import (
     ModifiedPolymerRecoveryWarning,
     plan_modified_polymer_coordinates,
@@ -517,6 +517,67 @@ def _modified_polymer_token_coordinate_plan(
     return coordinates
 
 
+def _partial_terminal_op3_coordinate_plan(
+    compiled: CompiledSample,
+    rows: np.ndarray,
+    generated_coordinates: Mapping[str, np.ndarray],
+) -> dict[int, np.ndarray]:
+    """Move a validated partial-reference OP3 with its current phosphate frame."""
+
+    reference = compiled.reference_atoms
+    if reference is None:
+        return {}
+    atoms = compiled.atoms
+    if set(str(value) for value in atoms.mol_type[rows]) not in ({"rna"}, {"dna"}):
+        return {}
+    op3_rows = rows[np.asarray(atoms.atom_name[rows]).astype(str) == "OP3"]
+    if not len(op3_rows):
+        return {}
+    if len(op3_rows) != 1:
+        raise ValueError("partial terminal OP3 must have one authoring row")
+    op3_row = int(op3_rows[0])
+    reference_coordinates: dict[str, np.ndarray] = {}
+    for name in ("P", "OP1", "OP2", "OP3"):
+        matches = rows[np.asarray(atoms.atom_name[rows]).astype(str) == name]
+        if len(matches) != 1:
+            raise ValueError(f"partial terminal OP3 requires one {name} anchor row")
+        reference_rows = np.where(reference.atom_uid == int(atoms.atom_uid[int(matches[0])]))[0]
+        if len(reference_rows) != 1:
+            raise ValueError("partial terminal OP3 reference AtomUID is missing or ambiguous")
+        reference_row = int(reference_rows[0])
+        coordinate = np.asarray(reference.coord[reference_row], dtype=np.float64)
+        if not bool(reference.coord_valid[reference_row]) or not np.isfinite(coordinate).all():
+            raise ValueError("partial terminal OP3 requires finite current reference anchors")
+        reference_coordinates[name] = coordinate
+
+    def frame(coordinates: Mapping[str, np.ndarray], label: str) -> tuple[np.ndarray, np.ndarray]:
+        if any(name not in coordinates for name in ("P", "OP1", "OP2")):
+            raise ValueError(f"partial terminal OP3 is missing {label} phosphate anchors")
+        p, op1, op2 = (np.asarray(coordinates[name], dtype=np.float64) for name in ("P", "OP1", "OP2"))
+        if any(value.shape != (3,) or not np.isfinite(value).all() for value in (p, op1, op2)):
+            raise ValueError(f"partial terminal OP3 has invalid {label} phosphate anchors")
+        axis1 = op1 - p
+        length1 = np.linalg.norm(axis1)
+        if length1 <= 1e-8:
+            raise ValueError(f"partial terminal OP3 has a singular {label} phosphate frame")
+        axis1 = axis1 / length1
+        axis2 = op2 - p
+        axis2 = axis2 - np.dot(axis2, axis1) * axis1
+        length2 = np.linalg.norm(axis2)
+        if length2 <= 1e-8:
+            raise ValueError(f"partial terminal OP3 has a singular {label} phosphate frame")
+        axis2 = axis2 / length2
+        return p, np.stack((axis1, axis2, np.cross(axis1, axis2)))
+
+    reference_origin, reference_frame = frame(reference_coordinates, "reference")
+    generated_origin, generated_frame = frame(generated_coordinates, "generated")
+    local = (reference_coordinates["OP3"] - reference_origin) @ reference_frame.T
+    coordinate = generated_origin + local @ generated_frame
+    if not np.isfinite(coordinate).all():
+        raise ValueError("partial terminal OP3 generated coordinate is not finite")
+    return {int(atoms.atom_uid[op3_row]): coordinate.astype(np.float32)}
+
+
 def _activate_and_fill(
     compiled: CompiledSample,
     proposal: DecodedProposal,
@@ -859,6 +920,27 @@ def _activate_and_fill(
                     np.float32
                 )
             atoms.coord_valid[row] = True
+        if compiled.reference_atoms is not None and modality in {"rna", "dna"}:
+            op3_coordinates = _partial_terminal_op3_coordinate_plan(
+                compiled,
+                rows,
+                {str(atoms.atom_name[row]): atoms.coord[row] for row in required_rows},
+            )
+            for atom_uid, coordinate in op3_coordinates.items():
+                row = int(rows[atoms.atom_uid[rows] == atom_uid][0])
+                required_rows.add(row)
+                active[row] = True
+                atoms.res_name[row] = str(residue_name)
+                hard_coordinate = bool(
+                    atoms.coord_valid[row]
+                    and (
+                        atoms.motif_coord_condition[row]
+                        or atoms.token_center_condition[row]
+                    )
+                )
+                if not hard_coordinate:
+                    atoms.coord[row] = coordinate
+                atoms.coord_valid[row] = True
         inactive_rows = set(int(value) for value in rows) - required_rows
         for row in inactive_rows:
             if head_to_tail_terminal and str(atoms.atom_name[row]) == "OXT":
@@ -1031,6 +1113,13 @@ def _flex_context_coordinate_plan(
                 model_token, slot
             ].astype(np.float32)
             retained_rows.append(int(row))
+        if compiled.reference_atoms is not None and modality in {"rna", "dna"}:
+            result.update(_partial_terminal_op3_coordinate_plan(
+                compiled,
+                rows,
+                {str(atoms.atom_name[row]): result[int(atoms.atom_uid[row])]
+                 for row in retained_rows},
+            ))
         if not retained_rows:
             raise ValueError("flex context token has no representable proxy atoms")
         center_rows = rows[np.asarray(atoms.centre_atom_mask[rows], dtype=bool)]
@@ -1346,6 +1435,11 @@ def _reconcile_hard_graph(
         atoms,
         ((uid_a, uid_b, order) for (uid_a, uid_b), order in sorted(required.items())),
         complete_components=complete_scopes,
+        forbidden_edges=(
+            edge
+            for policy in compiled.edge_policies
+            for edge in policy.hard_negative_edges
+        ),
     )
 
 def _ligand_mode(
@@ -1879,6 +1973,12 @@ def assemble_candidate(
         proposal,
         output,
     )
+    for molecule_uid in sorted(_attachment_ligand_molecules(compiled)):
+        if molecule_uid not in private_molecules:
+            error = private_errors.get(molecule_uid, "private chemistry is unavailable")
+            raise ValueError(
+                f"ligand decoration chemistry failed for molecule {molecule_uid}: {error}"
+            )
     return AssemblyResult(
         atoms=output,
         private_ligand_charge_logits=proposal.private_ligand_charge_logits,

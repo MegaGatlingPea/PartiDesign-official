@@ -14,6 +14,7 @@ from .records import (
     DesignConfigError,
     ExpandedRequest,
     LengthPlan,
+    PartialSpec,
     TaskSpec,
 )
 
@@ -23,7 +24,7 @@ _MODALITIES = {"protein", "rna", "dna", "ligand"}
 _AUTHORING_SUB_MODALITIES = {"peptide"}
 _TASK_KEYS = {
     "input", "sample_num", "design_chains", "design_length", "condition", "hotspot", "crop", "score", "postprocess", "override",
-    "cyclic_offset", "cyclic_offset_chains", "format", "rm_token_type",
+    "cyclic_offset", "cyclic_offset_chains", "format", "rm_token_type", "partial",
 }
 
 
@@ -428,6 +429,36 @@ def _parse_length_plans(
     )
 
 
+def _parse_partial(value: Any, *, task_name: str, invocation_dir: Path) -> PartialSpec:
+    where = f"task {task_name!r} partial"
+    if not isinstance(value, Mapping):
+        raise DesignConfigError(f"{where} must be a mapping")
+    _closed(value, {"reference", "result_csv", "fraction"}, where)
+    if not {"reference", "fraction"} <= set(value):
+        raise DesignConfigError(f"{where} requires reference and fraction")
+    reference = _resolve_local_path(value["reference"], invocation_dir, f"{where}.reference")
+    if reference is None or reference.suffix.lower() != ".cif":
+        raise DesignConfigError(f"{where}.reference must name a candidate CIF")
+    result_csv = (
+        _resolve_local_path(value["result_csv"], invocation_dir, f"{where}.result_csv")
+        if "result_csv" in value else None
+    )
+    if "result_csv" in value and result_csv is None:
+        raise DesignConfigError(f"{where}.result_csv must name a result CSV")
+    raw_fraction = value["fraction"]
+    if isinstance(raw_fraction, bool) or not isinstance(raw_fraction, (int, float)):
+        raise DesignConfigError(f"{where}.fraction must be finite in (0, 1]")
+    try:
+        fraction = float(raw_fraction)
+    except (OverflowError, ValueError) as exc:
+        raise DesignConfigError(f"{where}.fraction must be finite in (0, 1]") from exc
+    if not math.isfinite(fraction) or not 0.0 < fraction <= 1.0:
+        raise DesignConfigError(f"{where}.fraction must be finite in (0, 1]")
+    if round(fraction * 400) < 1:
+        raise DesignConfigError(f"{where}.fraction must select at least one of 400 steps")
+    return PartialSpec(reference=reference, result_csv=result_csv, fraction=fraction)
+
+
 def parse_task(
     name: str,
     payload: Any,
@@ -445,6 +476,10 @@ def parse_task(
         from ..antibody.schema import parse_antibody_task
         return parse_antibody_task(name, payload, invocation_dir=invocation_dir)
     _closed(payload, _TASK_KEYS, f"task {name!r}")
+    partial = (
+        _parse_partial(payload["partial"], task_name=name, invocation_dir=invocation_dir)
+        if "partial" in payload else None
+    )
     sample_num = _positive_int(payload.get("sample_num"), f"task {name!r} sample_num")
     chains = _parse_design_chains(payload.get("design_chains"), name)
     condition = payload.get("condition", {})
@@ -487,12 +522,17 @@ def parse_task(
             raise DesignConfigError("cyclic_offset_chains must uniquely select design protein chains")
     elif cyclic_offset and len(protein_chains) > 1:
         raise DesignConfigError("multiple protein design chains require cyclic_offset_chains")
+    length_plans = ((LengthPlan(0, {}),)
+                    if partial is not None and "design_length" not in payload else
+                    _parse_length_plans(payload.get("design_length"), chains, name))
+    if partial is not None:
+        length_plans = (LengthPlan(0, {}),)
     return TaskSpec(
         name=name,
         input_path=_resolve_local_path(payload.get("input"), invocation_dir, f"task {name!r} input"),
         sample_num=sample_num,
         design_chains=chains,
-        length_plans=_parse_length_plans(payload.get("design_length"), chains, name),
+        length_plans=length_plans,
         condition=dict(condition),
         hotspot=hotspot,
         crop=_parse_crop(payload.get("crop"), name),
@@ -501,8 +541,9 @@ def parse_task(
         cyclic_offset_chains=tuple(selected_cyclic or ()),
         postprocess=postprocess,
         override=override,
-        length_distribution_chain=distribution_chain,
+        length_distribution_chain=distribution_chain if partial is None else None,
         rm_token_type=normalize_task_rm_token_type(payload.get("rm_token_type"), f"task {name!r} rm_token_type"),
+        partial=partial,
     )
 
 

@@ -21,19 +21,20 @@ several. Normal and antibody tasks must be selected in separate submissions.
 Use the same `--ckpt`, routing settings, and configuration overlays intended for
 [generation](design.md).
 
-Task checks accept the same execution request as generation:
+Set the intended execution backend with `--execution-backend`:
 
 ```bash
 partidesign check configs/examples/protein.yaml --task protein_fixture \
-  --execution-backend auto --compile auto
+  --execution-backend native
 ```
 
-`--execution-backend auto|native|bioir`, `--compile auto|true|false`, and
-`--compile-strategy auto|dynamic|bucket` follow the
-[generation flag rules](design.md#execution-and-compilation). Ordinary checks
-and CPU loading do not probe GPU capabilities; automatic backend resolution
-remains pending. An explicit BioIR check inspects its dependencies and CPU task
-preparation, while GPU execution requires a real job.
+`--execution-backend` accepts `auto`, `native`, or `bioir`. Use `--config` or
+`--override` for runtime settings such as `model.compile.enabled`; the
+`--compile` and `--compile-strategy` flags belong to `design`. See the
+[execution guide](design.md#execution-and-compilation). Ordinary checks and
+CPU loading leave automatic GPU backend selection pending. An explicit BioIR
+check inspects its dependencies and CPU task preparation; a real job tests
+GPU execution.
 
 ## Check model resources
 
@@ -91,7 +92,6 @@ requested check. Native-generation smoke checks require the generation bundle.
 | `--config FILE`, `--override KEY=VALUE` | Use the intended runtime settings for a task check. |
 | `--route`, `--route-ckpt` | Use the intended model-routing settings; see [routing](design.md#routing-and-task-selection). |
 | `--execution-backend auto\|native\|bioir` | Request an execution backend for a task check; default `auto`. |
-| `--compile auto\|true\|false`, `--compile-strategy auto\|dynamic\|bucket` | Use the intended task compilation settings; see [execution rules](design.md#execution-and-compilation). |
 | `--load`, `--smoke` | Opt into CPU loading or real execution as described above. |
 | `--msa off` | Check explicit AF3/AF3-LA resources without MSA databases. |
 
@@ -129,7 +129,6 @@ Before retrying generation, inspect the task with `design --show-config`. For a
 smaller trial, copy the YAML and reduce `sample_num` and its length plan.
 With the default automatic backend, `--batch-size 1 --compile false` is an
 intentional native-eager diagnostic that preserves the requested sample count.
-Retry refinement of existing usable structures with [relax](relax.md), without
-regenerating them.
+Use [relax](relax.md) for OpenMM relaxation of existing structures.
 
 [Command index](commands.md) · [Download assets](download.md) · [Generate designs](design.md)
