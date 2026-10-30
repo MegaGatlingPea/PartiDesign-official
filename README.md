@@ -141,19 +141,14 @@ Prepare the generation, auto MPNN, ESMFold2-fast, and AF2 assets using the
 to preview the selected tasks and workflow without loading models or creating
 run output.
 
-Candidate counts grow across rounds. Middle rounds keep at most **two refolds
-per partial family** before further expansion. For scale, a measured strict demo
-with this family cap disabled proposed **64 → 350 → 1,575** sequences and took
-about **3 hours** on a single RTX 4080 GPU, including final validation. See
-[candidate counts and runtime](docs/pipeline.md#candidate-counts-and-runtime)
-for the default limit and measured counts.
-
 This task requests **32 initial backbones**. The default workflow uses three
 rounds: the current sequence (GT1) plus auto MPNN1 in round 1, then GT1 plus
 auto MPNN4 in each later round. Between rounds, each selected parent continues
 alongside four partial-diffusion replicas at **fraction 0.625**. OpenMM
 relaxation is off by default. Up to 200 deduplicated historical candidates
-receive GT-only final validation.
+receive GT-only final validation. Middle rounds retain at most two refolds
+per partial family; see [controlling candidate counts](docs/pipeline.md#control-candidate-counts)
+to adjust expansion.
 
 The explicit `ppi` preset runs AF2-IG models **1 and 2**, with five matched
 complex/monomer pairs per model: **ten pairs, twenty structures per candidate**.

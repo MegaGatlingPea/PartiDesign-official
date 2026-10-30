@@ -49,7 +49,7 @@ OpenMM is off. The last round has no transition, including when `recycle: 1`.
 Original task conditions, fixed identities, motifs, context, and bonds remain
 active as the current complex supplies the next partial-diffusion reference.
 
-## Candidate counts and runtime
+## Control candidate counts
 
 The 32 initial InsR backbones are the start of the run. With the default
 four partial replicas and `include_parent: true`, each selected refold supplies
@@ -72,35 +72,8 @@ With these defaults, 200 selected refolds can supply 1,000 structures and up to
 after the final round. Proposal totals describe the whole round; GPU workers
 process them in batches or scheduled requests.
 
-One complete strict InsR run with the family cap disabled, on a single RTX 4080
-GPU, produced these counts:
-
-| Round | Input structures | GT + MPNN proposals | Passing refolds | Selected | Partial children | New ESMFold2 predictions |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 32 | 64 | 14 | 14 | 56 | 64 |
-| 2 | 70 | 350 | 215 | 63 | 252 | 336 |
-| 3 | 315 | 1,575 | 985 | 200 | 0 | 1,512 |
-
-This run used the strict `af3_basic` iteration filter in
-`configs/pipeline/demo.yaml`. Round 2 starts with `14 + 56 = 70` structures,
-and round 3 with `63 + 252 = 315`. Round 2 reused 14 predictions and round 3
-reused 63; proposals still include these cache hits. The run made **1,912 new
-ESMFold2 predictions** in total.
-
-The default `history_best` final pool retained one historical winner for each
-of the 14 first-round lineages in this run. All 14 winners came from round 3.
-Their 14 final AF2-IG requests produced 280 complex/monomer structures, with
-11 candidates passing final criteria. The full run, including final validation,
-took about **3 hours**. These are observed counts and timing for one run;
-passing rates, hardware, model settings and cache reuse determine the cost of
-a new run. Inspect `summary.csv` for actual proposal, prediction, selection
-and partial counts.
-
-Applying the current two-per-family limit to that run's round-2 scores keeps
-27 candidates. With four successful partial replicas each, they would supply
-135 round-3 inputs and at most 675 sequence proposals. These projected counts
-reuse the recorded round-2 scores; a fresh run determines final acceptance and
-elapsed time.
+Use `summary.csv` to inspect proposal, prediction, selection, and partial
+counts for your run.
 
 ## Final validation
 
