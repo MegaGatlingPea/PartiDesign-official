@@ -170,7 +170,7 @@ def _allowed_community_file(path: Path) -> bool:
     # native CCD tables live under configs/resources and are packaged; the
     # multi-hundred-megabyte common/ files must never leak through the sdist
     # no-Git fallback or into a wheel.
-    if len(parts) >= 2 and parts[0].lower() == "esmfold2" and parts[1].lower() == "common":
+    if len(parts) >= 2 and parts[0].lower() in {"esmfold2", "mol1"} and parts[1].lower() == "common":
         return False
     if lowered & _BLOCKED_COMMUNITY_DIRS:
         return False
@@ -206,6 +206,10 @@ def _copy_resources(build_lib: Path) -> None:
                                               for part in path.relative_to(root).parts)
                                   and path.suffix not in {".pyc", ".log", ".out", ".err"})
     resource_paths.extend(path for path in _git_community_files() if path.is_file() and _allowed_community_file(path))
+    mol1_source = ROOT / "community_models" / "mol1" / "source"
+    if mol1_source.is_dir():
+        resource_paths.extend(path for path in mol1_source.rglob("*")
+                              if path.is_file() and _allowed_community_file(path))
     # Curated native tool source and licenses are part of the portable wheel.
     tool_root = ROOT / "community_models" / "rosetta"
     if tool_root.is_dir():

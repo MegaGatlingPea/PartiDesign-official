@@ -1,4 +1,4 @@
-"""Bounded CPU search scheduling outside resident AF3 validation actors."""
+"""Bounded shared MSA searches outside resident prediction actors."""
 from __future__ import annotations
 
 import math
@@ -25,7 +25,8 @@ def search_resources(settings, actor_count, worker_cpus):
     headroom = max(2, min(16, capacity // 6))
     maximum = max(0, capacity - actor_cpus - headroom)
     raw = settings["cpu_budget"]
-    budget = min(72, maximum) if raw == "auto" else int(raw)
+    default = 0 if settings["mode"] == "cache-only" else (3 if settings.get("source", "colabfold") == "colabfold" else 72)
+    budget = min(default, maximum) if raw == "auto" else int(raw)
     if budget > maximum:
         raise ValueError(f"MSA CPU budget {budget} plus {actor_cpus} actor CPUs and {headroom} headroom exceeds available {capacity}")
     return {"available": capacity, "actor_cpus": actor_cpus, "headroom": headroom,
@@ -33,15 +34,22 @@ def search_resources(settings, actor_count, worker_cpus):
 
 
 def query_cost(settings, modality):
+    from .af3_msa import msa_query_enabled
+    if not msa_query_enabled(settings, modality):
+        return 0
     if settings["mode"] == "cache-only":
         return 0
+    if settings.get("source", "colabfold") == "colabfold":
+        return 1
     return (max(4 * (settings["jackhmmer_n_cpu"] + 1), 9 if settings.get("templates") else 0) if modality == "protein"
             else 3 * (settings["nhmmer_n_cpu"] + 1))
 
 
 def search_context(repo, settings, query):
     """A CPU-only Ray task: no backend/MPNN/JAX model allocation."""
-    from .af3_msa import AF3MSACache
+    from .af3_msa import AF3MSACache, msa_query_enabled
+    if not msa_query_enabled(settings, query["modality"]):
+        return {"status": "skipped", "reference": None}
     try:
         reference = AF3MSACache(repo, settings).ensure(query["modality"], query["sequence"])
         return {"status": "ready", "reference": reference}
@@ -51,8 +59,9 @@ def search_context(repo, settings, query):
 
 def run_staged_jobs(ray, actors, jobs, repo, cfg, resources, finished):
     """Prepare ahead at most two samples per actor, refold ready tickets first."""
-    from .af3_msa import AF3MSACache
-    settings = cfg["af3"]["msa"]
+    from .af3_msa import AF3MSACache, msa_query_enabled
+    group = "mol1" if jobs and jobs[0][0]["method"] == "mol1" else "af3"
+    settings = cfg[group]["msa"]
     search_remote = ray.remote(search_context)
     pending_gpu, pending_search = {}, {}
     tickets = set()
@@ -61,7 +70,8 @@ def run_staged_jobs(ray, actors, jobs, repo, cfg, resources, finished):
     cache = None
     position = 0
     reserved = 0
-    helpers = max(2, settings["search_workers"])
+    workers = 1 if settings.get("source", "colabfold") == "colabfold" else settings["search_workers"]
+    helpers = max(2, workers)
 
     def key(query):
         return query["modality"], query["sequence"]
@@ -79,7 +89,7 @@ def run_staged_jobs(ray, actors, jobs, repo, cfg, resources, finished):
             results[identity] = {"status": "ready", "reference": reference}
             emit({"phase": "msa_cache_hit", "modality": identity[0], "length": len(identity[1])})
         elif settings["mode"] == "cache-only":
-            results[identity] = {"status": "failed", "error": "No matching ready AF3 MSA cache entry (cache-only)"}
+            results[identity] = {"status": "failed", "error": "No matching ready MSA cache entry (cache-only)"}
         elif query_cost(settings, identity[0]) + helpers > resources["search_cpus"]:
             raise ValueError(f"MSA {identity[0]} query needs {query_cost(settings, identity[0]) + helpers} CPU slots including helpers; search budget is {resources['search_cpus']}. Increase --msa-cpus or lower tool threads")
         return identity
@@ -91,7 +101,7 @@ def run_staged_jobs(ray, actors, jobs, repo, cfg, resources, finished):
                 if identity in results or identity in active_queries:
                     continue
                 cost = query_cost(settings, identity[0])
-                if len(pending_search) >= settings["search_workers"] or reserved + cost + helpers > resources["search_cpus"]:
+                if len(pending_search) >= workers or reserved + cost + helpers > resources["search_cpus"]:
                     continue
                 handle = search_remote.options(num_cpus=cost, num_gpus=0,
                     runtime_env={"env_vars": {"CUDA_VISIBLE_DEVICES": "", "JAX_PLATFORMS": "cpu", "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1"}}).remote(str(repo), settings, query)
@@ -137,7 +147,8 @@ def run_staged_jobs(ray, actors, jobs, repo, cfg, resources, finished):
                     idle.append(actor)
                     if kind == "prepare":
                         tickets.add(result["ticket"])
-                        identities = [register(query) for query in result["queries"]]
+                        identities = [register(query) for query in result["queries"]
+                                      if msa_query_enabled(settings, query["modality"])]
                         samples[result["ticket"]] = {"plan": plan, "sample": sample, "keys": identities}
                     else:
                         emit({"sample_finished": result}, Path(plan["task_dir"]) / "validate" / plan["method"] / "logs" / "validate.log")

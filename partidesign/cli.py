@@ -59,30 +59,33 @@ def _task_options(parser, *, generation=False):
         parser.add_argument("--show-config", action="store_true", help="Print resolved configuration without generation")
 
 
-def _msa_options(parser):
-    """Add the lightweight AF3 MSA policy flags shared by validate/check."""
+def _msa_options(parser, *, source_alias=False):
+    """Add the shared context MSA policy flags for validate/check."""
     _single(parser, "--msa", choices=("auto", "off", "cache-only"),
-            help="AF3 target/context MSA policy")
-    _single(parser, "--msa-cache-dir", help="AF3 MSA cache directory")
-    _single(parser, "--msa-profile", help="Recorded AF3 MSA cache profile")
-    _single(parser, "--msa-database-dir", help="AF3 public database root")
-    _single(parser, "--msa-binaries-dir", help="Directory containing jackhmmer/nhmmer")
+            help="AF3/AF3-LA/Mol-1 target/context MSA policy")
+    _single(parser, *(('--msa-source', '--source') if source_alias else ('--msa-source',)),
+            choices=('colabfold', 'af3'), help="Shared MSA/template search source: ColabFold service or local AF3 databases")
+    _single(parser, '--msa-server-url', help="ColabFold MSA service URL")
+    _single(parser, "--msa-cache-dir", help="Shared MSA/template cache directory")
+    _single(parser, "--msa-profile", help="Recorded shared MSA cache profile")
+    _single(parser, "--msa-database-dir", help="Local AF3 search database root")
+    _single(parser, "--msa-binaries-dir", help="Directory containing hhsearch or local AF3 HMMER tools")
     _single(parser, "--msa-workers", type=int,
-            help="Concurrent AF3 MSA searches (positive integer)")
+            help="Concurrent local AF3 MSA searches (positive integer; ColabFold uses one)")
     _single(parser, "--msa-cpus",
-            help="AF3 MSA CPU budget: auto or a positive integer")
+            help="MSA search CPU budget: auto or a positive integer")
     _single(parser, "--jackhmmer-cpus", type=int,
-            help="Threads per AF3 jackhmmer process")
+            help="Threads per local AF3 jackhmmer process")
     _single(parser, "--nhmmer-cpus", type=int,
-            help="Threads per AF3 nhmmer process")
+            help="Threads per local AF3 nhmmer process")
     _single(parser, "--msa-timeout", type=int,
-            help="AF3 MSA search timeout in seconds")
+            help="MSA/template search timeout in seconds")
     parser.add_argument("--msa-refresh", action="store_true",
-                        help="Refresh matching AF3 MSA cache generations")
+                        help="Refresh matching shared MSA/template cache generations")
     _single(parser, "--msa-templates", choices=("true", "false"),
-            help="AF3 native structure-template search: true or false")
+            help=argparse.SUPPRESS)
     _single(parser, "--msa-template-date",
-            help="AF3 maximum template date (YYYY-MM-DD)")
+            help="Maximum template release date (YYYY-MM-DD)")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -155,6 +158,15 @@ def build_parser() -> argparse.ArgumentParser:
     from src.pipeline.cli import add_arguments as pipeline_arguments
     pipeline_arguments(pipeline)
 
+    msa = commands.add_parser('msa', help='Prepare shared context MSAs and protein templates from task YAML')
+    msa.add_argument('task_file', type=Path, metavar='TASK_FILE.yaml')
+    _model_location(msa)
+    _single(msa, '--config', type=Path, help='Pipeline workflow YAML')
+    msa.add_argument('--task', action='append', help='Select task names (repeatable)')
+    msa.add_argument('--plan', action='store_true', help='List exact context queries without searching or writing')
+    _msa_options(msa, source_alias=True)
+    msa.add_argument('--refresh', dest='msa_refresh', action='store_true', help='Refresh selected search results')
+
     # Constants and configuration parsing in this package do not import models.
     from src.validate.config import METHODS
     validate = commands.add_parser("validate", help="Evaluate designs and apply quality filters")
@@ -176,7 +188,7 @@ def build_parser() -> argparse.ArgumentParser:
     rerun = validate.add_mutually_exclusive_group()
     rerun.add_argument("--rerun", action="store_true", help="Regenerate requested sequence slots")
     rerun.add_argument("--rerun-refold", action="store_true",
-                       help="AF3/AF3-LA only: reuse saved sequence slots and regenerate refolds")
+                       help="AF3/AF3-LA/Mol-1 only: reuse saved sequence slots and regenerate refolds")
     _msa_options(validate)
     _single(validate, "--limit", type=int, help="Positive maximum sample count per task")
     return parser
@@ -624,15 +636,15 @@ def _validate_arguments(args, parser):
         if args.model and len(args.model) != len(set(args.model)):
             parser.error("duplicate check model")
         msa_values = (
-            args.msa, args.msa_cache_dir, args.msa_profile, args.msa_database_dir,
+            args.msa, args.msa_source, args.msa_server_url, args.msa_cache_dir, args.msa_profile, args.msa_database_dir,
             args.msa_binaries_dir, args.msa_workers, args.msa_cpus,
             args.jackhmmer_cpus, args.nhmmer_cpus, args.msa_timeout,
             args.msa_templates, args.msa_template_date,
         )
         if (any(value is not None for value in msa_values) or args.msa_refresh) and (
-            not args.model or not any(target in {"af3", "af3-la"} for target in args.model)
+            not args.model or not any(target in {"af3", "af3-la", "mol1"} for target in args.model)
         ):
-            parser.error("AF3 MSA options require check --model af3 or --model af3-la")
+            parser.error("MSA options require check --model af3, --model af3-la, or --model mol1")
     if args.command == "validate" and (args.refilter or args.recompute_metrics) and (args.rerun or args.score):
         mode = "--refilter" if args.refilter else "--recompute-metrics"
         parser.error(f"{mode} cannot be combined with --rerun or --score")
@@ -654,7 +666,7 @@ def _validation_argv(args) -> list[str]:
         bare_name = not path.is_absolute() and "/" not in value and "\\" not in value
         argv.append(str(candidate.resolve()) if bare_name and candidate.exists() else value)
     for name in ("config", "task", "method", "source", "criteria", "presets",
-                 "worker_gpus", "worker_cpus", "limit", "msa", "msa_cache_dir",
+                 "worker_gpus", "worker_cpus", "limit", "msa", "msa_source", "msa_server_url", "msa_cache_dir",
                  "msa_profile", "msa_database_dir", "msa_binaries_dir",
                  "msa_workers", "msa_cpus", "jackhmmer_cpus", "nhmmer_cpus",
                  "msa_timeout", "msa_templates", "msa_template_date"):
@@ -717,6 +729,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     display.finish(records)
             return int(any(item["status"] in {"failed", "unavailable"} for item in records))
         with using_model_dir(root):
+            if args.command == 'msa':
+                from src.validate.msa_command import run
+                return run(args, root)
             if args.command == "design":
                 runner = build_design_runner(args, root)
                 if args.show_config:

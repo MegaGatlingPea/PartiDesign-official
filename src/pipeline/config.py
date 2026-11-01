@@ -12,11 +12,12 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from partidesign.paths import inference_config_dir, model_dir as resolve_model_dir
+from src.validate.msa_options import cli_settings
 from src.validate.config import DEFAULTS as VALIDATE_DEFAULTS
 from src.validate.config import merge as merge_validation
-from src.validate.config import validate_af3_settings, _settings, _validate_vina
+from src.validate.config import validate_af3_settings, validate_mol1_settings, _settings, _validate_vina
 
-METHODS = ("esmfold2-fast", "af2_ig", "af3")
+METHODS = ("esmfold2-fast", "af2_ig", "af3", "mol1")
 PROFILES = ("auto", "protein", "nuc", "ppi")
 _ROUTES = {"monomer", "protein", "nuc", "ligand", "peptide", "antibody", "ame", "joint"}
 _ROUTE_ALIASES = {"protein_context": "protein", "nucleic_context": "nuc",
@@ -25,11 +26,11 @@ _ROUTE_ALIASES = {"protein_context": "protein", "nucleic_context": "nuc",
                   "nucleic": "nuc", "na": "nuc"}
 _ROOT_FIELDS = {"preset", "recycle", "seed", "run_name", "output_dir", "from_run",
                 "resume", "generation", "iteration", "openmm",
-                "final", "rounds", "tasks", "presets", "criteria_routes"}
+                "final", "rounds", "tasks", "presets", "criteria_routes", "msa"}
 _TASK_FIELDS = {"preset", "recycle", "iteration", "openmm", "final",
-                "rounds", "presets", "criteria_routes"}
+                "rounds", "presets", "criteria_routes", "msa"}
 _ITERATION_FIELDS = {"sequence", "refold", "filter", "selection", "transition"}
-_FINAL_FIELDS = {"method", "validation", "criteria", "criteria_route", "criteria_mode", "pool",
+_FINAL_FIELDS = {"method", "methods", "validation", "criteria", "criteria_route", "criteria_mode", "pool",
                  "prediction_selection"}
 _SEQUENCE_FIELDS = {"include_gt", "mpnn"}
 _MPNN_FIELDS = {"source", "count", "settings"}
@@ -74,11 +75,11 @@ BUILTINS = {
     "openmm": {"force_field": "amber19sb", "charge_method": "gasteiger",
                "platform": "CUDA", "use_ray": False,
                "worker_gpus": 0.125, "worker_cpus": 1.0},
-    "final": {"method": "af3", "validation": {"af3": {"samples": 5}}, "criteria": None,
+    "final": {"method": "mol1", "validation": {"mol1": {"samples": 5}}, "criteria": None,
               "prediction_selection": "best_ranked",
               "criteria_route": "auto", "criteria_mode": "all",
               "pool": {"source": "history_best", "max_pass": 200}},
-    "presets": {}, "criteria_routes": {}, "tasks": {},
+    "presets": {}, "criteria_routes": {}, "tasks": {}, "msa": {},
 }
 
 
@@ -149,6 +150,10 @@ def _load(path: Path) -> dict:
 def _merge(base: Mapping, overlay: Mapping) -> dict:
     """List replacement and selection-discriminator replacement."""
     result = copy.deepcopy(dict(base))
+    if "methods" in overlay:
+        result.pop("method", None)
+    elif "method" in overlay:
+        result.pop("methods", None)
     for key, value in overlay.items():
         if key == "selection" and isinstance(value, dict) and "mode" in value:
             result[key] = copy.deepcopy(value)
@@ -194,6 +199,9 @@ def _check_overlay(value: dict, label: str, *, task: bool = False) -> None:
         _mapping(value["tasks"], f"{label}.tasks")
         for name, row in value["tasks"].items():
             _check_overlay(row, f"{label}.tasks.{name}", task=True)
+    if "msa" in value:
+        from src.validate.af3_msa import validate_msa_settings
+        validate_msa_settings(value["msa"])
     # Validate scalars even when a later overlay would mask an invalid setting.
     for key in ("recycle",):
         if key in value:
@@ -205,7 +213,15 @@ def _check_overlay(value: dict, label: str, *, task: bool = False) -> None:
     if "final" in value:
         final = value["final"]
         if "method" in final:
-            _choice(final["method"], {"af3", "af2_ig"}, f"{label}.final.method")
+            _choice(final["method"], {"af3", "af2_ig", "mol1"}, f"{label}.final.method")
+        if "methods" in final:
+            methods = final["methods"]
+            if not isinstance(methods, list) or not methods or len(set(methods)) != len(methods):
+                raise ValueError(f"{label}.final.methods must be a nonempty unique list")
+            for method in methods:
+                _choice(method, {"af3", "af2_ig", "mol1"}, f"{label}.final.methods")
+            if "method" in final:
+                raise ValueError(f"{label}.final.method and final.methods are mutually exclusive")
         _check_filter({k: v for k, v in final.items() if k in _FILTER_FIELDS},
                       f"{label}.final")
         if "prediction_selection" in final:
@@ -417,7 +433,7 @@ def _presets(value: dict, label: str) -> dict:
         methods = preset.get("methods")
         if not isinstance(methods, list) or not methods or any(
                 not isinstance(method, str) or method not in
-                {"af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la",
+                {"af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1",
                  "partiscore", "vina_dock"} for method in methods):
             raise ValueError(f"Invalid methods for criterion {name}")
         _choice(preset.get("reduction"), {"all_and_mean", "any_prediction",
@@ -512,7 +528,8 @@ def _validation_defaults() -> dict:
     default_file = inference_config_dir() / "validate.yaml"
     defaults = copy.deepcopy(VALIDATE_DEFAULTS)
     if default_file.is_file():
-        defaults = merge_validation(defaults, _load(default_file))
+        from src.validate.msa_options import merge_shared
+        defaults = merge_shared(defaults, _load(default_file))
     # Keep pipeline-only protocol choices in one place, over native validate defaults.
     defaults["af2"]["mode"] = "both"
     defaults["af3"]["buckets"] = list(range(128, 1025, 128))
@@ -520,19 +537,23 @@ def _validation_defaults() -> dict:
 
 
 def _native_validation(overrides: dict, method: str, samples: int, seed: int,
-                       base: Path, worker_gpus: Any, worker_cpus: Any, *, defaults=None) -> dict:
+                       base: Path, worker_gpus: Any, worker_cpus: Any, *, defaults=None, shared_msa=None, cli_msa=None) -> dict:
     _check_validation(overrides, "validation")
     defaults = copy.deepcopy(_validation_defaults() if defaults is None else defaults)
     # Sequence ownership belongs to the workflow.  These are harmless GT
     # placeholders until runtime resolves each parent's auto MPNN route.
     defaults["sequence"]["sources"] = [{"source": "gt", "label": "self", "count": 1,
                                         "settings": {}}]
-    for group in ("sequence", "af2", "esmfold2", "af3"):
+    for group in ("sequence", "af2", "esmfold2", "af3", "mol1"):
         defaults[group]["seed"] = seed
+    for group in ('af3', 'mol1'):
+        defaults[group]['msa'] = merge_validation(defaults[group]['msa'], shared_msa or {})
     cfg = merge_validation(defaults, overrides)
+    for group in ('af3', 'mol1'):
+        cfg[group]['msa'] = merge_validation(cfg[group]['msa'], cli_msa or {})
     # Validate caller values before workflow-owned sample/mode normalization:
     # bool-as-int or invalid dormant native settings must not be hidden by it.
-    for group in ("af2", "esmfold2", "af3"):
+    for group in ("af2", "esmfold2", "af3", "mol1"):
         _integer(cfg[group]["samples"], f"validation.{group}.samples")
     if cfg["esmfold2"]["mode"] != "fast":
         raise ValueError("pipeline esmfold2.mode must be fast; select method at iteration.refold.method")
@@ -559,12 +580,12 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
         cfg["worker_gpus"] = worker_gpus
     if worker_cpus is not None:
         cfg["worker_cpus"] = worker_cpus
-    selected_group = {"esmfold2-fast": "esmfold2", "af2_ig": "af2", "af3": "af3"}[method]
+    selected_group = {"esmfold2-fast": "esmfold2", "af2_ig": "af2", "af3": "af3", "mol1": "mol1"}[method]
     cfg[selected_group]["samples"] = samples
     cfg["esmfold2"]["mode"] = "fast"
-    for group in ("sequence", "af2", "esmfold2", "af3"):
+    for group in ("sequence", "af2", "esmfold2", "af3", "mol1"):
         _integer(cfg[group]["seed"], f"validation.{group}.seed", 0)
-    for group in ("af2", "esmfold2", "af3"):
+    for group in ("af2", "esmfold2", "af3", "mol1"):
         _integer(cfg[group]["samples"], f"validation.{group}.samples")
     for group, fields in (("af2", ("recycles",)), ("esmfold2", ("loops", "steps"))):
         for key in fields:
@@ -589,6 +610,7 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
         cfg["worker_gpus"] = _number(cfg["worker_gpus"], "validation.worker_gpus", maximum=1)
     cfg["worker_cpus"] = _number(cfg["worker_cpus"], "validation.worker_cpus")
     validate_af3_settings(cfg["af3"])
+    validate_mol1_settings(cfg["mol1"])
     # A scorer path remains part of native config even with the stage disabled.
     cfg["scorer"]["checkpoint"] = _path(cfg["scorer"]["checkpoint"], base,
                                          "validation.scorer.checkpoint")
@@ -826,24 +848,37 @@ def build_config(args: Any, repo_root: str | Path, *,
             normalized_round["validation"] = _native_validation(
                 refold["validation"], refold["method"], refold["conformers"],
                 global_cfg["seed"], base, worker_gpus, worker_cpus,
-                defaults=validation_defaults)
+                defaults=validation_defaults, shared_msa=task_cfg.get("msa", {}),
+                cli_msa=cli_settings(args))
             rounds.append(normalized_round)
         final = copy.deepcopy(task_cfg["final"])
         if getattr(args, "final_criteria", None) is not None:
             final["criteria"] = list(args.final_criteria)
         _check_filter({key: value for key, value in final.items() if key in _FILTER_FIELDS},
                       f"task {name}.final")
-        final_method = _choice(final["method"], {"af3", "af2_ig"}, f"task {name}.final.method")
-        if final_method == "af2_ig" and "nuc" in modalities:
+        methods = final.get("methods", [final.get("method", "mol1")])
+        if "af2_ig" in methods and "nuc" in modalities:
             raise ValueError(f"task {name}: af2_ig does not support nucleic-acid design")
+        final["method"] = methods[0]
+        final.pop("methods", None)
         final["pool"] = _pool(final["pool"], f"task {name}.final.pool")
         final["criteria_route"] = _route(final["criteria_route"], "final.criteria_route")
-        final_group = "af2" if final_method == "af2_ig" else "af3"
-        final_samples = final["validation"].get(final_group, {}).get("samples", 5)
-        final["validation"] = _native_validation(final["validation"], final_method, final_samples,
-                                                  global_cfg["seed"], base,
-                                                  worker_gpus, worker_cpus,
-                                                  defaults=validation_defaults)
+        validators = []
+        for method in methods:
+            _choice(method, {"af3", "af2_ig", "mol1"}, f"task {name}.final.methods")
+            group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1"}[method]
+            samples = final["validation"].get(group, {}).get("samples", 5)
+            validator = dict(final, method=method)
+            validator.pop("methods", None)
+            validator["validation"] = _native_validation(
+                final["validation"], method, samples, global_cfg["seed"], base,
+                worker_gpus, worker_cpus, defaults=validation_defaults, shared_msa=task_cfg.get("msa", {}),
+                cli_msa=cli_settings(args))
+            validators.append(validator)
+        final["validation"] = validators[0]["validation"]
+        if len(validators) > 1:
+            final["methods"] = list(methods)
+            final["validators"] = validators
         openmm = copy.deepcopy(task_cfg["openmm"])
         _mapping(openmm, f"task {name}.openmm", _OPENMM_FIELDS)
         for key in ("force_field", "charge_method"):
@@ -853,7 +888,9 @@ def build_config(args: Any, repo_root: str | Path, *,
             raise ValueError("openmm.use_ray must be boolean")
         _number(openmm["worker_gpus"], "openmm.worker_gpus", maximum=1)
         _number(openmm["worker_cpus"], "openmm.worker_cpus")
-        normalized = {"preset": profile, "recycle": recycle, "rounds": rounds,
+        from src.validate.af3_msa import validate_msa_settings
+        effective_msa = validate_msa_settings({**task_cfg.get('msa', {}), **cli_settings(args)})
+        normalized = {"msa": effective_msa, "preset": profile, "recycle": recycle, "rounds": rounds,
                       "openmm": openmm, "final": final,
                       "presets": definitions, "criteria_routes": routes}
         if len(modalities & {"protein", "nuc"}) > 1:
@@ -862,10 +899,10 @@ def build_config(args: Any, repo_root: str | Path, *,
                     raise ValueError(f"task {name}: mixed design requires explicit criteria_route "
                                      "or criteria for both iteration and final")
         # Explicit routes/names fail in planning, without waiting for models.
-        for stage in [*rounds, final]:
+        for stage in [*rounds, *final.get("validators", [final])]:
             if stage["criteria"] is not None or stage["criteria_route"] != "auto":
-                criteria_for(normalized, "final" if stage is final else stage,
-                             stage["criteria_route"])
+                criteria_for(normalized, stage if stage in rounds else "final",
+                             stage["criteria_route"], method=stage["method"])
         tasks[name] = normalized
     return {"task_file": str(task_file), "task_payload": copy.deepcopy(task_payload),
             "task_names": task_names, "run_name": run_name, "output_dir": output_dir,

@@ -43,6 +43,7 @@ These first commands collect metrics. To publish passing candidates, add criteri
 | `esmfold2-fast` | Protein, RNA, DNA, and ligand-containing structures; fast refolding | `esmfold2-fast` |
 | `esmfold2-standard` | The same input modalities with standard ESMFold2 weights | `esmfold2-standard` |
 | `af2_ig` | One standard protein design chain with protein context; predicts both complex and isolated design chain | `af2` |
+| `mol1` | Protein, RNA, DNA, and ligand-containing structures; shared context MSA/template cache | `mol1` |
 | `af3` | Protein, RNA, DNA, and ligand-containing structures; complex prediction by default | `af3` |
 | `af3-la` | The AF3-LA variant, with its own weights and the same validation interface | `af3-la` |
 | `partiscore` | Interface scoring of saved original structures; no refolding or sequence redesign | Git-supplied `partiscore` |
@@ -53,7 +54,9 @@ With no `--method` or profile, the command selects **`esmfold2-fast`**. A profil
 [`configs/validate.yaml`](../configs/validate.yaml), for example, selects `af3`.
 Explicit method/source/criteria flags override the corresponding profile lists; they do not append
 to those lists. Repeat `--method` for independent method runs, except that `vina_dock` must run
-alone.
+alone. This standalone command retains separate reports and success directories
+per method. Use [pipeline multi-method final filtering](pipeline.md#combine-final-filters)
+for a shared final pool and one union success directory.
 
 Prepare only the backends you need, observing their upstream access terms:
 
@@ -90,6 +93,12 @@ validation according to the actual chemistry and evaluator:
   Protein head-to-tail cyclic intent is represented through cyclic offsets.
   An AF3 refold therefore does not independently verify every requested peptide
   crosslink. Inspect the generated/refined structure and bond geometry as well.
+- Mol-1 passes explicit terminal C–N, disulfide SG–SG and other supported links
+  through its native covalent-bond input, using the same bond endpoint rules as
+  ESMFold2. It keeps upstream positional encoding without an added cyclic-offset
+  transform; `cyclic_offset` alone does not declare a closure bond. Explicit
+  inter-residue links support single or unspecified bond orders. Input support does not
+  guarantee final bond geometry.
 
 ## Choose sequence sources
 
@@ -155,7 +164,7 @@ partidesign validate inference/first_run \
 ```
 
 Remove `--plan` to evaluate and select. Despite its name, `af3_basic` supports both ESMFold2
-variants as well as AF3/AF3-LA. Its required metrics must be present for that input. A missing
+variants as well as AF3/AF3-LA and Mol-1. Its required metrics must be present for that input. A missing
 metric is `unavailable`, not a pass. Repeat `--criteria` for several screens; a row enters
 `success.csv` when it passes **at least one** selected screen. Put all required conditions in a
 single preset when they must hold together.
@@ -166,7 +175,7 @@ Useful shipped presets in [configs/criteria.yaml](../configs/criteria.yaml):
 | --- | --- |
 | Protein binder, AF2 complex/monomer screen | `af2_ig_protein` or benchmark-specific `af2_ig_protdbench` |
 | Standard/cyclic peptide with eligible AF2 chemistry | `af2_ig_peptide` |
-| Protein binder, AF3/ESMFold2 | `af3_basic`, `af3_strict` |
+| Protein binder, AF3/Mol-1/ESMFold2 | `af3_basic`, `af3_strict` |
 | Protein or RNA/DNA monomer consistency | `af3_protein_monomer`, `af3_na_monomer` |
 | Joint protein–nucleic acid geometry | `af3_protein_na_complex` |
 | Protein binding a small molecule | `af3_protein_bind_ligand` |
@@ -183,7 +192,7 @@ custom name, so you can edit thresholds explicitly:
 ```yaml
 presets:
   my_binder:
-    methods: [af3, af3-la, esmfold2-fast, esmfold2-standard]
+    methods: [af3, af3-la, mol1, esmfold2-fast, esmfold2-standard]
     reduction: any_prediction
     rules:
       - {metric: binder_iptm, op: '>', value: 0.8}
@@ -273,7 +282,7 @@ Keep `refolds/` and `.state/` for reuse or recomputation. After applying criteri
 | Repeat the original command | Saved sequences and complete predictions | Finishes missing/incomplete work and rebuilds reports |
 | `--refilter` | Saved metrics | Applies selected criteria and rebuilds reports/links; no models |
 | `--recompute-metrics` | Saved sequences, predictions, and confidence data | Recalculates available geometry/metrics and rebuilds reports; no new model samples |
-| `--rerun-refold` | All requested saved sequence slots | AF3/AF3-LA predictions again; never generates missing MPNN sequences |
+| `--rerun-refold` | All requested saved sequence slots | AF3/AF3-LA/Mol-1 predictions again; never generates missing MPNN sequences |
 | `--rerun` | Original design inputs | Regenerates requested sequence/prediction slots |
 
 ```bash
@@ -295,43 +304,82 @@ plan; `--limit` does not narrow that existing plan. Select tasks explicitly when
 `--plan`, `--refilter`, and `--recompute-metrics` are mutually exclusive. `--rerun` and
 `--rerun-refold` are mutually exclusive. Neither refiltering nor recomputation can accompany
 `--rerun` or `--score`. Recomputation is unsupported for `vina_dock`.
-`--rerun-refold` is AF3/AF3-LA only and cannot accompany plan/refilter/recompute. `--msa-refresh` also cannot accompany plan/refilter/recompute.
+`--rerun-refold` supports AF3/AF3-LA/Mol-1 and cannot accompany plan/refilter/recompute. `--msa-refresh` also cannot accompany plan/refilter/recompute.
 
-## AF3 MSA, templates, and worker resources
+## Mol-1 predictor settings
 
-The current AF3/AF3-LA defaults are **`--msa auto`**, templates enabled, and maximum template date
-**2021-09-30**. MSA/template searches target fixed protein/RNA context chains; designed chains
-remain query-only, and DNA has no MSA search. Generation coordinates are not automatically
-prediction templates.
-
-| Policy | Behavior |
-| --- | --- |
-| `--msa off` | No MSA/template searches; useful for a first evaluator trial |
-| `--msa auto` | Reuse matching cache entries; search missing entries using prepared databases and HMMER binaries |
-| `--msa cache-only` | Require exact ready cache entries; never search to fill a miss |
+Mol-1 uses the same `validate` command, sequence sources, criteria, reports and
+resume interface as the other folding backends:
 
 ```bash
-# A bounded AF3 trial without database searches.
-partidesign validate inference/first_run --method af3 \
-  --source gt:1 --criteria af3_basic --msa off --limit 2 --plan
-
-# Database-backed evaluation; choose paths containing your prepared resources.
-partidesign validate inference/first_run --method af3 --source gt:1 \
-  --criteria af3_basic --msa auto --msa-cache-dir msa_cache \
-  --msa-database-dir /path/to/af3_databases --msa-binaries-dir /path/to/hmmer/bin \
-  --msa-templates true --msa-template-date 2021-09-30 \
-  --msa-workers 2 --msa-cpus 16 --worker-gpus 0.5 --worker-cpus 1 --plan
+partidesign download mol1
+partidesign check --model mol1 --msa off
+partidesign validate inference/first_run --method mol1 --source gt:1 \
+  --criteria af3_basic --msa off --limit 2 --plan
 ```
 
-Remove `--plan` after checking the resources. `partidesign download af3` prepares model assets, not
-the full search databases. `--msa-profile` selects a recorded cache profile and requires
-`--msa cache-only`. `--msa-refresh` requires `--msa auto` and refreshes matching cache
-generations. If an existing prediction used a different MSA/cache profile
-or generation, the runtime requires an explicit rerun decision; add `--rerun-refold` to retain
-sequences and replace AF3 predictions, or `--rerun` to regenerate sequences too.
+Remove `--plan` to predict. For repeatable settings, place the native predictor
+group in a validation profile passed through `--config`:
+
+```yaml
+methods: [mol1]
+sequence:
+  sources: [{source: gt, count: 1}]
+criteria: [af3_basic]
+mol1:
+  samples: 5
+  recycles: 20
+  steps: 200
+  seed: 101
+  dtype: bf16
+  msa: {mode: auto}
+```
+
+Standalone validation defaults to one sample; the protein/nuc pipeline final
+uses five and filters its highest native `ranking_score` sample. `mode` accepts
+`complex`, `monomer`, or `both`. `dtype` accepts `bf16`, `fp32`, or `fp16`.
+`triangle_multiplicative` and `triangle_attention` accept `auto`, `torch`, or
+`cuequivariance`; `auto` uses available kernels. An explicit `checkpoint` path
+overrides the default `community_models/mol1/checkpoint/mol-1-base.pt`.
+These settings belong under `mol1`; pipeline uses `final.mol1` or
+`iteration.refold.mol1` with `method: mol1`.
+
+## Shared MSA, templates, and worker resources
+
+AF3, AF3-LA and Mol-1 share one context MSA/template cache. The defaults are
+`--msa auto`, `--msa-source colabfold`, and maximum template release date
+**2021-09-30**. Fixed protein context receives MSA and templates together;
+`--msa off` disables both. There is no separate template setting to enable.
+Designed chains remain query-only, including peptides and antibody chains.
+ColabFold does not search RNA or DNA. Select `--msa-source af3` to search fixed
+RNA context with the existing local tools; RNA/DNA have no structural templates.
+Generation coordinates are not automatically prediction templates.
+
+```bash
+# Preview the default ColabFold route.
+partidesign validate inference/first_run --method mol1 --source gt:1 \
+  --criteria af3_basic --msa-source colabfold --limit 2 --plan
+
+# Use existing local AF3 search resources instead.
+partidesign validate inference/first_run --method af3 --source gt:1 \
+  --criteria af3_basic --msa-source af3 \
+  --msa-database-dir /path/to/af3_databases --msa-binaries-dir /path/to/hmmer/bin \
+  --msa-template-date 2021-09-30 --plan
+```
+
+Remove `--plan` to run. `auto` reuses a compatible ready entry and searches
+missing queries; `cache-only` requires cached results; `off` uses query-only
+input. `--msa-profile` selects a recorded profile with `cache-only`.
+`--msa-refresh` requires `auto` and publishes a new generation. When new MSA/template
+evidence would change saved prediction inputs, use `--rerun-refold` to keep saved
+sequences, or `--rerun` to regenerate them too.
+
+See [MSA and templates](msa.md) for pre-search commands, shared workflow settings,
+cache paths, source-specific resources and template handling. Mol-1 consumes the
+same normalized evidence as AF3 and does not run a separate online search.
 
 GPU methods use visible CUDA devices; select them with `CUDA_VISIBLE_DEVICES`. Per-worker defaults
-are 0.25 GPU for AF2, 0.5 GPU for AF3/AF3-LA, and 1 GPU for ESMFold2/PartiScore, with 1 CPU per
+are 0.25 GPU for AF2, 0.5 GPU for AF3/AF3-LA, and 1 GPU for Mol-1/ESMFold2/PartiScore, with 1 CPU per
 worker. Fractions reserve scheduling capacity, not a memory limit. Increase `--worker-gpus` if
 concurrent resident models exceed available memory. MSA search CPUs are additional; `--msa-workers`,
 `--msa-cpus`, `--jackhmmer-cpus`, `--nhmmer-cpus`, and `--msa-timeout` bound the search resources.

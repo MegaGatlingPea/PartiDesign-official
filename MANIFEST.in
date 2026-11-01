@@ -37,6 +37,8 @@ include community_models/af3/ccd/README.md
 prune src/validate/tests
 prune src/pipeline/tests
 prune partidesign.egg-info
+prune community_models/mol1/common
+prune community_models/mol1/source/molence.egg-info
 prune community_models/esmfold2/common
 prune community_models/esmfold2/source/dockq/build
 prune community_models/esmfold2/source/dockq/src/dockq.egg-info

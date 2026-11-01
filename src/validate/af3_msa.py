@@ -1,4 +1,4 @@
-"""Exact-query AlphaFold 3 MSA/template cache.
+"""Shared exact-query MSA/template cache for AF3 and Mol-1.
 
 The AF3 SDK is imported only in the isolated data-only subprocess started by
 the cache.  Configuration and cache inspection therefore stay lightweight.
@@ -9,6 +9,7 @@ import contextlib
 import copy
 import datetime as _dt
 import fcntl
+import functools
 import json
 import math
 import os
@@ -24,12 +25,14 @@ import time
 import tomllib
 from collections.abc import Mapping, Sequence
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from partidesign.paths import af3_source, asset_root
 
 DEFAULT_MSA_CONFIG: dict[str, Any] = {
     "mode": "auto",
+    "source": "colabfold",
+    "server_url": "https://api.colabfold.com",
     "cache_dir": ".cache/af3_msa",
     "cache_profile": None,
     "database_dir": None,
@@ -125,6 +128,14 @@ def validate_msa_settings(settings: Mapping[str, Any] | None) -> dict[str, Any]:
     result.update(copy.deepcopy(dict(raw)))
     if not isinstance(result["mode"], str) or result["mode"] not in {"auto", "off", "cache-only"}:
         raise MSAConfigError("mode must be auto, off, or cache-only")
+    if not isinstance(result["source"], str) or result["source"] not in {"colabfold", "af3"}:
+        raise MSAConfigError("source must be colabfold or af3")
+    if not isinstance(result["server_url"], str):
+        raise MSAConfigError("server_url must be an HTTP(S) URL")
+    result["server_url"] = result["server_url"].strip().rstrip("/")
+    address = urlsplit(result["server_url"])
+    if address.scheme not in {"http", "https"} or not address.netloc or address.query or address.fragment or address.username:
+        raise MSAConfigError("server_url must be an HTTP(S) URL without credentials, query or fragment")
     for key in ("cache_dir",):
         if isinstance(result[key], os.PathLike):
             result[key] = os.fspath(result[key])
@@ -176,7 +187,17 @@ def validate_msa_settings(settings: Mapping[str, Any] | None) -> dict[str, Any]:
         raise MSAConfigError("max_template_date must be an ISO date string") from exc
     if parsed_date.isoformat() != result["max_template_date"]:
         raise MSAConfigError("max_template_date must be an ISO date string")
+    if result["mode"] == "off":
+        result["templates"] = False
     return result
+
+
+def msa_query_enabled(settings: Mapping[str, Any], modality: str) -> bool:
+    """The selected source determines which fixed context chains can be searched."""
+    if settings.get("mode", "auto") == "off":
+        return False
+    return modality == "protein" or (
+        modality == "rna" and settings.get("source", "colabfold") == "af3")
 
 
 def resolve_msa_settings(
@@ -247,6 +268,13 @@ def _validate_a3m(text: str, query: str, name: str) -> int:
         if index == 0 and columns.replace("-", "") != query:
             raise MSASearchError(f"{name} first row does not match query")
     return len(rows)
+
+
+@functools.lru_cache(maxsize=128)
+def _validate_cached_a3m(path: str, query: str, label: str,
+                         stamp: tuple[int, int]) -> int:
+    """Validate an immutable generation file once, without retaining its text."""
+    return _validate_a3m(Path(path).read_text(), query, label)
 
 
 def _database_dir() -> Path | None:
@@ -403,6 +431,20 @@ class AF3MSACache:
         raise MSAConfigError(f"unsupported modality: {modality}")
 
     def _resources(self, modality: str) -> dict[str, Any]:
+        if self.settings["source"] == "colabfold":
+            if modality != "protein":
+                return {"resources_ready": True, "skipped": True,
+                        "reason": "ColabFold does not search nucleic-acid MSA"}
+            binary = None
+            if self.settings["templates"]:
+                from .colabfold_msa import hhsearch_binary
+                binary = hhsearch_binary(self.settings)
+            missing = ["hhsearch"] if self.settings["templates"] and binary is None else []
+            return {"source": "colabfold", "server_url": self.settings["server_url"],
+                    "databases": {}, "missing_databases": [],
+                    "binaries": {"hhsearch": {"path": binary, "exists": binary is not None}},
+                    "missing_binaries": missing, "resources_ready": not missing,
+                    "network_checked": False}
         databases = {}
         missing_db = []
         for name in self._needed_db(modality):
@@ -560,6 +602,17 @@ class AF3MSACache:
         return "unknown"
 
     def _profile(self) -> dict[str, Any]:
+        if self.settings["source"] == "colabfold":
+            return {
+                "schema_version": _SCHEMA, "source": "colabfold",
+                "adapter_version": "colabfold_msa_cache_v1",
+                "source_api": "colabfold.mmseqs2", "server_url": self.settings["server_url"],
+                "database_revision": self.settings["database_revision"],
+                "result_params": {"use_env": True, "use_filter": True, "pairing": "query-only"},
+                "template_settings": {"enabled": self.settings["templates"],
+                                      "max_template_date": self.settings["max_template_date"],
+                                      "max_templates": 4},
+            }
         source_version = self._source_version()
         dbs = {}
         for name in _DATABASES:
@@ -583,7 +636,7 @@ class AF3MSACache:
         }
         return {
             "schema_version": _SCHEMA,
-            "adapter_version": "af3_msa_cache_v1",
+            "adapter_version": "af3_msa_cache_v1", "source": "af3",
             "source_api": "alphafold3.data.pipeline.DataPipeline",
             "af3_version": source_version,
             "tool_versions": tools,
@@ -673,8 +726,16 @@ class AF3MSACache:
         """
         if not isinstance(payload, Mapping):
             return False
-        if (payload.get("schema_version") != _SCHEMA
-                or payload.get("adapter_version") != "af3_msa_cache_v1"
+        source = payload.get("source", "af3")
+        if source != self.settings["source"] or payload.get("schema_version") != _SCHEMA:
+            return False
+        if source == "colabfold":
+            if (modality != "protein" or payload.get("adapter_version") != "colabfold_msa_cache_v1"
+                    or payload.get("source_api") != "colabfold.mmseqs2"
+                    or payload.get("server_url") != self.settings["server_url"]
+                    or payload.get("result_params") != {"use_env": True, "use_filter": True, "pairing": "query-only"}):
+                return False
+        elif (payload.get("adapter_version") != "af3_msa_cache_v1"
                 or payload.get("source_api") != "alphafold3.data.pipeline.DataPipeline"):
             return False
         revision = self.settings["database_revision"]
@@ -683,9 +744,10 @@ class AF3MSACache:
         params = payload.get("result_params")
         if not isinstance(params, Mapping):
             return False
-        for key, expected in _SEARCH_PARAMETERS.items():
-            if (key == "deduplicate" or key.startswith(modality + "_")) and params.get(key) != expected:
-                return False
+        if source == "af3":
+            for key, expected in _SEARCH_PARAMETERS.items():
+                if (key == "deduplicate" or key.startswith(modality + "_")) and params.get(key) != expected:
+                    return False
         if modality == "protein":
             template_settings = payload.get("template_settings")
             if not isinstance(template_settings, Mapping):
@@ -779,7 +841,8 @@ class AF3MSACache:
             raise MSAError("cache entry allocation failed")
         return int(row["id"])
 
-    def _reference(self, entry_id: int, profile_id: int | None = None) -> dict[str, Any] | None:
+    def _reference(self, entry_id: int, profile_id: int | None = None,
+                   generation_id: int | None = None) -> dict[str, Any] | None:
         try:
             with self._connect(readonly=True) as conn:
                 entry = conn.execute("SELECT * FROM entries WHERE id=?", (entry_id,)).fetchone()
@@ -788,9 +851,10 @@ class AF3MSACache:
                 if profile_id is not None and int(entry["profile_id"]) != profile_id:
                     return None
                 profile = conn.execute("SELECT canonical_profile_text FROM profiles WHERE id=?", (int(entry["profile_id"]),)).fetchone()
+                chosen_generation = int(entry["ready_generation"] if generation_id is None else generation_id)
                 generation = conn.execute(
                     "SELECT * FROM generations WHERE entry_id=? AND generation_id=?",
-                    (entry_id, int(entry["ready_generation"])),
+                    (entry_id, chosen_generation),
                 ).fetchone()
         except (OSError, sqlite3.Error):
             return None
@@ -815,7 +879,7 @@ class AF3MSACache:
             (
                 manifest.get("status") != "ready",
                 manifest.get("entry_id") != entry_id,
-                manifest.get("generation_id") != int(entry["ready_generation"]),
+                manifest.get("generation_id") != chosen_generation,
                 manifest.get("profile_id") != int(entry["profile_id"]),
                 manifest.get("modality") != modality,
                 manifest.get("exact_query") != entry["exact_query"],
@@ -832,9 +896,14 @@ class AF3MSACache:
         if unpaired is None or (modality == "protein" and paired is None):
             return None
         try:
-            _validate_a3m(unpaired.read_text(), str(entry["exact_query"]), "unpaired")
+            stat = unpaired.stat()
+            unpaired_depth = _validate_cached_a3m(str(unpaired), str(entry["exact_query"]), "unpaired",
+                                                  (stat.st_mtime_ns, stat.st_size))
+            paired_depth = 0
             if paired is not None:
-                _validate_a3m(paired.read_text(), str(entry["exact_query"]), "paired")
+                stat = paired.stat()
+                paired_depth = _validate_cached_a3m(str(paired), str(entry["exact_query"]), "paired",
+                                                    (stat.st_mtime_ns, stat.st_size))
         except (OSError, UnicodeError, MSASearchError):
             return None
         templates = []
@@ -854,7 +923,9 @@ class AF3MSACache:
             if any(key < 0 or key >= len(entry["exact_query"]) or value < 0
                    for key, value in mapping.items()):
                 return None
-            templates.append({"mmcif_path": str(path), "query_to_template_map": mapping})
+            templates.append({**{key: copy.deepcopy(value) for key, value in item.items()
+                                  if key not in {"mmcif", "query_to_template_map"}},
+                              "mmcif_path": str(path), "query_to_template_map": mapping})
         return {
             "modality": modality,
             "sequence": str(entry["exact_query"]),
@@ -863,12 +934,18 @@ class AF3MSACache:
             "profile_id": int(entry["profile_id"]),
             "profile_text": profile["canonical_profile_text"],
             "cache_dir": str(self.cache_dir),
-            "generation_id": int(entry["ready_generation"]),
-            "generation": int(entry["ready_generation"]),
+            "generation_id": chosen_generation,
+            "generation": chosen_generation,
             "unpaired_msa_path": str(unpaired),
             **({"paired_msa_path": str(paired)} if paired is not None else {}),
             "templates": templates,
-            "provenance": "native-searched",
+            "msa_depth": unpaired_depth,
+            "paired_msa_depth": paired_depth,
+            "template_count": len(templates),
+            "provenance": manifest.get("provenance", "native-searched"),
+            "source": manifest.get("source", "af3"),
+            "server_url": manifest.get("server_url"),
+            "search_provenance": copy.deepcopy(manifest.get("search_provenance", {})),
             "status": "ready",
             "no_hit": bool(manifest.get("no_hit", False)),
         }
@@ -932,12 +1009,45 @@ class AF3MSACache:
     def lookup(self, modality: str, sequence: str) -> dict[str, Any] | None:
         if modality not in _MODALITIES:
             raise MSAConfigError(f"unsupported modality: {modality}")
+        if not msa_query_enabled(self.settings, modality):
+            return None
         sequence = _sequence(sequence)
         for row in self._cached_candidates(modality, sequence):
             reference = self._reference(int(row["id"]), int(row["profile_id"]))
             if reference is not None:
                 return reference
         return None
+
+    def reference(self, entry_id: int, profile_id: int, generation_id: int) -> dict[str, Any] | None:
+        """Read a run's pinned generation, including a superseded generation."""
+        try:
+            with self._connect(readonly=True) as conn:
+                row = conn.execute("SELECT profile_json FROM profiles WHERE id=?", (profile_id,)).fetchone()
+            payload = None if row is None else json.loads(row["profile_json"])
+        except (OSError, sqlite3.Error, ValueError):
+            return None
+        reference = self._reference(entry_id, profile_id, generation_id)
+        if reference is None or not self._compatible_profile(payload, reference["modality"]):
+            return None
+        return reference
+
+    def _search(self, modality: str, sequence: str) -> dict[str, Any]:
+        if self.settings["source"] == "af3":
+            return self._native_search(modality, sequence)
+        from .colabfold_msa import search_colabfold
+        temporary = Path(tempfile.mkdtemp(prefix="colabfold-", dir=self.work_dir))
+        # One remote producer across processes sharing this cache. Identical
+        # queries are separately deduplicated by their entry locks.
+        path = self.lock_dir / "colabfold.lock"
+        try:
+            with path.open("a+") as handle:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                try:
+                    return search_colabfold(sequence, self.settings, temporary)
+                finally:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            shutil.rmtree(temporary, ignore_errors=True)
 
     def _native_search(self, modality: str, sequence: str) -> dict[str, Any]:
         resources = self._resources(modality)
@@ -1084,13 +1194,23 @@ class AF3MSACache:
                 clean = {int(key): int(value) for key, value in mapping.items()}
             except (TypeError, ValueError) as exc:
                 raise MSASearchError("native template map is not integral") from exc
-            templates.append({"mmcif": item["mmcif"], "query_to_template_map": clean})
+            if len(clean) != len(mapping) or any(q < 0 or q >= len(sequence) or t < 0 for q, t in clean.items()):
+                raise MSASearchError("template map is outside the query/template sequence axis")
+            if self.settings["source"] == "colabfold":
+                try:
+                    release = _dt.date.fromisoformat(item["release_date"])
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise MSASearchError("ColabFold template lacks a real ISO release_date") from exc
+                if release > _dt.date.fromisoformat(self.settings["max_template_date"]):
+                    raise MSASearchError("ColabFold template exceeds max_template_date")
+            templates.append({**copy.deepcopy(dict(item)), "mmcif": item["mmcif"], "query_to_template_map": clean})
         no_hit = bool(result.get("no_hit", unpaired_depth == 1 and paired_depth == 1 and not templates))
         return unpaired, paired, templates, no_hit
 
     def _publish(
         self, entry_id: int, profile_id: int, modality: str, sequence: str,
         unpaired: str, paired: str | None, templates: Sequence[Mapping[str, Any]], no_hit: bool,
+        search_provenance: Any = None,
     ) -> dict[str, Any]:
         if self.readonly:
             raise MSAReadOnlyError("cannot publish read-only cache")
@@ -1121,7 +1241,12 @@ class AF3MSACache:
                 "schema_version": _SCHEMA, "status": "ready", "modality": modality,
                 "exact_query": sequence, "entry_id": entry_id, "profile_id": profile_id,
                 "generation_id": generation_id, "unpaired_msa": "unpaired.a3m",
-                "templates": [], "no_hit": no_hit, "provenance": "native-searched",
+                "templates": [], "no_hit": no_hit,
+                "source": self.settings["source"],
+                "provenance": "colabfold-searched" if self.settings["source"] == "colabfold" else "native-searched",
+                "server_url": self.settings["server_url"] if self.settings["source"] == "colabfold" else None,
+                "searched_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+                "search_provenance": copy.deepcopy(search_provenance) if isinstance(search_provenance, Mapping) else {},
             }
             if modality == "protein":
                 if paired is None:
@@ -1132,6 +1257,8 @@ class AF3MSACache:
                 filename = f"template{index:06d}.mmcif"
                 self._atomic(stage / filename, str(item["mmcif"]))
                 manifest["templates"].append({
+                    **{key: copy.deepcopy(value) for key, value in item.items()
+                       if key not in {"mmcif", "query_to_template_map"}},
                     "mmcif": filename,
                     "query_to_template_map": {
                         str(key): int(value) for key, value in item["query_to_template_map"].items()
@@ -1190,7 +1317,7 @@ class AF3MSACache:
             raise MSAConfigError(f"unsupported modality: {modality}")
         sequence = _sequence(sequence)
         mode = self.settings["mode"]
-        if mode == "off":
+        if not msa_query_enabled(self.settings, modality):
             return None
         if mode == "cache-only":
             result = self.lookup(modality, sequence)
@@ -1207,17 +1334,20 @@ class AF3MSACache:
         if profile_id is None:
             raise MSAError("could not allocate profile")
         entry_id = self._entry(modality, sequence, profile_id)
+        before = self._reference(entry_id, profile_id) if self.settings["refresh"] else None
+        before_generation = None if before is None else before["generation_id"]
         with self._lock(entry_id):
             self._reconcile_entry(entry_id)
             ready = self._reference(entry_id, profile_id)
-            if ready is not None and not self.settings["refresh"]:
+            if ready is not None and (not self.settings["refresh"] or ready["generation_id"] != before_generation):
                 return ready
             try:
-                result = self._native_search(modality, sequence)
+                result = self._search(modality, sequence)
                 unpaired, paired, templates, no_hit = self._normal_result(modality, sequence, result)
                 return self._publish(
                     entry_id, profile_id, modality, sequence,
                     unpaired, paired, templates, no_hit,
+                    search_provenance=result.get("provenance"),
                 )
             except MSAError as exc:
                 self._failure(entry_id, exc, ready is not None)
@@ -1268,7 +1398,7 @@ class AF3MSACache:
         cache["ready_entries"] = 0
         cache["ready_entries_by_modality"] = {}
         result: dict[str, Any] = {
-            "mode": self.settings["mode"], "readonly": self.readonly,
+            "mode": self.settings["mode"], "source": self.settings["source"], "readonly": self.readonly,
             "templates": self.settings["templates"],
             "max_template_date": self.settings["max_template_date"],
             "cache": cache, "modalities": {}, "query_availability": "unknown",
@@ -1283,6 +1413,13 @@ class AF3MSACache:
         selector = self.settings["cache_profile"]
         native_ready = None
         for item in wanted:
+            if not msa_query_enabled(self.settings, item):
+                report = {"ready": True, "skipped": True,
+                          "reason": "ColabFold does not search nucleic-acid MSA"}
+                result["modalities"][item] = report
+                result[item] = report
+                cache["ready_entries_by_modality"][item] = 0
+                continue
             candidates = self._cached_candidates(item)
             seen, profiles = set(), set()
             for row in candidates:
@@ -1308,11 +1445,14 @@ class AF3MSACache:
                               reason="no readable compatible cache entries for modality")
             else:
                 report.update(self._resources(item))
-                if report["resources_ready"] and native_ready is None:
-                    native_ready = self._native_ready()
-                report["native_import"] = native_ready
+                if self.settings["source"] == "af3":
+                    if report["resources_ready"] and native_ready is None:
+                        native_ready = self._native_ready()
+                    report["native_import"] = native_ready
+                    report["ready"] = bool(report["resources_ready"] and native_ready)
+                else:
+                    report["ready"] = report["resources_ready"]
                 report["search_resources_checked"] = True
-                report["ready"] = bool(report["resources_ready"] and native_ready)
             result["modalities"][item] = report
             result[item] = report
         result["ready"] = all(result["modalities"][item]["ready"] for item in wanted)
@@ -1322,5 +1462,5 @@ class AF3MSACache:
 __all__ = [
     "AF3MSACache", "DEFAULT_MSA_CONFIG", "MSACacheMiss", "MSAConfigError",
     "MSAError", "MSAReadOnlyError", "MSAResourceError", "MSASearchError",
-    "MSASearchTimeout", "resolve_msa_settings", "validate_msa_settings",
+    "MSASearchTimeout", "resolve_msa_settings", "validate_msa_settings", "msa_query_enabled",
 ]

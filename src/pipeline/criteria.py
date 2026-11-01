@@ -50,7 +50,7 @@ def _relaxed(preset: dict) -> dict:
 
 def _protein_binder(preset: dict) -> dict:
     result = copy.deepcopy(preset)
-    result["methods"] = ["esmfold2-fast", "af3"]
+    result["methods"] = ["esmfold2-fast", "af3", "mol1"]
     thresholds = {
         "binder_iptm": 0.6,
         "binder_ptm": 0.7,
@@ -112,7 +112,7 @@ def motif_reference_preset(native=None, *, nucleic=False):
              if rule["metric"] == "motif_rmsd_reference"]
     if not rules:
         raise ValueError(f"validate {source_name} must define the strict motif RMSD rule")
-    return {"methods": ["esmfold2-fast", "af2_ig", "af3"],
+    return {"methods": ["esmfold2-fast", "af2_ig", "af3", "mol1"],
             "reduction": "any_prediction", "rules": rules}
 
 

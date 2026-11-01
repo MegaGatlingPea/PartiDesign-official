@@ -61,6 +61,7 @@ dist/
 /community_models/**/*.sqlite3
 /community_models/af3/ccd/*
 !/community_models/af3/ccd/README.md
+/community_models/mol1/common/
 /community_models/esmfold2/common/*
 !/community_models/esmfold2/common/README.md
 !/community_models/cyclicmpnn/checkpoint/

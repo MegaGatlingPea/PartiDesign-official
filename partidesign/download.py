@@ -113,6 +113,7 @@ _PROTEINMPNN_URL = "https://raw.githubusercontent.com/dauparas/ProteinMPNN/8907e
 _LIGANDMPNN_URL = "https://files.ipd.uw.edu/pub/ligandmpnn"
 _NA_MPNN_URL = "https://raw.githubusercontent.com/baker-laboratory/NA-MPNN/9fabc2482092b725e067969fba21297a806b6fda/models/design_model/s_19137.pt"
 _ALPHAFOLD_PARAMS_URL = "https://storage.googleapis.com/alphafold/alphafold_params_2022-12-06.tar"
+_MOL1_RELEASE_URL = "https://mol-1-release.oss-cn-shanghai.aliyuncs.com"
 
 _PROTEINMPNN_VANILLA = ("v_48_002.pt", "v_48_010.pt", "v_48_020.pt", "v_48_030.pt")
 _PROTEINMPNN_CA = ("v_48_002.pt", "v_48_010.pt", "v_48_020.pt")
@@ -225,6 +226,20 @@ _CATALOG: dict[str, _TargetSpec] = {
     "esmfold2-fast": _TargetSpec("esmfold2-fast", _esmfold2_assets("fast")),
     "esmfold2-standard": _TargetSpec("esmfold2-standard", _esmfold2_assets("standard")),
     "af2": _TargetSpec("af2", _af2_assets(), archive_url=_ALPHAFOLD_PARAMS_URL),
+    "mol1": _TargetSpec(
+        "mol1",
+        (
+            _asset("community_models/mol1/checkpoint/mol-1-base.pt",
+                   f"{_MOL1_RELEASE_URL}/checkpoint/mol-1-base.pt"),
+            *(_AssetSpec(f"community_models/mol1/common/{name}",
+                         archive_member=f"common/{name}")
+              for name in ("components.cif", "components.cif.rdkit_mol.pkl",
+                           "clusters-by-entity-40.txt", "obsolete_release_date.csv",
+                           "obsolete_to_successor.json", "release_date_cache.json",
+                           "seq_to_pdb_index.json")),
+        ),
+        archive_url=f"{_MOL1_RELEASE_URL}/common.tar.gz",
+    ),
     "af3": _TargetSpec(
         "af3",
         (

@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 import re
+import functools
 from pathlib import Path
 from typing import Any
 
@@ -745,6 +746,14 @@ def _validate_template_reference(template: Mapping[str, Any], query_length: int)
     raise AF3InputError("Cached template query indices collide after integer conversion")
   if any(key < 0 or key >= query_length or value < 0 for key, value in mapping.items()):
     raise AF3InputError("Cached template query/template index is out of range")
+  stat = path.stat()
+  length = _template_sequence_length(str(path), (stat.st_mtime_ns, stat.st_size))
+  if any(value >= length for value in mapping.values()):
+    raise AF3InputError("Cached template index exceeds its full residue sequence")
+
+
+@functools.lru_cache(maxsize=128)
+def _template_sequence_length(path_text: str, stamp: tuple[int, int]) -> int:
   # Validate against the same native residue sequence that AF3's template
   # features index, including unresolved template residues. Atom row count
   # and maximum author number are not template coordinate dimensions.
@@ -752,7 +761,7 @@ def _validate_template_reference(template: Mapping[str, Any], query_length: int)
     from alphafold3 import structure
 
     native = structure.from_mmcif(
-        mmcif_string=path.read_text(), fix_mse_residues=True,
+        mmcif_string=Path(path_text).read_text(), fix_mse_residues=True,
         fix_arginines=True, include_water=False, include_bonds=False, include_other=True,
     )
     polymer_chains = native.polymer_auth_asym_id_to_label_asym_id()
@@ -763,9 +772,8 @@ def _validate_template_reference(template: Mapping[str, Any], query_length: int)
   except AF3InputError:
     raise
   except Exception as exc:
-    raise AF3InputError(f"Cached template is not native AF3-readable: {path}") from exc
-  if any(value >= length for value in mapping.values()):
-    raise AF3InputError(f"Cached template residue index is out of range for {path}")
+    raise AF3InputError(f"Cached template is not native AF3-readable: {path_text}") from exc
+  return length
 
 
 def _validate_msa_reference(chain: Mapping[str, Any], reference: Mapping[str, Any]) -> None:
@@ -782,22 +790,8 @@ def _validate_msa_reference(chain: Mapping[str, Any], reference: Mapping[str, An
     path = Path(raw_path)
     if not path.is_file():
       raise AF3InputError(f"Missing cached {key}: {path}")
-    try:
-      rows = _a3m_rows(path.read_text(), path=path)
-    except (OSError, UnicodeError) as exc:
-      raise AF3InputError(f"Cached A3M cannot be read: {path}") from exc
-    # Native A3M first row must be the exact normalized FINAL native query.
-    if not rows or rows[0] != chain["sequence"]:
-      raise AF3InputError(f"Cached A3M query differs from native chain {chain['id']}")
-    for index, row in enumerate(rows):
-      if not re.fullmatch(r"[A-Za-z-]+", row):
-        raise AF3InputError(f"Cached A3M row {index} contains invalid residues: {path}")
-      columns = "".join(character for character in row if not character.islower())
-      if len(columns) != len(chain["sequence"]):
-        raise AF3InputError(
-            f"Cached A3M row {index} has {len(columns)} query columns, "
-            f"expected {len(chain['sequence'])}: {path}"
-        )
+    stat = path.stat()
+    _validate_msa_alignment(str(path), str(chain["sequence"]), (stat.st_mtime_ns, stat.st_size))
   templates = reference.get("templates", ())
   if not isinstance(templates, (tuple, list)):
     raise AF3InputError("Cached templates must be a sequence")
@@ -809,22 +803,46 @@ def _validate_msa_reference(chain: Mapping[str, Any], reference: Mapping[str, An
     _validate_template_reference(template, len(chain["sequence"]))
 
 
-def msa_queries(payload: Mapping[str, Any], design_chains: Sequence[str]) -> list[dict[str, str]]:
+
+@functools.lru_cache(maxsize=128)
+def _validate_msa_alignment(path_text: str, sequence: str, stamp: tuple[int, int]) -> None:
+  path = Path(path_text)
+  try:
+    rows = _a3m_rows(path.read_text(), path=path)
+  except (OSError, UnicodeError) as exc:
+    raise AF3InputError(f"Cached A3M cannot be read: {path}") from exc
+  if not rows or rows[0] != sequence:
+    raise AF3InputError(f"Cached A3M query differs from native sequence: {path}")
+  for index, row in enumerate(rows):
+    if not re.fullmatch(r"[A-Za-z-]+", row):
+      raise AF3InputError(f"Cached A3M row {index} contains invalid residues: {path}")
+    columns = "".join(character for character in row if not character.islower())
+    if len(columns) != len(sequence):
+      raise AF3InputError(
+          f"Cached A3M row {index} has {len(columns)} query columns, "
+          f"expected {len(sequence)}: {path}")
+
+def msa_queries(payload: Mapping[str, Any], design_chains: Sequence[str],
+                settings: Mapping[str, Any] | None = None) -> list[dict[str, str]]:
   """Native per-chain queries; designed chains remain query-only."""
+  from src.validate.af3_msa import msa_query_enabled
   design = set(design_chains)
   return [{"native_id": str(chain["id"]), "source_id": str(chain["source_id"]),
            "modality": str(chain["modality"]), "sequence": str(chain["sequence"])}
           for chain in payload["chains"]
           if chain["modality"] in {"protein", "rna"}
+          and (settings is None or msa_query_enabled(settings, str(chain["modality"])))
           and chain.get("role") != "design" and chain.get("source_id") not in design]
 
 
-def attach_msa_references(payload: Mapping[str, Any], design_chains: Sequence[str], references: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def attach_msa_references(payload: Mapping[str, Any], design_chains: Sequence[str], references: Sequence[Mapping[str, Any]],
+                          settings: Mapping[str, Any] | None = None) -> dict[str, Any]:
   """Attach one immutable cache reference independently to each native chain."""
   result = dict(payload, chains=[dict(chain) for chain in payload["chains"]])
-  queries = {query["native_id"]: query for query in msa_queries(payload, design_chains)}
+  queries = {query["native_id"]: query for query in msa_queries(payload, design_chains, settings)}
   contexts = []
   for chain in result["chains"]:
+    chain.pop("msa_reference", None)
     if str(chain["id"]) not in queries:
       continue
     matching = [ref for ref in references if (ref["modality"], ref["sequence"]) == (chain["modality"], chain["sequence"])]
@@ -834,9 +852,14 @@ def attach_msa_references(payload: Mapping[str, Any], design_chains: Sequence[st
     _validate_msa_reference(chain, reference)
     chain["msa_reference"] = reference
     contexts.append({"native_id": chain["id"], "source_id": chain["source_id"],
-                     **{key: reference.get(key) for key in ("modality", "sequence", "entry_id", "profile_id", "profile_text", "cache_dir", "generation", "generation_id", "provenance")}})
+                     **{key: reference.get(key) for key in ("modality", "sequence", "entry_id", "profile_id", "profile_text", "cache_dir", "generation", "generation_id", "provenance", "source", "server_url", "msa_depth", "paired_msa_depth", "template_count")}})
   result["msa_context"] = {"chains": contexts, "resolve_msa_overlaps": bool(contexts),
                            "max_templates": 4 if any(c.get("msa_reference", {}).get("templates") for c in result["chains"]) else 0}
+  if settings is not None:
+    result["msa_context"]["policy"] = {
+        key: settings.get(key) for key in ("mode", "source", "server_url", "max_template_date")}
+    result["msa_context"]["policy"]["templates"] = bool(
+        settings.get("mode", "auto") != "off" and settings.get("templates", True))
   return result
 
 

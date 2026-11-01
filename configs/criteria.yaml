@@ -100,6 +100,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -117,6 +118,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -134,6 +136,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: best_ranked
@@ -151,6 +154,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -171,6 +175,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -182,6 +187,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -194,6 +200,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -206,6 +213,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -217,6 +225,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -228,6 +237,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -239,6 +249,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -250,6 +261,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -267,6 +279,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction
@@ -283,6 +296,7 @@ presets:
     methods:
     - af3
     - af3-la
+    - mol1
     - esmfold2-fast
     - esmfold2-standard
     reduction: any_prediction

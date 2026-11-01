@@ -4,19 +4,26 @@ Run environment commands from the repository root. Model assets stay in `ckpts/`
 and `community_models/`, or in `PARTIDESIGN_MODEL_DIR`; switching environments
 uses the same weights.
 
-| Definition | Environment | Python | PyTorch | JAX GPU plugins | BioIR |
-| --- | --- | --- | --- | --- | --- |
-| `partidesign_cu12.yaml` | `partidesign` | 3.12.6 | 2.9.1+cu128 | 0.10.2 / CUDA 12 | No |
-| `partidesign_cu13.yaml` | `partidesign_cu13` | 3.12.6 | 2.11.0+cu130 | 0.10.2 / CUDA 13 | Optional backend |
+| Definition | Environment | Python | PyTorch | JAX GPU plugins | cuEquivariance | BioIR |
+| --- | --- | --- | --- | --- | --- | --- |
+| `partidesign_cu12.yaml` | `partidesign` | 3.12.6 | 2.9.1+cu128 | 0.10.2 / CUDA 12 | 0.10.0 / CUDA 12 | No |
+| `partidesign_cu13.yaml` | `partidesign_cu13` | 3.12.6 | 2.11.0+cu130 | 0.10.2 / CUDA 13 | 0.13.0 / CUDA 13 | Optional backend |
 
 Both definitions include design, antibody and peptide inference, PartiScore,
 ProteinMPNN, solubleMPNN, LigandMPNN, CyclicMPNN, NA-MPNN, both ESMFold2 variants,
-AF2, AF3 and AF3-LA, HMMER MSA/template tools, USalign clustering, and
-OpenMM/PDBFixer/OpenFF/AmberTools refinement with Vina/Meeko/OpenBabel docking.
+AF2, AF3, AF3-LA and Mol-1, shared ColabFold MSA/template search, local
+AF3/HMMER search tools, USalign clustering, and OpenMM/PDBFixer/OpenFF/AmberTools
+refinement with Vina/Meeko/OpenBabel docking.
 Both also declare DSSP 4.6.1, libmcfp 2.0.1 and PyRosetta 2026.39 for the
 CPU [postfilter workflow](postfilter.md).
 The corresponding weights and local MSA databases remain separate downloads.
-See [downloads](download.md) and [validation](validate.md).
+See [downloads](download.md), [shared MSA/templates](msa.md), and
+[validation](validate.md).
+
+Use a complete checkout for either definition. Both YAMLs install editable
+PartiDesign, AF3 (`community_models/af3/source`), and Mol-1
+(`community_models/mol1/source`) packages. Relative install paths require the
+repository root. Do not use `--no-deps` or ignore resolver errors.
 
 ## Install CUDA 12
 
@@ -69,10 +76,6 @@ partidesign --help
 python -c "import torch, jax; print(torch.__version__, torch.version.cuda); print(torch.cuda.get_device_name()); print(jax.devices())"
 ```
 
-Use a complete checkout: the YAML installs local vendored backends, the BioIR
-kernel runtime, and editable PartiDesign/AF3 packages. Relative install paths
-require the repository root. Do not use `--no-deps` or ignore resolver errors.
-
 ## Move from CUDA 12
 
 Create `partidesign_cu13` alongside `partidesign`, then activate it for the same
@@ -92,13 +95,18 @@ use the separate environment. Recreate an old minimal experimental
 
 ## BioIR provider and execution
 
-The YAML installs `partidesign-bioir-kernels==0.2.0+partidesign.1` from
+The CUDA 13 YAML installs `partidesign-bioir-kernels==0.2.0+partidesign.1` from
 [`runtime/bioir-kernels`](../runtime/bioir-kernels/README.md). This separately
 named runtime covers the kernel API used by PartiDesign. Its build verifies the
 SHA256 of NVIDIA's pinned 0.2.0 wheel and retains the package files, native
 kernels and licenses. The complete upstream SDK pins scientific packages for
 other model pipelines; those pipeline dependencies are outside this runtime's
 scope. Installation uses the normal dependency resolver.
+
+Mol-1 and BioIR share cuEquivariance 0.13.0 and its CUDA 13 operations packages
+with PyTorch 2.11. The BioIR runtime declares a compatible cuEquivariance range
+of `>=0.11.1,<0.14`. The CUDA 12 definition pins cuEquivariance 0.10.0 and its
+CUDA 12 operations packages for Mol-1 with PyTorch 2.9.1.
 
 Do not also install `bionemo-ir`: both distributions supply `bionemo_ir`, and
 PartiDesign rejects duplicate providers. A compatible complete official 0.2.x
@@ -133,8 +141,8 @@ Select `--execution-backend native` to require native execution; its automatic
 compilation still follows the 100-candidate threshold. CPU checks and
 `design --show-config` do not probe GPU capabilities, so automatic selection is
 pending until runtime. See the
-[execution guide](design.md#experimental-bioir-execution) for limits and measured
-performance. Physical 50-series GPU validation is still pending.
+[execution guide](design.md#experimental-bioir-execution) for execution settings
+and limits.
 
 ## Verify features
 

@@ -257,6 +257,14 @@ def _execute(target: str, root: Path, directory: Path) -> str:
     elif target == "af2":
         from src.validate.af2 import AF2Backend
         backend = AF2Backend(code_root(), {"models": [1], "samples": 1, "recycles": 1, "mode": "both"})
+    elif target == "mol1":
+        import copy
+        from src.validate.config import DEFAULTS
+        from src.validate.mol1 import Mol1Backend
+        settings = copy.deepcopy(DEFAULTS["mol1"])
+        settings.update(samples=1, recycles=1, steps=10)
+        settings["msa"]["mode"] = "off"
+        backend = Mol1Backend(code_root(), settings, device="cuda:0")
     elif target in {"af3", "af3-la"}:
         from .af3_assets import layout
         assets = layout(root, target)

@@ -20,6 +20,8 @@ def _single(parser, *names, **kwargs):
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
+    from partidesign.cli import _msa_options
+    _msa_options(parser)
     parser.add_argument("task_file", type=Path, help="Native design task YAML; select task names with --task")
     _single(parser, "--preset", choices=("auto", "protein", "nuc", "ppi"),
             help="Workflow preset, resolved per task (default: auto)")

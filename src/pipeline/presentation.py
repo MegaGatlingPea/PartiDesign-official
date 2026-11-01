@@ -20,19 +20,20 @@ def public_config(cfg):
     from partidesign.paths import inference_config_dir
     native_defaults = {}
     profiles = {}
+    shared_msa = {}
     native_presets = load_presets(inference_config_dir()/"criteria.yaml")
 
     def validation_view(stage, profile, final=False):
         method = stage["method"]
-        group = {"af2_ig": "af2", "af3": "af3", "esmfold2-fast": "esmfold2"}[method]
+        group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1", "esmfold2-fast": "esmfold2"}[method]
         count = stage["validation"][group]["samples"]
-        key = profile, method, count, final
+        key = profile, method, count, final, str(sorted(shared_msa.items()))
         if key not in native_defaults:
             preset = profiles[profile][1]
             default = _merge(BUILTINS, preset)
             overrides = (default["final"]["validation"] if final else
                          default["iteration"]["refold"]["validation"])
-            native_defaults[key] = _native_validation(overrides, method, count, cfg["seed"], Path.cwd(), None, None)
+            native_defaults[key] = _native_validation(overrides, method, count, cfg["seed"], Path.cwd(), None, None, shared_msa=shared_msa)
         baseline = native_defaults[key]
         settings = stage["validation"]
         differences = _delta(settings, baseline)
@@ -66,6 +67,7 @@ def public_config(cfg):
     tasks = {}
     for name in cfg["task_names"]:
         settings = cfg["tasks"][name]
+        shared_msa = settings.get("msa", {})
         profile = settings["preset"]
         if profile not in profiles:
             profiles[profile] = (profile_presets(profile), _load(inference_config_dir()/"pipeline"/(profile+".yaml")))
@@ -83,8 +85,22 @@ def public_config(cfg):
         final_view = {**validation_view(final, profile, final=True), **filtering(final),
                       "pool": copy.deepcopy(final["pool"]),
                       "prediction_selection": final["prediction_selection"]}
+        if final.get("validators"):
+            final_view.pop("method", None)
+            final_view.pop("af2", None)
+            final_view.pop("af3", None)
+            final_view.pop("mol1", None)
+            final_view["methods"] = final["methods"]
+            for validator in final["validators"]:
+                view = validation_view(validator, profile, final=True)
+                view.pop("method", None)
+                final_view.update(view)
         flow = {"preset": settings["preset"], "recycle": settings["recycle"],
                 "iteration": common, "final": final_view}
+        if shared_msa:
+            from src.validate.af3_msa import DEFAULT_MSA_CONFIG
+            flow['msa'] = {k: copy.deepcopy(v) for k, v in shared_msa.items()
+                           if k in {'source', 'mode'} or v != DEFAULT_MSA_CONFIG.get(k)}
         if overrides: flow["rounds"] = overrides
         definitions, preset = profiles[profile]
         custom = {}
@@ -152,12 +168,26 @@ def plan_view(cfg):
                                    if stage["partial"]["enabled"] else False)
             rows[stage["round"]] = row
         final = task["final"]
-        group = "af2" if final["method"] == "af2_ig" else "af3"
+        group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1"}[final["method"]]
         final_view = {"method": final["method"], "samples": final["validation"][group]["samples"],
                       "pool": final["pool"], "filter": final["criteria"] if final["criteria"] is not None else "auto"}
         if group == "af2":
             final_view.update(models=final["validation"][group]["models"],
                               require_all_models=True, paired_complex_monomer=True)
+        if final.get("validators"):
+            final_view.pop("method", None)
+            final_view["methods"] = final["methods"]
+            final_view["combination"] = "any"
+            final_view["samples"] = {v["method"]: v["validation"][{"af2_ig": "af2", "af3": "af3", "mol1": "mol1"}[v["method"]]]["samples"] for v in final["validators"]}
+        final_view['msa'] = {}
+        for validator in final.get('validators', [final]):
+            if validator['method'] in {'af3', 'mol1'}:
+                msa = validator['validation'][validator['method']]['msa']
+                final_view['msa'][validator['method']] = {
+                    'mode': msa['mode'], 'source': msa['source'],
+                    'protein_templates': msa['mode'] != 'off' and msa['templates'],
+                    'rna_msa': msa['mode'] != 'off' and msa['source'] == 'af3',
+                    'cache_dir': msa['cache_dir']}
         result["tasks"][name] = {"start": start, "preset": task["preset"], "rounds": rows,
                                  "rank_by": "design_plddt", "final": final_view}
         if cfg.get("motif_policy") == "first_and_final":

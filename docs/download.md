@@ -67,6 +67,7 @@ model. Download only the backends used by your chosen validation workflow:
 | Fast ESMFold2 prediction | `partidesign download esmfold2-fast` |
 | Standard ESMFold2 evaluation | `partidesign download esmfold2-standard` |
 | AlphaFold2 initial-guess evaluation | `partidesign download af2` |
+| Mol-1 evaluation and default protein/nuc pipeline final | `partidesign download mol1` |
 | AlphaFold3 / AF3-LA evaluation | `partidesign download af3 af3-la` |
 
 The target name for NA-MPNN is `nampnn`. CyclicMPNN is already included. Each
@@ -77,12 +78,32 @@ Check only the backends you installed:
 ```bash
 partidesign check --model proteinmpnn --model ligandmpnn
 partidesign check --model af3 --msa off
+partidesign check --model mol1 --msa off
 ```
 
-The AF3 command checks weights and chemistry without requiring MSA databases.
-Prepare databases or a cache separately for MSA-enabled validation. Downloads
+The AF3 and Mol-1 commands check weights and chemistry without requiring MSA databases.
+ColabFold is the default protein MSA/template source and needs no local AF3 search databases.
+For `source: af3`, prepare local databases or a cache separately. Downloads
 do not install the full MSA search databases. See [checks](check.md) and
 [validation](validate.md) for the next steps.
+
+Mol-1 uses the same asset layout as the other bundled backends:
+
+```text
+community_models/mol1/
+  source/                    # bundled backend code
+  checkpoint/mol-1-base.pt    # downloaded model parameters
+  common/                    # downloaded chemistry and reference metadata
+```
+
+`partidesign download mol1` prepares the checkpoint and common resources;
+backend code is supplied by the installation. With an external model root,
+`checkpoint/` and `common/` go under that root while source stays with the
+package. Mol-1 reuses the AF3 context MSA/template cache and search resources;
+it does not need a separate Mol-1 search database. The environments provide
+`colabfold-binaries` for HHsearch; no full ColabFold prediction installation is needed.
+See [MSA and templates](msa.md) for pre-search commands and cache policy. Check upstream parameter
+terms separately from the source-code license.
 
 ## Use a separate model directory
 

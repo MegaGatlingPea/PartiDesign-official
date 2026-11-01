@@ -65,12 +65,13 @@ def _variant_with_ligand_smiles(input_record: Any, variant: Any) -> Any:
       from src.validate.ligands import (
           LigandResolutionError, _task_config, resolve_context_ligands,
       )
+      from src.validate.metadata import task_config as saved_task
 
       try:
         # Most de novo tasks have no source input. Only an explicit context
         # SMILES needs the resolver's authoritative-source requirements.
-        _, task_config, _ = _task_config(Path(task_dir), allow_missing=True)
-        if not task_config:
+        saved_config, task_config, _ = _task_config(Path(task_dir), allow_missing=True)
+        if saved_task(saved_config, Path(task_dir)) is None:
           raise LigandResolutionError(
               f"{Path(task_dir) / 'resolved_config.yaml'} has no resolved task {Path(task_dir).name!r}"
           )

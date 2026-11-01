@@ -23,7 +23,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
 ]
 # These are the tested native design/scoring imports.  The vendored ESMFold2,
-# AF2, OpenMM, and docking stacks stay in explicit extras below.
+# AF2, Mol-1, OpenMM, and docking stacks stay in explicit extras below.
 dependencies = [
   "numpy>=2.5,<3",
   "scipy>=1.17,<2",
@@ -45,6 +45,7 @@ dependencies = [
   "loguru>=0.7,<1",
   "tqdm>=4.70,<5",
   "requests>=2.31,<3",
+  "colabfold-binaries==0.1.0; sys_platform == 'linux' and platform_machine == 'x86_64'",
   "rich>=13.9,<15",
   "prompt-toolkit==3.0.53",
   "scikit-learn>=1.9,<2",
@@ -79,6 +80,19 @@ community = [
   "chex>=0.1.87,<0.2",
   "ProDy>=2.6,<3",
   "tokamax==0.0.12",
+]
+# Mol-1 source ships with PartiDesign. These are its external inference
+# dependencies; the same adapter runs with either CUDA environment below.
+mol1 = [
+  "biotite==1.7.1",
+  "optree==0.17.0",
+  "modelcif==1.4",
+  "pdbeccdutils==1.0.0",
+  "protobuf>=6,<8",
+  "pydantic>=2,<3",
+  "click>=8.1,<9",
+  "networkx>=3.4.2,<4",
+  "gemmi>=0.6.7,<1",
 ]
 # CUDA-enabled AF2/CyclicMPNN and AF3 runs use the exact JAX 0.10.2 CUDA 12
 # stack.  The CUDA extra supplies the compatible NVIDIA runtime components.

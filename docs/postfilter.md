@@ -35,8 +35,10 @@ predictions, scoring duplicate nominations once. Different sequence/model slots
 remain distinct. Linked monomers and predictions that did not individually pass
 do not establish eligibility. Completion-only `unfiltered` decisions are ineligible.
 
-For a pipeline, postfilter screens the published final representative for each
-accepted candidate, using the saved final validation policy. The default PPI
+For a pipeline, postfilter screens the published final representatives using
+the saved validation policy. A multi-method final selects the union of passing
+samples; postfilter uses only CIFs marked `method_passed=true` in
+`final/success/result.csv`. Other methods’ best CIFs remain comparison evidence. The default PPI
 preset requires the selected winners from AF2 models 1 and 2 to pass, with
 their matching monomer comparisons. Other final samples remain supporting
 prediction evidence. A missing representative or incomplete final acceptance

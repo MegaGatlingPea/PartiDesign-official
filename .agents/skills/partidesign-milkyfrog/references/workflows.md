@@ -53,6 +53,21 @@ Git-supplied PartiScore/CyclicMPNN weights into their matching locations there.
 Code and static chemistry resources stay with the installed package. Selecting
 a model root does not change where task inputs and outputs resolve.
 
+For Mol-1 validation or protein/nuc pipeline final, use:
+
+```bash
+partidesign download mol1
+partidesign check --model mol1 --msa off
+```
+
+Mol-1 code is bundled under `community_models/mol1/source`; the download fills
+`checkpoint/` and `common/` under the selected model root. It reuses the AF3
+context MSA/template cache rather than a separate search installation. Protein
+MSA and templates default to ColabFold; RNA is searched only with `source: af3`,
+and DNA is not searched. `partidesign msa` prepares the same tasks before a run.
+The shared cache stays under `<model_dir>/.cache/af3_msa/`; see `docs/msa.md`.
+Parameter usage terms are separate from the source-code license.
+
 Prepare only backends needed by the requested workflow. Basic generation needs
 no separate predictor or sequence-redesign model. Validation backend targets
 are listed in [validation.md](validation.md). `check --load` strictly loads

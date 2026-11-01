@@ -21,7 +21,7 @@ import zlib
 
 import numpy as np
 
-_METHODS = {"esmfold2-fast", "af2_ig", "af3"}
+_METHODS = {"esmfold2-fast", "af2_ig", "af3", "mol1"}
 _ARTIFACT_FIELDS = (
     "structure_path", "cif_path", "native_cif_path", "pdb_path",
     "confidence_path", "raw_confidence_path",
@@ -305,15 +305,35 @@ def _restoration_identity(input_record):
             "cyclic_offset_chains": list(_get(input_record, "cyclic_offset_chains", ()))}
 
 
+def _model_settings(config, method):
+    """Search policy is resolved into inputs before the resident model runs."""
+    section = {"af2_ig": "af2", "esmfold2-fast": "esmfold2", "af3": "af3", "mol1": "mol1"}[method]
+    settings = config[section]
+    return {key: value for key, value in settings.items() if key != "msa"} if method in {"af3", "mol1"} else settings
+
+
 def _model_payload_identity(payload, method):
-    if method == "af3":
+    if method in {"af3", "mol1"}:
         # Source atom ledgers/old design sequences are restoration carriers,
         # not AF3 conditioning. Stable occurrence identity is kept separately.
         fields = ("protocol", "chains", "rng_seeds", "bonded_atom_pairs", "user_ccd",
                   "cyclic_chains", "cyclic_lengths", "msa_context",
                   "source_to_native_chain", "native_to_source_chain")
-        return {protocol: {name: value[name] for name in fields if name in value}
-                for protocol, value in payload.items()}
+        identity = {protocol: {name: value[name] for name in fields if name in value}
+                    for protocol, value in payload.items()}
+        for model_input in identity.values():
+            context = model_input.get("msa_context")
+            if isinstance(context, Mapping):
+                # Only the resolved evidence conditions the model, not the
+                # policy used to obtain it (online search, cache-only, etc.).
+                model_input["msa_context"] = {key: value for key, value in context.items() if key != "policy"}
+        if method == "mol1":
+            from src.validate.mol1 import mol1_covalent_bonds
+            for protocol, value in payload.items():
+                identity[protocol].pop("cyclic_chains", None)
+                identity[protocol].pop("cyclic_lengths", None)
+                identity[protocol]["covalent_bonds"] = mol1_covalent_bonds(value)
+        return identity
     if method == "esmfold2-fast":
         return {name: value for name, value in payload.items()
                 if name not in {"sample_id", "variant_id", "name", "partidesign_receptor_segments"}}
@@ -343,11 +363,17 @@ def _alias_variant(variant):
     return result
 
 
-def _rebind_af3_sources(input_record, variant, config, predictions, repo_root):
+def _rebind_af3_sources(input_record, variant, config, predictions, repo_root, method="af3"):
     """Restore each parent's source evidence without changing shared raw data."""
     from src.design.rewards.af3_backend import prepare_af3_inputs
-    prepared = prepare_af3_inputs(_alias_input(input_record), _alias_variant(variant),
-                                  config["af3"], repo_root)
+    section = copy.deepcopy(config["mol1" if method == "mol1" else "af3"])
+    section["msa"]["mode"] = "off"
+    if method == "mol1":
+        from src.validate.mol1 import prepare_mol1_inputs
+        prepare = prepare_mol1_inputs
+    else:
+        prepare = prepare_af3_inputs
+    prepared = prepare(_alias_input(input_record), _alias_variant(variant), section, repo_root)
     atoms = input_record.atoms
     labels = np.asarray(getattr(atoms, "label_asym_id", atoms.chain_id)).astype(str)
     uid = getattr(atoms, "atom_uid", np.arange(len(atoms)))
@@ -423,7 +449,7 @@ def design_score(input_record, method, raw_prediction):
             # Native AF2 extract_confidence explicitly reduces the design slice.
             return _score_fraction(confidence["plddt"], native_percent=True)
         raise ValueError("AF2 prediction lacks native design-chain pLDDT")
-    if method == "af3":
+    if method in {"af3", "mol1"}:
         from src.design.rewards.af3_runner import _chain_plddt
         values = [_chain_plddt(raw_prediction, chain) for chain in design]
         if any(value is None for value in values):
@@ -474,13 +500,18 @@ def design_score(input_record, method, raw_prediction):
 class NativeOwner:
     """One resource owner; native workers stay resident across tasks/rounds."""
 
-    def __init__(self, repo_root, cache_dir, device="cuda:0"):
+    def __init__(self, repo_root, cache_dir, device="cuda:0", *, msa_references=()):
         self.repo = Path(repo_root).expanduser().resolve()
         self.cache = Path(cache_dir).expanduser().resolve()
         self.device = str(device)
         self._workers = {}
         self._generators = {}
         self._msa_caches = {}
+        self._msa_references = {}
+        for reference in msa_references:
+            identity = (reference["modality"], reference["sequence"])
+            self._msa_references.setdefault(identity, []).append(copy.deepcopy(dict(reference)))
+        self._resolved_msa_references = {}
         self._asset_cache = {}
         self._request_ids = {}
         self._registry = None
@@ -525,6 +556,15 @@ class NativeOwner:
             if key not in self._asset_cache:
                 self._asset_cache[key] = [_stat(root / f"params_model_{model}_ptm.npz")
                                           for model in section["models"]]
+        elif method == "mol1":
+            section = config["mol1"]
+            root = community_asset("mol1", self.repo)
+            checkpoint = Path(section.get("checkpoint") or root / "checkpoint/mol-1-base.pt")
+            checkpoint = checkpoint if checkpoint.is_absolute() else self.repo / checkpoint
+            key = _canonical([method, str(checkpoint), str(root)])
+            if key not in self._asset_cache:
+                self._asset_cache[key] = [_stat(checkpoint), _stat(root / "common/components.cif"),
+                                          _stat(root / "common/components.cif.rdkit_mol.pkl")]
         else:
             section = config["af3"]
             root = af3_asset("af3", self.repo)
@@ -540,8 +580,7 @@ class NativeOwner:
 
     def _worker(self, method, config, assets):
         from src.validate.runner import ValidationWorker
-        section = {"af2_ig": "af2", "esmfold2-fast": "esmfold2", "af3": "af3"}[method]
-        key = _canonical([method, config[section], assets])
+        key = _canonical([method, _model_settings(config, method), assets])
         if key not in self._workers:
             self._workers[key] = ValidationWorker(self.repo, method, config, [], {}, self.device)
         return self._workers[key]
@@ -555,6 +594,40 @@ class NativeOwner:
         if key not in self._generators:
             self._generators[key] = SequenceGenerator(self.repo, config, self.device)
         return self._generators[key]
+
+    def _msa_reference(self, cache, modality, sequence):
+        """Use this run's immutable generation instead of the cache's latest one."""
+        from src.validate.af3_msa import MSACacheMiss
+        root = str(cache.cache_dir)
+        key = (root, _canonical(cache.settings), modality, sequence)
+        if key in self._resolved_msa_references:
+            return self._resolved_msa_references[key]
+        selected = cache._selected_profile() if cache.settings.get("cache_profile") is not None else None
+        for pinned in self._msa_references.get((modality, sequence), ()):
+            if Path(pinned["cache_dir"]).expanduser().resolve() != cache.cache_dir:
+                continue
+            profile = int(pinned["profile_id"])
+            if cache.settings.get("cache_profile") is not None and selected != profile:
+                continue
+            if not cache._compatible_profile(json.loads(pinned["profile_text"]), modality):
+                continue
+            generation = int(pinned.get("generation_id", pinned.get("generation")))
+            reference = cache.reference(int(pinned["entry_id"]), profile, generation)
+            if (reference is None or reference["modality"] != modality
+                    or reference["sequence"] != sequence):
+                raise MSACacheMiss(
+                    f"Pinned MSA generation is unavailable: {root}, entry {pinned['entry_id']}, "
+                    f"profile {profile}, generation {generation}"
+                )
+            self._resolved_msa_references[key] = reference
+            return reference
+        # Runtime-only contexts were not available to the driver's pre-search.
+        # Remember their first result too, so later rounds do not refresh again.
+        reference = cache.ensure(modality, sequence)
+        if reference is not None:
+            self._msa_references.setdefault((modality, sequence), []).append(copy.deepcopy(reference))
+            self._resolved_msa_references[key] = reference
+        return reference
 
     def _payload(self, input_record, variant, method, config):
         if method == "esmfold2-fast":
@@ -585,19 +658,27 @@ class NativeOwner:
         from src.design.rewards.af3_backend import prepare_af3_inputs
         from src.design.rewards.af3_input import attach_msa_references, msa_queries
         from src.validate.af3_msa import AF3MSACache, validate_msa_settings
-        payloads = prepare_af3_inputs(input_record, variant, config["af3"], self.repo)
-        settings = validate_msa_settings(config["af3"].get("msa"))
-        if settings["mode"] != "off":
+        section = config["mol1" if method == "mol1" else "af3"]
+        if method == "mol1":
+            from src.validate.mol1 import prepare_mol1_inputs
+            # Search below through the same owner-local cache as AF3.
+            bare = dict(section, msa={**section["msa"], "mode": "off"})
+            payloads = prepare_mol1_inputs(input_record, variant, bare, self.repo)
+        else:
+            payloads = prepare_af3_inputs(input_record, variant, section, self.repo)
+        settings = validate_msa_settings(section.get("msa"))
+        queries = {(query["modality"], query["sequence"])
+                   for payload in payloads.values()
+                   for query in msa_queries(payload, input_record.design_chains, settings=settings)}
+        references = []
+        if queries:
             key = _canonical(settings)
             if key not in self._msa_caches:
                 self._msa_caches[key] = AF3MSACache(self.repo, settings)
             cache = self._msa_caches[key]
-            queries = {(query["modality"], query["sequence"])
-                       for payload in payloads.values()
-                       for query in msa_queries(payload, input_record.design_chains)}
-            references = [cache.ensure(modality, sequence) for modality, sequence in sorted(queries)]
-            payloads = {protocol: attach_msa_references(payload, input_record.design_chains, references)
-                        for protocol, payload in payloads.items()}
+            references = [self._msa_reference(cache, modality, sequence) for modality, sequence in sorted(queries)]
+        payloads = {protocol: attach_msa_references(payload, input_record.design_chains, references, settings=settings)
+                    for protocol, payload in payloads.items()}
         return payloads, payloads
 
     def generate(self, input_record, round_config, *, task_name, round_number,
@@ -685,19 +766,21 @@ class NativeOwner:
             if request_text in self._request_ids:
                 return self._request_ids[request_text]
             if self._registry is None:
+                from src.validate.storage import locked
                 self.cache.mkdir(parents=True, exist_ok=True)
-                connection = sqlite3.connect(self.cache / "requests.sqlite3", timeout=60,
-                                             check_same_thread=False)
-                try:
-                    connection.execute("PRAGMA journal_mode=WAL")
-                    connection.execute("PRAGMA synchronous=NORMAL")
-                    connection.execute("CREATE TABLE IF NOT EXISTS requests "
-                                       "(id INTEGER PRIMARY KEY, request TEXT NOT NULL UNIQUE)")
-                    connection.commit()
-                except Exception:
-                    connection.close()
-                    raise
-                self._registry = connection
+                with locked(self.cache / "requests.init.lock"):
+                    connection = sqlite3.connect(self.cache / "requests.sqlite3", timeout=60,
+                                                 check_same_thread=False)
+                    try:
+                        connection.execute("PRAGMA journal_mode=WAL")
+                        connection.execute("PRAGMA synchronous=NORMAL")
+                        connection.execute("CREATE TABLE IF NOT EXISTS requests "
+                                           "(id INTEGER PRIMARY KEY, request TEXT NOT NULL UNIQUE)")
+                        connection.commit()
+                    except Exception:
+                        connection.close()
+                        raise
+                    self._registry = connection
             self._registry.execute("INSERT OR IGNORE INTO requests(request) VALUES (?)",
                                    (request_text,))
             identifier = self._registry.execute("SELECT id FROM requests WHERE request=?",
@@ -734,13 +817,16 @@ class NativeOwner:
         canonical_input, canonical_variant = _alias_input(input_record), _alias_variant(variant)
         payload, prepared = self._payload(canonical_input, canonical_variant, method, config)
         assets = self._assets(method, config)
-        section = {"af2_ig": "af2", "esmfold2-fast": "esmfold2", "af3": "af3"}[method]
+        model_settings = _model_settings(config, method)
         conditioning = _model_payload_identity(payload, method)
+        occurrences = (_occurrence_identity(canonical_input)
+                       if method == "af2_ig" else _restoration_identity(canonical_input))
+        if method == "mol1":
+            occurrences.pop("cyclic_offset_chains", None)
         request = {"version": 2, "task": str(task_name), "method": method,
-                   "config": config[section], "weights": assets, "input": conditioning,
-                   "source_occurrences": (_occurrence_identity(canonical_input)
-                                          if method == "af2_ig" else _restoration_identity(canonical_input)),
-                   "referenced_files": _referenced_files([conditioning, config[section]], self.repo)}
+                   "config": model_settings, "weights": assets, "input": conditioning,
+                   "source_occurrences": occurrences,
+                   "referenced_files": _referenced_files([conditioning, model_settings], self.repo)}
         request_text = _canonical(request)
         request_key = f"request_{self._request_id(request_text)}"
         cached = self._memory_prediction(request_key)
@@ -825,13 +911,13 @@ class NativeOwner:
         predictions = [copy.deepcopy({key: value for key, value in prediction.items()
                                       if key != "_parsed_atoms"})
                        for prediction in raw_predictions]
-        if method == "af3":
-            _rebind_af3_sources(input_record, variant, config, predictions, self.repo)
+        if method in {"af3", "mol1"}:
+            _rebind_af3_sources(input_record, variant, config, predictions, self.repo, method)
         with self._execution:
             worker = self._worker(method, config, self._assets(method, config))
             worker.log_dir = self.cache.parent / "logs"
             for prediction in predictions:
-                if method == "af3":
+                if method in {"af3", "mol1"}:
                     native_ranking = prediction.get("metadata", {}).get("ranking_score")
                     if native_ranking is not None:
                         prediction.setdefault("confidence", {})["ranking_score"] = float(native_ranking)

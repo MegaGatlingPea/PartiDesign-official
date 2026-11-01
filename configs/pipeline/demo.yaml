@@ -1,5 +1,4 @@
-# Strict PPI demo with production candidate limits. Molecular tasks remain in configs/examples/pipeline_tasks.yaml.
-# Run: partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor --config configs/pipeline/demo.yaml --run-name insulin_receptor
+# Three-model final filtering; a candidate passes when any method passes.
 preset: ppi
 recycle: 3
 iteration:
@@ -24,3 +23,24 @@ rounds:
 final:
   max_pass: 200
   worker_gpus: 1.0
+  methods:
+  - af2_ig
+  - mol1
+  - af3
+criteria_routes:
+  protein:
+    final:
+      af2_ig:
+      - af2_ig_protdbench
+      mol1:
+      - af3_basic
+      af3:
+      - af3_basic
+  peptide:
+    final:
+      af2_ig:
+      - af2_ig_peptide
+      mol1:
+      - af3_basic
+      af3:
+      - af3_basic

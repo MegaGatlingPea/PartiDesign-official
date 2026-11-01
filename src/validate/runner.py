@@ -119,7 +119,7 @@ def _clean_prediction(prediction: dict) -> None:
     """Remove worker-only arrays and legacy artifact fields in place."""
     prediction.pop("_confidence_arrays", None)
     prediction.pop("_confidence_chain_map", None)
-    native_af3 = prediction.get("model") in {"af3", "af3-la"}
+    native_af3 = prediction.get("model") in {"af3", "af3-la", "mol1"}
     for field in ("confidence_path", "artifacts"):
         prediction.pop(field, None)
     if not native_af3:
@@ -222,7 +222,7 @@ def _restore_persisted_only_metrics(
 
 
 def _completed_prediction(prediction: Mapping[str, Any]) -> bool:
-    if prediction.get("model") in {"af3", "af3-la"}:
+    if prediction.get("model") in {"af3", "af3-la", "mol1"}:
         structure = prediction.get("structure_path")
         return bool(structure and prediction_valid(dict(prediction), Path(str(structure)).parent))
     structure_path = prediction.get("structure_path")
@@ -289,7 +289,7 @@ def recompute_persisted_metrics(root: Path, plan: Mapping[str, Any]) -> dict[str
                 previous_metrics = prediction.get("metrics", {})
                 if not isinstance(previous_metrics, Mapping):
                     raise ValueError(f"Malformed saved metrics: {record_path}")
-                if method in {"af3", "af3-la"}:
+                if method in {"af3", "af3-la", "mol1"}:
                     from .af3 import normalize_af3_confidence
                     prediction.update(normalize_af3_confidence(
                         prediction, input_data.design_chains,
@@ -360,6 +360,9 @@ class ValidationWorker:
             elif self.method in {"esmfold2-fast", "esmfold2-standard"}:
                 from .esmfold2 import ESMFold2Backend
                 self.backend = ESMFold2Backend(self.repo, self.cfg["esmfold2"], self.device)
+            elif self.method == "mol1":
+                from .mol1 import Mol1Backend
+                self.backend = Mol1Backend(self.repo, self.cfg["mol1"], self.device)
             elif self.method in {"af3", "af3-la"}:
                 from .af3 import AF3Backend, AF3Validator
                 self.backend = AF3Validator(
@@ -506,8 +509,11 @@ class ValidationWorker:
             pass  # Missing inputs are reported by the normal input loader.
         else:
             context.update(input_size=stat.st_size, input_mtime_ns=stat.st_mtime_ns)
-        if self.method in {"af3", "af3-la"} and self._msa_context is not None:
+        if self.method in {"af3", "af3-la", "mol1"} and self._msa_context is not None:
             context["msa_context"] = self._msa_context
+        if self.method == "mol1":
+            from .mol1 import ADAPTER_REVISION
+            context["adapter_revision"] = ADAPTER_REVISION
         return context
 
     def _save(self, path, record):
@@ -522,7 +528,7 @@ class ValidationWorker:
 
         started = perf_counter()
         try:
-            if self.method in {"af3", "af3-la"}:
+            if self.method in {"af3", "af3-la", "mol1"}:
                 from .af3 import normalize_af3_confidence
                 prediction.update(normalize_af3_confidence(
                     prediction, input.design_chains,
@@ -595,7 +601,7 @@ class ValidationWorker:
         sequence = _compact_sequence(variant)
         context = self._context(plan, sample, entry)
         previous = read_json(path)
-        if self.method in {"af3", "af3-la"} and previous and previous.get("predictions"):
+        if self.method in {"af3", "af3-la", "mol1"} and previous and previous.get("predictions"):
             previous_msa = previous.get("msa_context") or {"mode": "off"}
             current_msa = context.get("msa_context", {"mode": "off"})
             if _msa_context_identity(previous_msa) != _msa_context_identity(current_msa) and not (self.cfg.get("rerun") or self.cfg.get("rerun_refold")):
@@ -765,21 +771,29 @@ class ValidationWorker:
             sources = self._sources_for_input(input)
             slots = list(sequence_slots(sources))
             variants, queries = [], {}
+            group = "mol1" if self.method == "mol1" else "af3"
+            msa_settings = self.cfg[group]["msa"]
             for variant in self._variants(input, plan, sample, root, sources):
                 index = variant["seq_index"]
                 if type(index) is not int or not 0 <= index < len(slots) or any(v["variant"]["seq_index"] == index for v in variants):
                     raise ValueError("Invalid or duplicate prepared sequence index")
                 if any(variant.get(key) != slots[index][key] for key in ("source", "source_index")):
                     raise ValueError("Prepared sequence differs from requested source slot")
-                payloads = {} if variant.get("status") == "failed" else prepare_af3_inputs(input, variant, self.cfg["af3"], self.repo)
+                if self.method == "mol1":
+                    from .mol1 import prepare_mol1_inputs
+                    settings = self.cfg["mol1"]
+                    bare = dict(settings, msa={**settings["msa"], "mode": "off"})
+                    payloads = {} if variant.get("status") == "failed" else prepare_mol1_inputs(input, variant, bare, self.repo)
+                else:
+                    payloads = {} if variant.get("status") == "failed" else prepare_af3_inputs(input, variant, self.cfg["af3"], self.repo)
                 for payload in payloads.values():
-                    for query in msa_queries(payload, input.design_chains):
+                    for query in msa_queries(payload, input.design_chains, settings=msa_settings):
                         queries[(query["modality"], query["sequence"])] = {key: query[key] for key in ("modality", "sequence")}
                 variants.append({"variant": variant, "payloads": payloads})
             if len(variants) != len(slots):
                 raise ValueError("Missing prepared sequence variants")
             from .af3_msa import resolve_msa_settings
-            cache_root = Path(resolve_msa_settings(self.cfg["af3"]["msa"], self.repo)["cache_dir"])
+            cache_root = Path(resolve_msa_settings(self.cfg[group]["msa"], self.repo)["cache_dir"])
             prepared_dir = ensure_directory(cache_root / "prepared")
             fd, filename = tempfile.mkstemp(prefix="sample-", suffix=".json", dir=prepared_dir)
             os.close(fd)
@@ -812,6 +826,8 @@ class ValidationWorker:
         from src.design.rewards.af3_input import attach_msa_references, msa_queries
 
         root = Path(plan["task_dir"]) / "validate" / self.method
+        group = "mol1" if self.method == "mol1" else "af3"
+        msa_settings = self.cfg[group]["msa"]
         entry = plan["samples"][sample]
         self.log_dir = root / "logs"
         self.log_context = {"task": str(plan["task_dir"]), "method": self.method, "sample": sample}
@@ -841,7 +857,7 @@ class ValidationWorker:
                 variant = item["variant"]
                 required = {(query["modality"], query["sequence"])
                             for payload in item["payloads"].values()
-                            for query in msa_queries(payload, ticket["design_chains"])}
+                            for query in msa_queries(payload, ticket["design_chains"], settings=msa_settings)}
                 failures = ([search_error] if isinstance(search_error, str) else
                             [failure["error"] for failure in (search_error or [])
                              if (failure["modality"], failure["sequence"]) in required])
@@ -857,10 +873,10 @@ class ValidationWorker:
                         record.update(status="failed", error="AF3 MSA search failed: " + "; ".join(failures), failure_stage="msa_search")
                         self._save(sequence_path, record)
                 else:
-                    payloads = {protocol: attach_msa_references(payload, ticket["design_chains"], references)
+                    payloads = {protocol: attach_msa_references(payload, ticket["design_chains"], references, settings=msa_settings)
                                 for protocol, payload in item["payloads"].items()}
                     contexts = {protocol: payload["msa_context"] for protocol, payload in payloads.items()}
-                    self._msa_context = {"protocols": contexts} if any(context["chains"] for context in contexts.values()) else None
+                    self._msa_context = {"protocols": contexts} if contexts else None
                     self._run_variant(input, variant, plan, sample, entry, root, prepared_inputs=payloads)
                 processed += 1
             self._log("sample_finished", processed_sequences=processed)

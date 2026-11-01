@@ -45,15 +45,21 @@ the default resource is `partidesign`:
 partidesign check --model chemistry --model partiscore
 partidesign check --model esmfold2-fast --load
 partidesign check --model af3 --msa off
+partidesign check --model mol1 --msa off
 ```
 
-The AF3 example checks its installation without requiring MSA databases. To
+The AF3 and Mol-1 examples check their installations without requiring MSA databases. To
 check a different model root, add `--model-dir PATH`; see
 [model directories](download.md#use-a-separate-model-directory).
 
 Task-file checking cannot be combined with `--model` or `--all`. Task-specific
-options such as `--task` and `--ckpt` require a task file. AF3 MSA options require
-an explicit `--model af3` or `--model af3-la`.
+options such as `--task` and `--ckpt` require a task file. Context MSA options require
+an explicit `--model af3`, `--model af3-la`, or `--model mol1`.
+
+ColabFold protein searches include templates and use the bundled HHsearch
+binary package; local AF3 database paths are needed only for `--msa-source af3`.
+ColabFold does not search RNA. See [MSA and templates](msa.md) for sources and
+cache locations. A normal check does not submit online searches.
 
 ## CPU loading and real execution
 
@@ -93,7 +99,8 @@ requested check. Native-generation smoke checks require the generation bundle.
 | `--route`, `--route-ckpt` | Use the intended model-routing settings; see [routing](design.md#routing-and-task-selection). |
 | `--execution-backend auto\|native\|bioir` | Request an execution backend for a task check; default `auto`. |
 | `--load`, `--smoke` | Opt into CPU loading or real execution as described above. |
-| `--msa off` | Check explicit AF3/AF3-LA resources without MSA databases. |
+| `--msa off` | Check explicit AF3/AF3-LA/Mol-1 resources without search tools or databases. |
+| `--msa-source colabfold\|af3` | Check resources for the selected search source; default ColabFold for protein context. |
 
 The terminal report shows `PASS`, `FAIL`, `SKIP`, and `NOT_RUN` entries. Unused
 optional models are skipped. A failed check returns a nonzero status; no

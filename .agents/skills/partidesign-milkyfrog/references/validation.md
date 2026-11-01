@@ -1,6 +1,6 @@
 # Validate saved PartiDesign designs
 
-Use this reference for method/source/criteria choices, AF3 MSA policy, chemistry
+Use this reference for method/source/criteria choices, shared AF3/Mol-1 MSA policy, chemistry
 limits, result interpretation, and reuse. Read the active checkout's
 `docs/validate.md` for detailed flags, profiles, and custom metric rules; inspect
 `configs/criteria.yaml` for exact preset thresholds. Paths here are relative to
@@ -38,6 +38,7 @@ and compatibility are checked.
 | --- | --- | --- |
 | `esmfold2-fast`, `esmfold2-standard` | Protein/RNA/DNA and ligand-containing refolding; check component/chemistry support | Matching method name |
 | `af2_ig` | One standard-protein design chain with protein context; matched complex and isolated-chain predictions | `af2` |
+| `mol1` | Multimodal prediction with shared context MSA/template cache | `mol1` |
 | `af3`, `af3-la` | Multimodal complex prediction with the selected MSA policy | Matching method name |
 | `partiscore` | Interface scoring on original saved structures; no refolding/redesign | Git-supplied `partiscore` |
 | `vina_dock` | CPU chemical evaluation/docking of eligible refined pocket-ligand designs; runs alone | Environment Vina/Meeko/RDKit |
@@ -51,7 +52,7 @@ Prepare and check only required assets; e.g. `partidesign download
 esmfold2-fast` then `partidesign check --model esmfold2-fast` when installation
 is requested. Sequence-redesign download targets are `proteinmpnn`,
 `solublempnn`, `ligandmpnn`, and `nampnn`; CyclicMPNN is Git-supplied. Downloads
-do not prepare full AF3 MSA databases. Respect the selected model root and
+do not prepare full MSA search databases. Respect the selected model root and
 upstream model access terms. For structure directories lacking `result.csv`,
 use standalone `partidesign score` as described in [workflows.md](workflows.md).
 
@@ -104,7 +105,7 @@ Common starting presets, subject to input compatibility:
 
 | Request | Preset |
 | --- | --- |
-| Protein binder with ESMFold2/AF3 | `af3_basic` or `af3_strict` |
+| Protein binder with ESMFold2/AF3/Mol-1 | `af3_basic` or `af3_strict` |
 | Protein binder or eligible peptide with AF2 | `af2_ig_protein` or `af2_ig_peptide` |
 | Protein or RNA/DNA monomer | `af3_protein_monomer` or `af3_na_monomer` |
 | Joint protein–nucleic-acid geometry | `af3_protein_na_complex` |
@@ -113,7 +114,7 @@ Common starting presets, subject to input compatibility:
 | Atomic motif scaffolding | `af3_ame` |
 | Refined ligand generation in a protein pocket | `odesign_denovo_ligand` |
 
-Despite its name, `af3_basic` also supports both ESMFold2 variants. Read exact
+Despite its name, `af3_basic` also supports both ESMFold2 variants and Mol-1. Read exact
 rules before selecting a preset; missing required metrics are `unavailable`,
 not a pass. Multiple `--criteria` are an **OR**: a row enters `success.csv` if
 at least one screen passes. Conditions that must all hold belong in one preset.
@@ -127,25 +128,57 @@ use [0, 1], RMSD/angstrom PAE use Å, and `ipae_normalized` differs from
 questions. PartiScore (`--score`) adds learned interface scores on original and
 successful refolds, requires its weights, and does not replace criteria.
 
-## AF3 MSA and resource policy
+## Mol-1 and shared MSA policy
 
-AF3/AF3-LA defaults are **`--msa auto`**, templates enabled, maximum template
-date **2021-09-30**. Searches target fixed protein/RNA context chains; designed
-chains stay query-only and DNA has no MSA search. Generation coordinates are
-not automatically prediction templates.
+Use `partidesign download mol1` and `partidesign check --model mol1 --msa off`
+for setup. The asset layout is `community_models/mol1/{source,checkpoint,common}`;
+source is bundled, parameters and common resources are downloaded. External
+model roots move checkpoint/common assets, not installed source. Check the
+upstream parameter terms separately from the source-code license.
 
-- `auto` reuses exact matching cache entries and searches misses with prepared
-  databases/HMMER. Check those resources before execution.
-- `cache-only` requires exact ready entries and never fills misses.
-- `off` performs no MSA/template searches. Choose it explicitly for a requested
-  search-free evaluator trial; do not silently replace a requested MSA policy.
+`--method mol1` uses the existing validation commands, sequence sources, criteria,
+reports and resume behavior. Native profile settings belong under `mol1`:
+`samples: 1`, `recycles: 20`, `steps: 200`, `seed: 101`, `dtype: bf16` by default.
+It supports `mode: complex|monomer|both`. Pipeline protein/nuc final requests
+five samples and filters the highest native ranking_score prediction. Explicit
+`checkpoint` overrides the default checkpoint path. See docs/validate.md for
+kernel and precision controls.
 
-For a search-free AF3 plan, use the first example with `--method af3 --msa off`.
-`partidesign check --model af3 --msa off` checks AF3 weights/chemistry without
-MSA databases; it does not change later validation's defaults. Read
-`docs/validate.md` for database/cache paths, search CPU limits, and templates.
-`--msa-profile` needs `cache-only`; `--msa-refresh` needs `auto`. A changed
-cache/profile for saved predictions requires an intentional refold/full rerun.
+Standalone repeated `--method` runs retain separate method reports/success
+folders. Pipeline `final.methods` instead uses one shared candidate pool and
+one union success directory; read partial-pipeline.md for that contract.
+
+AF3/AF3-LA/Mol-1 defaults are `--msa auto`, `--msa-source colabfold`, and maximum
+protein-template release date `2021-09-30`. ColabFold searches fixed protein
+context, providing MSA and templates together; it does not search nucleic acids.
+`source: af3` uses local databases for fixed protein/RNA context. Structural
+templates are protein-only. All designed chains, including antibody VH/VL/VHH,
+remain query-only. `off` disables both MSA and templates; do not expose a separate
+required template toggle. Generation and partial-reference coordinates do not
+become prediction templates.
+
+Use the same task selection as design/pipeline to prepare fixed-context inputs:
+
+```bash
+partidesign msa configs/examples/pipeline_tasks.yaml \
+  --task protdbench_insulin_receptor --source colabfold --plan
+```
+
+Remove `--plan` for the authorized search. The command does not generate designs
+or load prediction models. Its shared cache is
+`<model_dir>/.cache/af3_msa/`, retaining source/profile/generation identity.
+Different sources are not interchangeable. Pipeline `msa.csv` records which
+entries its predictions used; do not duplicate the cache under every model/run.
+A ready generation can be used by both AF3 and Mol-1.
+
+`auto` searches misses, `cache-only` requires ready entries without searching,
+and `off` stays query-only. `--msa-profile` needs `cache-only`; independent
+`partidesign msa --refresh` and prediction `--msa-refresh` create a new generation.
+Changed prediction evidence requires an intentional refold/full rerun. The
+ColabFold route uses its service and HHsearch from `colabfold-binaries`; the local
+AF3 route needs its existing databases/HMMER tools. Public service requests are
+serialized; never substitute another source after a failure. See `docs/msa.md`
+for commands, endpoints, cache paths, date filtering and search resources.
 
 GPU methods use visible CUDA devices. Fractional `--worker-gpus` reserves
 scheduling capacity, not a memory cap. Account for concurrent resident models
@@ -164,6 +197,11 @@ and additional MSA CPUs when setting a requested resource budget.
   polymer–polymer links, including disulfides. Protein head-to-tail intent uses
   cyclic offsets. Refolding therefore does not independently verify every
   requested peptide crosslink; inspect generated/refined bond geometry too.
+- Mol-1 uses native covalent-bond input for explicit terminal C–N, disulfide SG–SG
+  and other supported links, with ESMFold2's bond endpoint rules. It keeps upstream
+  positional encoding without an added cyclic-offset transform; `cyclic_offset`
+  alone does not declare a closure bond. Explicit inter-residue links support single or
+  unspecified bond orders. Input support does not guarantee final bond geometry.
 - Antibody antigen metrics need antigen context. Preserve VH/VL/VHH and mutable
   CDR metadata; use the shipped antibody validation profile when appropriate.
 - `vina_dock` needs a connected free designed ligand with authoritative SMILES,
@@ -195,7 +233,7 @@ passing does not establish experimental binding or activity.
 | Repeat original command | Reuse sequences/complete predictions, finish incomplete work, rebuild reports |
 | `--refilter` | Apply criteria to saved metrics; no models or new metrics |
 | `--recompute-metrics` | Recalculate available metrics from saved structures/confidence; no new samples or PartiScore rerun |
-| `--rerun-refold` | AF3/AF3-LA only: reuse all requested saved sequence slots and replace predictions; no missing MPNN generation |
+| `--rerun-refold` | AF3/AF3-LA/Mol-1: reuse all requested saved sequence slots and replace predictions; no missing MPNN generation |
 | `--rerun` | Regenerate selected sequence/prediction slots from original design inputs |
 
 Keep source order/settings consistent for resume; intentionally changed sequence

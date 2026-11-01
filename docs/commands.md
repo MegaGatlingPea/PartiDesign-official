@@ -15,6 +15,7 @@ partidesign <command> --help
 | [`partidesign download`](download.md) | Prepare generation and optional model assets |
 | [`partidesign check`](check.md) | Check tasks, model assets, and the installation |
 | [`partidesign design`](design.md) | Generate molecular structures and identities |
+| [`partidesign msa`](msa.md) | Prepare shared context MSA and templates for selected tasks |
 | [`partidesign pipeline`](pipeline.md) | Run design, refinement, and validation in one command |
 | [`partidesign score`](score.md) | Score interfaces in saved structures with PartiScore |
 | [`partidesign relax`](relax.md) | Refine existing structures with OpenMM |
@@ -32,8 +33,15 @@ explains the paper's computational budgets and evaluation protocols.
 `partidesign pipeline TASKS.yaml` runs design, refinement, and validation in one
 command. It generates once, then refines sequences and structures through MPNN,
 refolding, selection, and partial diffusion. OpenMM is optional. Final validation
-uses AF3 for protein/nuc presets or paired AF2-IG predictions for explicit `ppi`.
+uses Mol-1 for protein/nuc presets or paired AF2-IG predictions for explicit `ppi`.
 See the [complete pipeline guide](pipeline.md) for
 presets, round/task overrides, the insulin receptor demo, outputs, and resume.
 For single-reference sampling with `partidesign design`, see
 [partial diffusion](partial.md).
+
+## MSA and templates
+
+`partidesign msa TASKS.yaml --task NAME` prepares fixed-context alignments and
+protein templates without generating designs or loading a prediction model.
+Protein searches default to ColabFold. `pipeline` and `validate` use the same
+cache and accept `--msa-source colabfold|af3`. See [MSA and templates](msa.md).

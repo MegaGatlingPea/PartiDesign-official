@@ -10,7 +10,7 @@ import os
 from partidesign.paths import asset_root, ENV_MODEL_DIR
 from typing import Any
 
-METHODS = ("af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "partiscore", "vina_dock")
+METHODS = ("af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "partiscore", "vina_dock")
 SOURCES = (
     "gt",
     "protein_mpnn",
@@ -65,6 +65,10 @@ DEFAULTS = {
             "buckets": [256, 512, 768, 1024, 1536, 2048, 3072, 4096, 5120],
             "timeout_seconds": 1800,
             "msa": copy.deepcopy(DEFAULT_MSA_CONFIG)},
+    "mol1": {"samples": 1, "mode": "complex", "recycles": 20, "steps": 200,
+             "seed": 101, "dtype": "bf16", "triangle_multiplicative": "auto",
+             "triangle_attention": "auto", "checkpoint": None,
+             "msa": copy.deepcopy(DEFAULT_MSA_CONFIG)},
     "scorer": {"enabled": False, "original": True, "refold": True,
                "checkpoint": "ckpts/partiscore.ckpt", "weights": "raw",
                "batch_size": 32, "num_workers": 0},
@@ -254,7 +258,28 @@ def validate_af3_settings(value: Any) -> dict[str, Any]:
     timeout = value["timeout_seconds"]
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("af3.timeout_seconds must be finite and positive")
-    validate_msa_settings(value["msa"])
+    value["msa"] = validate_msa_settings(value["msa"])
+    return value
+
+
+def validate_mol1_settings(value):
+    if not isinstance(value, dict) or set(value) != set(DEFAULTS["mol1"]):
+        raise ValueError("mol1 must contain only the documented Mol-1 settings")
+    for key in ("samples", "recycles", "steps"):
+        if type(value[key]) is not int or value[key] < 1:
+            raise ValueError(f"mol1.{key} must be a positive integer")
+    if type(value["seed"]) is not int or not 0 <= value["seed"] < 2**32:
+        raise ValueError("mol1.seed must be a uint32 integer")
+    if value["mode"] not in {"complex", "monomer", "both"}:
+        raise ValueError("mol1.mode must be complex, monomer, or both")
+    if value["dtype"] not in {"bf16", "fp32", "fp16"}:
+        raise ValueError("mol1.dtype must be bf16, fp32, or fp16")
+    for key in ("triangle_attention", "triangle_multiplicative"):
+        if value[key] not in {"auto", "torch", "cuequivariance"}:
+            raise ValueError(f"mol1.{key} must be auto, torch, or cuequivariance")
+    if value["checkpoint"] is not None and not isinstance(value["checkpoint"], str):
+        raise ValueError("mol1.checkpoint must be null or a path")
+    value["msa"] = validate_msa_settings(value["msa"])
     return value
 
 
@@ -323,34 +348,38 @@ def parse_args(argv=None):
     rerun.add_argument("--rerun", action="store_true", help="Regenerate all requested sequence slots")
     rerun.add_argument(
         "--rerun-refold", action="store_true",
-        help="AF3/AF3-LA only: reuse saved sequence slots and regenerate refolds",
+        help="AF3/AF3-LA/Mol-1 only: reuse saved sequence slots and regenerate refolds",
     )
     parser.add_argument("--msa", choices=("auto", "off", "cache-only"),
-                        help="AF3 target/context MSA policy")
-    parser.add_argument("--msa-cache-dir", help="AF3 MSA cache directory")
-    parser.add_argument("--msa-profile", help="Recorded AF3 MSA cache profile")
-    parser.add_argument("--msa-database-dir", help="AF3 public database root")
-    parser.add_argument("--msa-binaries-dir", help="Directory containing jackhmmer/nhmmer")
+                        help="AF3/AF3-LA/Mol-1 target/context MSA policy")
+    parser.add_argument("--msa-source", choices=("colabfold", "af3"),
+                        help="Shared MSA/template search source: ColabFold service or local AF3 databases")
+    parser.add_argument("--msa-server-url", help="ColabFold MSA service URL")
+    parser.add_argument("--msa-cache-dir", help="Shared MSA/template cache directory")
+    parser.add_argument("--msa-profile", help="Recorded shared MSA cache profile")
+    parser.add_argument("--msa-database-dir", help="Local AF3 search database root")
+    parser.add_argument("--msa-binaries-dir", help="Directory containing hhsearch or local AF3 HMMER tools")
     parser.add_argument("--msa-workers", type=_positive_int_arg,
-                        help="Concurrent AF3 MSA searches (positive integer)")
+                        help="Concurrent local AF3 MSA searches (positive integer; ColabFold uses one)")
     parser.add_argument("--msa-cpus", type=_msa_cpu_arg,
-                        help="AF3 MSA CPU budget: auto or a positive integer")
+                        help="MSA search CPU budget: auto or a positive integer")
     parser.add_argument("--jackhmmer-cpus", type=_positive_int_arg,
-                        help="Threads per AF3 jackhmmer process")
+                        help="Threads per local AF3 jackhmmer process")
     parser.add_argument("--nhmmer-cpus", type=_positive_int_arg,
-                        help="Threads per AF3 nhmmer process")
+                        help="Threads per local AF3 nhmmer process")
     parser.add_argument("--msa-timeout", type=_positive_int_arg,
-                        help="AF3 MSA search timeout in seconds")
+                        help="MSA/template search timeout in seconds")
     parser.add_argument("--msa-refresh", action="store_true",
-                        help="Refresh matching AF3 MSA cache generations")
+                        help="Refresh matching shared MSA/template cache generations")
     parser.add_argument("--msa-templates", type=_strict_bool_arg,
-                        help="AF3 native structure-template search: true or false")
+                        help="Structure-template search: true or false")
     parser.add_argument("--msa-template-date", type=_iso_date_arg,
-                        help="AF3 maximum template date (YYYY-MM-DD)")
+                        help="Maximum template release date (YYYY-MM-DD)")
     parser.add_argument("--limit", type=int, help="Maximum samples per task for a bounded run")
     args = parser.parse_args(argv)
     overlay = load_yaml(args.config) if args.config else {}
-    cfg = merge(DEFAULTS, overlay)
+    from .msa_options import merge_shared
+    cfg = merge_shared(DEFAULTS, overlay)
     if ENV_MODEL_DIR in os.environ:
         scorer_overlay = overlay.get("scorer", {})
         if isinstance(scorer_overlay, dict) and "checkpoint" in scorer_overlay:
@@ -394,27 +423,16 @@ def parse_args(argv=None):
         cfg["scorer"]["enabled"] = True
     if args.rerun:
         cfg["rerun"] = True
-    msa_cli_values = {
-        "mode": args.msa,
-        "cache_dir": args.msa_cache_dir,
-        "cache_profile": args.msa_profile,
-        "database_dir": args.msa_database_dir,
-        "binaries_dir": args.msa_binaries_dir,
-        "search_workers": args.msa_workers,
-        "cpu_budget": args.msa_cpus,
-        "jackhmmer_n_cpu": args.jackhmmer_cpus,
-        "nhmmer_n_cpu": args.nhmmer_cpus,
-        "timeout_seconds": args.msa_timeout,
-        "templates": args.msa_templates,
-        "max_template_date": args.msa_template_date,
-    }
+    from .msa_options import cli_settings
+    msa_cli_values = cli_settings(args)
     msa_cli_explicit = any(value is not None for value in msa_cli_values.values()) or args.msa_refresh
     if msa_cli_explicit:
-        cfg["af3"]["msa"].update({
-            key: value for key, value in msa_cli_values.items() if value is not None
-        })
-        if args.msa_refresh:
-            cfg["af3"]["msa"]["refresh"] = True
+        for group in ("af3", "mol1"):
+            cfg[group]["msa"].update({
+                key: value for key, value in msa_cli_values.items() if value is not None
+            })
+            if args.msa_refresh:
+                cfg[group]["msa"]["refresh"] = True
     if args.rerun_refold:
         cfg["rerun_refold"] = True
     worker_gpus = cfg.get("worker_gpus")
@@ -434,16 +452,16 @@ def parse_args(argv=None):
     cfg["worker_cpus"] = float(worker_cpus)
     if not isinstance(cfg["methods"], list) or not cfg["methods"] or any(m not in METHODS for m in cfg["methods"]):
         raise ValueError(f"methods must be a nonempty subset of {METHODS}")
-    if msa_cli_explicit and not any(method in {"af3", "af3-la"} for method in cfg["methods"]):
-        raise ValueError("MSA command options require an AF3/AF3-LA validation method")
+    if msa_cli_explicit and not any(method in {"af3", "af3-la", "mol1"} for method in cfg["methods"]):
+        raise ValueError("MSA command options require AF3, AF3-LA, or Mol-1")
     if len(cfg["methods"]) != len(set(cfg["methods"])):
         raise ValueError("Duplicate validation methods")
     if type(cfg["rerun"]) is not bool or type(cfg["rerun_refold"]) is not bool:
         raise ValueError("rerun and rerun_refold must be boolean")
     if cfg["rerun"] and cfg["rerun_refold"]:
         raise ValueError("rerun and rerun_refold are mutually exclusive")
-    if cfg["rerun_refold"] and any(method not in {"af3", "af3-la"} for method in cfg["methods"]):
-        raise ValueError("--rerun-refold is supported only with AF3 or AF3-LA")
+    if cfg["rerun_refold"] and any(method not in {"af3", "af3-la", "mol1"} for method in cfg["methods"]):
+        raise ValueError("--rerun-refold requires AF3, AF3-LA, or Mol-1")
     if cfg["rerun_refold"] and (args.plan or args.refilter or args.recompute_metrics):
         raise ValueError("--rerun-refold cannot be combined with --plan, --refilter, or --recompute-metrics")
     if args.msa_refresh and (args.plan or args.refilter or args.recompute_metrics):
@@ -452,6 +470,7 @@ def parse_args(argv=None):
         raise ValueError("structure_stage must be 'base' or 'postprocessed'")
     _validate_vina(cfg.get("vina"))
     validate_af3_settings(cfg.get("af3"))
+    validate_mol1_settings(cfg.get("mol1"))
     if "vina_dock" in cfg["methods"] and len(cfg["methods"]) != 1:
         raise ValueError("vina_dock cannot be combined with other validation methods")
     if "vina_dock" in cfg["methods"] and cfg["scorer"]["enabled"]:

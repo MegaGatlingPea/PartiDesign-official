@@ -8,8 +8,9 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insu
 ```
 
 This insulin receptor binder task requests 32 initial backbones. The command
-uses the general PPI workflow below. Add `--config configs/pipeline/demo.yaml`
-for strict screening with the same production candidate limits.
+uses the PPI workflow below. Add `--config configs/pipeline/demo.yaml`
+for strict screening and a three-model final filter with the same production
+candidate limits.
 
 Run from the repository root with the generation, MPNN, ESMFold2-fast, and AF2
 assets prepared; see [model setup](download.md#optional-evaluation-models).
@@ -25,7 +26,8 @@ uses [generation](design.md).
 The default is three rounds, including the first validation round (`recycle: 3`):
 
 ```text
-generate once using each task's sample_num
+prepare required fixed-context MSA/templates
+→ generate once using each task's sample_num
 → round 1: current sequence + MPNN1 → refold → filter → cluster
 → selected parent + four partial replicas
 → round 2: current sequence + MPNN4 → refold → filter → select
@@ -90,18 +92,97 @@ change this cap, or `final.pool.source: last` to use last-round survivors.
 
 | Profile | Final prediction and acceptance |
 | --- | --- |
-| `protein`, `nuc` | AF3, five samples per sequence. Select the highest native `ranking_score`, then apply final criteria to that prediction. |
+| `protein`, `nuc` | Mol-1, five samples per sequence. Select the highest native `ranking_score`, then apply final criteria to that prediction. |
 | `ppi` | AF2-IG models `[1, 2]`, five matched complex/monomer pairs per model. Select each model's best complex by `0.8 * ipTM + 0.2 * pTM`, keep its same-sample monomer, and require both selected model pairs to pass. |
 
 `preset: auto` chooses protein or nuc from each task; select `ppi` explicitly
 for an eligible standard protein/peptide binder with protein context. PPI final
 criteria are `af2_ig_protdbench` for proteins and `af2_ig_peptide` for peptides.
 PPI produces ten pairs (twenty structures) per candidate with its default two
-models. Prediction selection precedes criteria; a lower-ranked passing sample
+models. Mol-1 and AF3 can also be selected explicitly with `final.method`.
+Prediction selection precedes criteria; a lower-ranked passing sample
 does not replace a selected failing sample. All final structures remain in
 `predictions/`. Each accepted candidate has one representative complex in
 `success/`; the metrics and selection records retain both PPI model winners
 and their matching monomer evidence.
+
+### Combine final filters
+
+Set `final.methods` to run several independent final filters on the same pool.
+A candidate is accepted when **at least one method passes**. Each method keeps
+its own ranking and criteria, and all requested methods run. Use either
+`method` for one backend or `methods` for several, never both:
+
+```yaml
+preset: ppi
+final:
+  methods: [af2_ig, mol1, af3]
+  af2: {models: [1, 2], samples: 5}
+  mol1: {samples: 5}
+  af3: {samples: 5}
+criteria_routes:
+  protein:
+    final:
+      af2_ig: [af2_ig_protdbench]
+      mol1: [af3_basic]
+      af3: [af3_basic]
+  peptide:
+    final:
+      af2_ig: [af2_ig_peptide]
+      mol1: [af3_basic]
+      af3: [af3_basic]
+```
+
+For this combination, AF2 still requires both selected model pairs to pass its
+own filter. That requirement does not make the three-method result an
+intersection. To choose method-specific criteria, use the routes shown in
+[`configs/pipeline/demo.yaml`](../configs/pipeline/demo.yaml).
+
+There is one `final/success/` directory. For every union-accepted candidate it
+contains each executed method's own best-ranked complex CIF, including a method
+that failed its criteria. AF2 contributes the best complex for each configured
+model. Filenames include the candidate, method and prediction key; matching AF2
+monomers remain in prediction evidence. `success/result.csv` identifies each
+published CIF and its method's pass status. `final/filter_results.csv` lists
+candidate, method, criterion, metric value, comparison, threshold, and pass
+status, alongside method and overall acceptance. Passing via one method does
+not mean that all its published structures passed.
+
+## Shared MSA and templates
+
+Before GPU work starts, the workflow prepares the fixed-context MSA and protein
+templates required by AF3/Mol-1. Protein searches default to ColabFold; designed
+chains stay query-only. `--msa off` disables both MSA and templates. ColabFold
+does not search RNA or DNA; use `source: af3` when fixed RNA context needs the
+local RNA MSA search route. Structural templates apply only to fixed protein
+chains. AF2-IG keeps its existing initial-guess protocol.
+
+```yaml
+msa:
+  mode: auto
+  source: colabfold
+  max_template_date: "2021-09-30"
+```
+
+The pipeline handles preparation automatically. To fill or inspect the shared
+cache separately, run:
+
+```bash
+partidesign msa configs/examples/pipeline_tasks.yaml \
+  --task protdbench_insulin_receptor --config configs/pipeline/demo.yaml
+```
+
+Search results are shared at `<model_dir>/.cache/af3_msa/`. Identical queries
+with the same search profile share one preparation across tasks, rounds and
+final methods. The chosen cache generations stay pinned for the run and its
+resumes. `--msa-refresh` refreshes each required query/profile once for a new
+run; it does not repeat the search for each candidate or model.
+
+The run's compact `msa.csv` lists chain/source, cache references, MSA depths and
+template counts. Round and final directories do not contain duplicate search
+caches. Each shared generation's `manifest.json` holds its template mappings and
+provenance. See [MSA and templates](msa.md) for cache-only use, refresh, custom
+service endpoints and local search resources.
 
 ## Results
 
@@ -112,6 +193,7 @@ inference/<run_name>/
   config.yaml                 # workflow configuration
   tasks.yaml                  # native task snapshot
   summary.csv
+  msa.csv                     # shared MSA/template references and counts, when used
   <task>/
     design/                   # initial generation: result.csv and structures
     round_1/
@@ -125,18 +207,22 @@ inference/<run_name>/
     final/
       result.csv
       selection.csv
-      predictions/            # all final AF3 samples or AF2 pairs
-      success/                # accepted final representatives
+      predictions/            # all final samples/pairs; grouped by method for multi-final
+      filter_results.csv      # multi-final: thresholds and method/overall acceptance
+      success/                # accepted candidates and published best-ranked CIFs
   .work/                      # inputs, snapshots and resumable state
 ```
 
 `config.yaml` is the pure workflow snapshot; `tasks.yaml` contains the selected
 native tasks. `.work/` directories contain internal runtime files, including
 `.work/resolved_config.yaml` for strict resume. Start with `summary.csv` for phase
-counts, then each phase's `result.csv` and `selection.csv` for candidate
-outcomes and selection. For per-prediction metrics, final model winners, and
+counts and `msa.csv` for shared search inputs, then each phase's `result.csv` and
+`selection.csv` for candidate outcomes and selection. For per-prediction metrics,
+final model winners, and
 rejection reasons, open `final/predictions/proposal*.json`; its
-`prediction_selection` and `decisions` explain final acceptance.
+`prediction_selection` and `decisions` explain final acceptance. Multi-method
+runs put these records under `final/predictions/<method>/`; start with
+`final/filter_results.csv` to compare method outcomes.
 `result.csv` points to visible candidate CIFs. Iteration prediction artifacts
 are under the round's `.work/predictions/`. To use a candidate as a
 standalone partial start, supply its one `refold/*.cif` and define the new task's
@@ -160,7 +246,9 @@ needs new predictions when its raw cache has been removed.
 For eligible protein/peptide complexes, pass the run, task, `final/`, or
 `final/success/` to [postfilter](postfilter.md). It screens only each published
 final representative and checks its final acceptance evidence, including both
-PPI model winners. The other final predictions and isolated monomers remain
+PPI model winners. For a multi-method final, only structures with
+`method_passed=true` enter postfilter; other methods’ best CIFs remain comparison
+evidence. The other final predictions and isolated monomers remain
 validation evidence.
 
 ## Tasks, presets, and workflow files
@@ -222,8 +310,9 @@ candidate limits and stricter screening: strict `af3_basic` iteration filtering,
 K=200 first selection, later max-pass=200 and final max-pass=200. It retains three rounds,
 partial fraction 0.625 with four replicas and parent retention, and relaxation
 off. Iteration and final prediction workers each request one GPU. Both the
-preset and demo workflow use PPI final AF2 validation. Strict criteria may end
-a task early or leave no final pass.
+preset uses PPI final AF2 validation. The demo instead runs AF2-IG, Mol-1,
+and AF3 and accepts the union of passing candidates. Prepare all three models
+before running the demo. Strict criteria may end a task early or leave no final pass.
 
 ```bash
 partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor \
@@ -239,7 +328,9 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml \
 
 Remove `--plan` to run. Select one MDM2 task with its individual `--task` flag.
 The cyclic task authors a real terminal C–N bond and cyclic offsets; the
-disulfide task fixes both cysteines and their SG–SG bond.
+disulfide task fixes both cysteines and their SG–SG bond. Mol-1 uses the explicit
+C–N or SG–SG bond with its upstream positional encoding. The task's cyclic
+offset remains available to generation, AF2-IG and AF3.
 
 ## Advanced workflow configuration
 
@@ -256,7 +347,7 @@ same fields in `rounds.N` to change a particular round:
 | --- | --- |
 | `mpnn` | A proposal count, or `{source: auto, count: 4, settings: {...}}` with native MPNN settings. |
 | `include_gt` | Boolean: propose the current sequence as well as MPNN sequences. |
-| `refold` | A method string, or a mapping with `method`, `conformers`, native `af2`/`esmfold2`/`af3` settings and `worker_gpus`. |
+| `refold` | A method string, or a mapping with `method`, `conformers`, native `af2`/`esmfold2`/`af3`/`mol1` settings and `worker_gpus`. |
 | `filter` | A list of existing validation criterion names, or `{criteria: [...], criteria_route: auto, criteria_mode: all}`. |
 | `selection` | `mode: cluster` or `top`, plus the limits described below. |
 | `partial` | Boolean, or `{enabled: true, fraction: 0.625, replicas: 4, include_parent: true}`. |
@@ -316,10 +407,12 @@ tasks:
 The workflow's `tasks` mapping contains only workflow overrides. Keep molecular
 fields in the native task YAML, without duplicating them here.
 
-`final` accepts `method`, native `af2`/`af3` settings, `max_pass`, `criteria` and
-the native final-selection controls. For example,
+`final` accepts `method` or `methods`, native `af2`/`af3`/`mol1` settings,
+`max_pass`, `criteria` and the native final-selection controls. For example,
 `final: {method: af3, af3: {samples: 3}, max_pass: 8}` changes final prediction
-sampling without changing iteration refolding. Native predictor settings are
+sampling without changing iteration refolding. Mol-1 uses the same syntax:
+`final: {method: mol1, mol1: {samples: 5}, max_pass: 8}`. Mol-1 shares the
+AF3 context MSA/template cache; designed chains remain query-only. Native predictor settings are
 listed in the [validation guide](validate.md).
 
 Settings resolve in this order:
@@ -402,9 +495,10 @@ under [final validation](#final-validation). Motif RMSD is a pass/fail check;
 it does not change the ranking score.
 
 Special polymer–polymer connections, including physical head-to-tail closures,
-disulfides and staples, force ESMFold2-fast iteration. Ordinary backbone edges
-and offset-only intent do not trigger this override. Final validation keeps its
-configured backend and [native chemistry limits](validate.md#antibodies-cyclic-peptides-and-modified-chemistry).
+disulfides and staples, switch AF2-IG or AF3 iteration to ESMFold2-fast. Explicit
+Mol-1 iteration keeps Mol-1 and uses its native covalent-bond input. Ordinary
+backbone edges and offset-only intent do not trigger an override. Final
+validation keeps its configured backend and [native chemistry limits](validate.md#antibodies-cyclic-peptides-and-modified-chemistry).
 An iteration override does not extend AF2 final capabilities or add a final
 bond-geometry criterion.
 

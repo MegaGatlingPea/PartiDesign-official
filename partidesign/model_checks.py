@@ -203,6 +203,8 @@ def load_target(args) -> str:
         return _esm_load(target.removeprefix("esmfold2-"))
     if target in {"af3", "af3-la"}:
         return _af3_load(Path(args.model_dir), target)
+    if target == "mol1":
+        return _mol1_load(Path(args.model_dir), args.checkpoint)
     if target == "af2":
         return _af2_load()
     if target == "chemistry":
@@ -222,6 +224,28 @@ def load_target(args) -> str:
                 raise ValueError(f"packaged native CCD has no {name}")
         return f"Git-supplied native chemistry decoded on CPU ({len(components)} components)"
     raise ValueError(f"unsupported CPU load target: {target}")
+
+
+def _mol1_load(root: Path, checkpoint: str | None = None) -> str:
+    import copy
+    import tempfile
+    from src.validate.config import DEFAULTS
+    from src.validate.mol1 import Mol1Backend
+
+    settings = copy.deepcopy(DEFAULTS["mol1"])
+    settings["checkpoint"] = checkpoint
+    settings["msa"]["mode"] = "off"
+    backend = Mol1Backend(code_root(), settings, device="cpu")
+    try:
+        with tempfile.TemporaryDirectory(prefix="partidesign-mol1-load-") as directory:
+            backend._load(Path(directory))
+            model = backend.runner.model
+            if any(parameter.device.type != "cpu" for parameter in model.parameters()):
+                raise RuntimeError("Mol-1 checkpoint did not load on CPU")
+            records = _finite_state(model)
+    finally:
+        backend.close()
+    return f"strict CPU Mol-1 keys/shapes/finite tensors: {records} parameter records"
 
 
 def _esm_load(mode: str) -> str:

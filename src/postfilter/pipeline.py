@@ -84,9 +84,9 @@ def _model(key):
     return int(match[1]) if match else None
 
 
-def _ranked(record, key):
+def _ranked(record, key, *, per_model=False):
     method = record.get("method")
-    if method not in {"af2_ig", "af3"}:
+    if method not in {"af2_ig", "af3", "mol1"}:
         _reject("unsupported_method", f"Unsupported final pipeline method: {method}")
     predictions = record.get("predictions")
     expected = record.get("expected_predictions")
@@ -107,7 +107,8 @@ def _ranked(record, key):
     if saved["mode"] == "best_ranked":
         from src.pipeline.runner import final_prediction_view
         view, ranked = final_prediction_view(record, models=sorted(models) if models is not None else None)
-        if ranked.get("selected_prediction_key") != key:
+        winners = [value["selected_prediction_key"] for value in ranked.get("selected_models", {}).values()]
+        if key != ranked.get("selected_prediction_key") and not (per_model and key in winners):
             _reject("metadata_mismatch", "Published final representative is not its saved-policy native-ranked winner")
         for field in ("selected_prediction_key", "paired_prediction_key", "selected_models"):
             if saved.get(field) != ranked.get(field):
@@ -177,6 +178,90 @@ def _accepted(candidate, row, decision, root):
     return path
 
 
+def _select_union(root, selection, state, counts, context):
+    """Select only method-passed publications from the shared union directory."""
+    rows, decisions = _rows(root / "result.csv"), _rows(root / "selection.csv")
+    accepted = {}
+    for candidate in state["candidates"]:
+        identity = candidate.get("candidate_id")
+        if (not _identifier(identity) or identity in accepted
+                or candidate.get("task") != root.parent.name):
+            _reject("metadata_mismatch", "Union final state has invalid candidate identities")
+        row, decision = rows.get(identity), decisions.get(identity)
+        if (not row or row.get("status") != "passed" or not decision
+                or decision.get("status") != "passed"):
+            _reject("metadata_mismatch", "Union candidate is not an accepted final CSV publication")
+        accepted[identity] = candidate
+    if not accepted:
+        return
+    # Many publication rows can share a candidate (methods and AF2 models).
+    with (root / "success" / "result.csv").open(encoding="utf-8", newline="") as stream:
+        publications = list(csv.DictReader(stream))
+    records = {}
+    methods = {row.get("method") for row in publications
+               if row.get("method_passed", "").lower() == "true"}
+    for method in sorted(methods):
+        if method not in {"af2_ig", "af3", "mol1"}:
+            _reject("unsupported_method", f"Unsupported union final method: {method}")
+        for path in sorted((root / "predictions" / method).glob("proposal*.json")):
+            if not re.fullmatch(r"proposal\d+\.json", path.name):
+                continue
+            counts["published_records"] += 1
+            record = read_json(path)
+            if not isinstance(record, dict) or record.get("method") != method:
+                _reject("metadata_mismatch", f"Union final record has inconsistent method: {path}")
+            records.setdefault((method, record.get("parent_id")), []).append((path, record))
+    seen = set()
+    for row in publications:
+        # Other methods' best structures remain useful evidence, but a union
+        # acceptance never upgrades a failed method into a postfilter input.
+        if row.get("method_passed", "").lower() != "true":
+            continue
+        identity, method, key = (row.get(field) for field in ("candidate_id", "method", "prediction_key"))
+        item_context = dict(context, sample=identity, method=method, prediction_key=key)
+        try:
+            candidate = accepted.get(identity)
+            final = rows.get(identity)
+            if (candidate is None or row.get("union_passed", "").lower() != "true"
+                    or final.get(method + "_passed", "").lower() != "true"
+                    or method not in _cell(final.get("passed_methods", ""))):
+                _reject("metadata_mismatch", "Published method is not a passing union member")
+            if not _identifier(key) or (identity, method, key) in seen:
+                _reject("metadata_mismatch", "Union success has invalid or duplicate prediction identities")
+            seen.add((identity, method, key))
+            filename = f"{identity}__{method}__{key}.cif"
+            if row.get("filename") != filename:
+                _reject("metadata_mismatch", "Union success filename disagrees with its prediction identity")
+            matches = records.get((method, identity), [])
+            if len(matches) != 1:
+                _reject("metadata_incomplete", "Union publication has no unique final prediction record")
+            record_path, record = matches[0]
+            item_context["record_path"] = str(record_path)
+            sequence = _sequence(record)
+            if record.get("origin_id") != candidate.get("origin_id"):
+                _reject("metadata_mismatch", "Union publication origin disagrees with its final state")
+            names = _ranked(record, key, per_model=True)
+            path = (root / "success" / filename).resolve(strict=True)
+            if not stat.S_ISREG(path.stat().st_mode):
+                _reject("invalid_refold", "Union final publication is not a regular file")
+            counts["nominated"] += len(names)
+            counts["deduplicated"] += 1
+            binder, target, kind, cycles = _partners(record, row, sequence["sequences"])
+            selection.candidates.append(Candidate(
+                task_dir=str(root.parent), method_dir=str(root), task=root.parent.name, method=method,
+                sample=identity, seq_index=sequence["seq_index"], source=sequence["source"],
+                source_index=sequence["source_index"], prediction_key=key, refold_path=str(path),
+                record_path=str(record_path), binder_chains=binder, target_chains=target,
+                sequences=dict(sequence["sequences"]), passing_criteria=names,
+                binder_kind=kind, declared_cyclic_chains=cycles,
+            ))
+            counts["selected"] += 1
+        except (OSError, UnicodeError, KeyError, TypeError, ValueError) as exc:
+            if getattr(exc, "code", None) == "not_ppi":
+                counts["non_ppi"] += 1
+            _diagnostic(selection, getattr(exc, "code", "metadata_incomplete"), exc, **item_context)
+
+
 def select_final(root, selection, *, task_names=None):
     """Read each published final metadata file once, without parsing structures."""
     task_dir = root.parent
@@ -195,6 +280,9 @@ def select_final(root, selection, *, task_names=None):
         candidates = state.get("candidates")
         if not isinstance(candidates, list) or any(not isinstance(value, dict) for value in candidates):
             _reject("metadata_incomplete", "Pipeline final accepted candidate state is malformed")
+        if state.get("summary", {}).get("combination") == "any":
+            _select_union(root, selection, state, counts, context)
+            return
         rows, decisions = _rows(root / "result.csv"), _rows(root / "selection.csv")
         records = {}
         for path in sorted((root / "predictions").glob("proposal*.json")):

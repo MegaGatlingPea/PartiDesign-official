@@ -1,0 +1,134 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# The distribution is published as `molence`; the import package is `mol`.
+# (`mol` itself is taken on PyPI.)
+name = "molence"
+dynamic = ["version"]
+description = "Mol-1: an all-atom biomolecular structure prediction model"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = "Apache-2.0"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+keywords = [
+  "protein-structure-prediction",
+  "structural-biology",
+  "diffusion-model",
+  "bioinformatics",
+  "deep-learning",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Operating System :: POSIX :: Linux",
+]
+
+# Everything needed to load a checkpoint and predict a structure on CPU.
+# The torch bound here is only a floor; the `cuda` extras narrow it to the
+# range whose default PyPI wheel matches their operator wheels.
+dependencies = [
+  "torch>=2.7",
+  "click>=8.1.0",
+  "numpy>=2.0",
+  "scipy>=1.9.0",
+  "pandas>=2.0",
+  "networkx>=3.4.2",
+  "ml_collections==1.1.0",
+  "PyYAML>=6.0",
+  "tqdm>=4.67",
+  "pydantic>=2.0.0",
+  "optree>=0.17",
+  "protobuf>=6.0",
+  "biotite==1.7.1",
+  "biopython>=1.85",
+  "rdkit>=2025.3",
+  "gemmi>=0.6.7",
+  "modelcif>=1.4",
+  "pdbeccdutils>=1.0.0",
+  "scikit-learn>=1.5",
+  "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+# Fused CUDA kernels. The operator wheels are CUDA-major-version specific, and
+# so is the default PyTorch wheel on PyPI: torch 2.10 and earlier ship CUDA 12,
+# 2.11 and later ship CUDA 13. Each extra therefore pins the torch range whose
+# default build matches its operator wheels, so the resolver enforces the
+# pairing instead of a paragraph explaining it -- a cu12 operator wheel on a
+# CUDA 13 torch fails at import with nothing downstream saying why.
+#
+# Triton is deliberately NOT pinned here. Every PyTorch Linux wheel already
+# pins the exact Triton it was built against -- 3.6.0 for torch 2.10, 3.7.0 for
+# 2.12 -- so naming a version alongside a torch *range* is unsatisfiable by
+# construction. Measured: `torch>=2.7,<2.11` plus `triton==3.7.0` is a
+# ResolutionImpossible, because no torch in that range pins 3.7.0.
+#
+# The cuda range stops below 2.14: there the backward pass of the 0.10.0
+# operator wheels returns more gradients than torch accepts, so fine-tuning
+# fails (inference is unaffected).
+cuda = [
+  "torch>=2.11,<2.14",
+  "cuequivariance==0.10.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "cuequivariance-torch==0.10.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "cuequivariance-ops-cu13==0.10.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "cuequivariance-ops-torch-cu13==0.10.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+]
+
+# For a driver too old for CUDA 13.
+cuda12 = [
+  "torch>=2.7,<2.11",
+  "cuequivariance==0.10.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "cuequivariance-torch==0.10.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "cuequivariance-ops-cu12==0.10.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+  "cuequivariance-ops-torch-cu12==0.10.0; platform_system == 'Linux' and platform_machine == 'x86_64'",
+]
+
+# Empty on purpose, and named so an install states its intent: the PyTorch
+# triangle path is the only backend on CPU, and triangle_* = auto resolves
+# to it.
+cpu = []
+
+# Experiment tracking for fine-tuning runs. Imported lazily and only when
+# --use_wandb is set, which defaults to false, so it stays out of the base set.
+wandb = [
+  "wandb>=0.21",
+]
+
+# Running the test suite. Most tests are plain unittest, but a few use pytest
+# fixtures and markers, so pytest is what runs the whole suite.
+dev = [
+  "pytest>=8.0",
+  "flake8>=7.0",
+]
+
+[project.scripts]
+mol = "mol.runner.batch_inference:mol_cli"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["mol*"]
+exclude = ["assets*", "docs*", "examples*", "scripts*", "tests*", "plans*"]
+
+[tool.setuptools.package-data]
+# The Fast LayerNorm CUDA sources are compiled at first use, so they must ship
+# inside the wheel.
+mol = [
+  "model/layer_norm/kernel/*",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "mol.version.__version__" }
+
+[tool.pytest.ini_options]
+markers = [
+  "network: tests that reach external services",
+]

@@ -64,7 +64,17 @@ dependencies:
       - ipywidgets==8.1.9
       - ipymolstar==0.1.0
       - nbformat==5.10.4
-      - biotite==1.4.0
+      - biotite==1.7.1
+      # Mol-1 shares this environment and the existing context MSA cache.
+      - colabfold-binaries==0.1.0
+      - optree==0.17.0
+      - modelcif==1.4
+      - pdbeccdutils==1.0.0
+      # Mol-1 fused triangle kernels, shared with BioIR (CUDA 13).
+      - cuequivariance==0.13.0
+      - cuequivariance-torch==0.13.0
+      - cuequivariance-ops-cu13==0.13.0
+      - cuequivariance-ops-torch-cu13==0.13.0
       - rdkit==2026.3.4
       - openbabel-wheel==3.1.1.23
       - vina==1.2.7
@@ -129,3 +139,4 @@ dependencies:
       # transaction.  Paths are intentionally relative to the repository root.
       - -e .
       - -e ./community_models/af3/source
+      - -e ./community_models/mol1/source

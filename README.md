@@ -153,15 +153,16 @@ to adjust expansion.
 The explicit `ppi` preset runs AF2-IG models **1 and 2**, with five matched
 complex/monomer pairs per model: **ten pairs, twenty structures per candidate**.
 Each model selects its highest-ranked complex and the matching monomer; both
-model winners must pass. The `protein` and `nuc` presets use five AF3 samples,
+model winners must pass. The `protein` and `nuc` presets use five Mol-1 samples,
 select the highest native `ranking_score`, then apply final criteria. Final
 selection never substitutes a lower-ranked passing prediction.
 
 **AF3 model terms:** AlphaFold 3 model parameters and outputs are restricted to
 non-commercial use under Google's
 [Model Parameters Terms of Use](https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md).
-The `pipeline` command uses AF3 for final validation with the `protein` and `nuc`
-presets, and whenever AF3 is explicitly selected.
+These terms apply whenever AF3 is selected, including the three-model demo.
+Mol-1 has separate upstream source and parameter terms; check those terms for
+your intended use.
 
 Start with these outputs:
 
@@ -181,7 +182,8 @@ inference/insulin_receptor/
 A completed workflow can have no final pass. All final predictions, metrics,
 structures, state, and task/workflow snapshots are retained. Per-prediction
 metrics, selection evidence, and rejection reasons are in
-`final/predictions/proposal*.json`. Completed runs
+`final/predictions/proposal*.json` for single-method final validation.
+Multi-method runs group these records under `final/predictions/<method>/`. Completed runs
 remove raw prediction caches by default; add `--keep-cache` to retain them for
 raw PAE/PDE metric recomputation. Failed or interrupted runs retain their caches.
 See the [pipeline guide](docs/pipeline.md) for results, screening, and resume.
@@ -197,11 +199,24 @@ select a named task with `--task`. Start from the
 `--preset protein`, `--preset nuc`, or `--preset ppi` selects the workflow;
 automatic selection chooses protein or nuc. A separate `--config FILE.yaml`
 changes the rounds and final validation. The shipped strict demo keeps the
-production candidate limits and the same three-round, 0.625-fraction flow:
+production candidate limits and the same three-round, 0.625-fraction flow, then
+runs AF2-IG, Mol-1, and AF3 final filters. A candidate passes when **any** final
+method passes:
 
 ```bash
 partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor --config configs/pipeline/demo.yaml --run-name insulin_receptor_demo
 ```
+
+The three-model demo requires all three predictors. It writes one final
+`success/` directory; each accepted candidate includes every executed method's
+best-ranked CIF, with method names in filenames. `final/filter_results.csv`
+records which thresholds each method passed. See the [final-validation guide](docs/pipeline.md#final-validation)
+for configuration and output details.
+
+Protein context MSA and templates default to ColabFold and are shared by AF3
+and Mol-1. Designed chains remain query-only; ColabFold does not search nucleic
+acids. Use `partidesign msa` to prepare the shared cache before a run, or
+`--msa off` to disable both alignments and templates. See [MSA and templates](docs/msa.md).
 
 Protein, peptide, and RNA/DNA pipelines follow each backend's capabilities.
 Pure ligand design uses `partidesign design`. See the [pipeline guide](docs/pipeline.md)

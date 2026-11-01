@@ -2213,6 +2213,7 @@ def _native_prediction(
       "native_iptm": iptm, "pae": projection["full_pae"], "pde": projection["full_pde"],
       "confidence": confidence, "raw_confidence_path": str(raw_confidence_path),
       "_confidence_chain_map": source_confidence_chain_map, "metadata": metadata,
+      "msa_context": _jsonable(payload.get("msa_context", {})),
       "source_atom_ledger": list(payload["source_atom_ledger"]),
       "product_atom_ledger": product_ledger, "restored_product_atom_ledger": product_ledger,
       "native_product_atom_ledger": native_product_ledger,

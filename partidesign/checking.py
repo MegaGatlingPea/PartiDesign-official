@@ -111,7 +111,7 @@ def _source_assets(target: str) -> str:
              "ligandmpnn": "ligandmpnn", "cyclicmpnn": "cyclicmpnn",
              "nampnn": "na_mpnn", "af2": "colabdesign",
              "esmfold2-fast": "esmfold2", "esmfold2-standard": "esmfold2",
-             "af3": "af3", "af3-la": "af3"}
+             "af3": "af3", "af3-la": "af3", "mol1": "mol1"}
     if target in names:
         source = community_source(names[target])
         if not source.is_dir():
@@ -122,16 +122,20 @@ def _source_assets(target: str) -> str:
             converter = package / "constants" / "converters" / "ccd_pickle_gen.py"
             if not package.is_dir() or not converter.is_file():
                 raise FileNotFoundError(f"AF3 SDK source is incomplete: {source}")
+        if target == "mol1" and not (source / "mol" / "runner" / "inference.py").is_file():
+            raise FileNotFoundError(f"Mol-1 source is incomplete: {source}")
     return "bundled source available"
 
 
 def _msa_settings_for_check(args, root: Path) -> dict:
-    """Build an AF3 MSA settings mapping without loading an AF3 model."""
+    """Build shared context MSA settings without loading a prediction model."""
     from src.validate.config import DEFAULT_MSA_CONFIG, validate_msa_settings
 
     settings = copy.deepcopy(DEFAULT_MSA_CONFIG)
     values = {
         "mode": args.msa,
+        "source": getattr(args, "msa_source", None),
+        "server_url": getattr(args, "msa_server_url", None),
         "cache_dir": args.msa_cache_dir,
         "cache_profile": args.msa_profile,
         "database_dir": args.msa_database_dir,
@@ -482,9 +486,9 @@ def _run_check(args, root: Path, report: Report) -> int:
                 antibody=any(task.format == "antibody" for task in runner.tasks)))
     else:
         targets = list(TARGETS) if args.all else (args.model or ["partidesign"])
-    if any(target in {"af3", "af3-la"} for target in targets):
+    if any(target in {"af3", "af3-la", "mol1"} for target in targets):
         if not report.attempt(
-            "af3-msa",
+            "context-msa" if "mol1" in targets else "af3-msa",
             lambda: _msa_cache_check(args, root, ("protein", "rna")),
         ):
             # Continue with the ordinary AF3 resource/source checks so the

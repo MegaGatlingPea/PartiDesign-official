@@ -159,12 +159,13 @@ def run_gpu_jobs(repo, plans, cfg, criteria, presets, on_task_finished=None):
     actor_count = min(actor_capacity, len(jobs))
     from .config import config_for_method
     method_cfg = config_for_method(cfg, plans[0]["method"])
-    msa_enabled = plans[0]["method"] in {"af3", "af3-la"} and method_cfg.get("af3", {}).get("msa", {}).get("mode", "off") != "off"
+    msa_group = "mol1" if plans[0]["method"] == "mol1" else "af3"
+    msa_enabled = plans[0]["method"] in {"af3", "af3-la", "mol1"} and method_cfg.get(msa_group, {}).get("msa", {}).get("mode", "off") != "off"
     resources = None
     num_cpus = math.ceil(actor_count * worker_cpus)
     if msa_enabled:
         from .af3_msa_runtime import search_resources
-        resources = search_resources(method_cfg["af3"]["msa"], actor_count, worker_cpus)
+        resources = search_resources(method_cfg[msa_group]["msa"], actor_count, worker_cpus)
         num_cpus = resources["ray_cpus"]
         emit({"phase": "msa_cpu_resources", **resources})
     ray.init(address="local", num_gpus=requested_gpus, num_cpus=num_cpus,
@@ -277,13 +278,18 @@ def main(argv=None):
     plans = [make_plan(task, method, cfg, repo, args.limit)
              for method in cfg["methods"] for task in tasks]
     if args.plan:
-        msa = cfg.get("af3", {}).get("msa", {})
-        print(json.dumps({"plans": plans, "af3_msa": {
-            "mode": msa.get("mode", "off"), "search_workers": msa.get("search_workers", 2),
-            "cache_dir": msa.get("cache_dir", ".cache/af3_msa"),
-            "context_queries": "resolved after sequence/input preparation; future MPNN queries unknown",
-            "search_started": False,
-        }}, indent=2))
+        def msa_view(group):
+            msa = cfg.get(group, {}).get("msa", {})
+            return {
+                "mode": msa.get("mode", "off"), "search_workers": msa.get("search_workers", 2),
+                "cache_dir": msa.get("cache_dir", ".cache/af3_msa"),
+                "context_queries": "resolved after sequence/input preparation; future MPNN queries unknown",
+                "search_started": False,
+            }
+        result = {"plans": plans, "af3_msa": msa_view("af3")}
+        if "mol1" in cfg["methods"]:
+            result["mol1_msa"] = msa_view("mol1")
+        print(json.dumps(result, indent=2))
         return 0
     emit({"phase": "planning", "tasks": len(tasks), "methods": cfg["methods"]})
     from .capabilities import classify_inputs

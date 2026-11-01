@@ -123,6 +123,7 @@ def rebuild_source_categories(
   row_indexes = {id(row): index for index, row in enumerate(rows)}
 
   def connect(left: Mapping[str, Any], right: Mapping[str, Any], order: str = "SING", kind: str = "covale") -> None:
+    order = str(order).strip().upper()
     key = tuple(sorted((row_indexes[id(left)], row_indexes[id(right)])))
     record: dict[str, Any] = {"conn_type_id": kind, "pdbx_value_order": order}
     for side, atom in (("ptnr1", left), ("ptnr2", right)):

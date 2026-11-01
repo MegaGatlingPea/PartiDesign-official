@@ -304,11 +304,12 @@ def _selection_family(parent):
     return parent.parent_id if parent.source == "partial" else parent.candidate_id
 
 
-def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, force=False):
+def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, force=False,
+              folder_override=None, predictions_dir=None, publish_success=True):
     from .backends import design_score
     task_cfg=cfg["tasks"][task_name]
     number=stage.get("round",task_cfg["recycle"])
-    folder=stage_folder(cfg,task_name,number,final=final)
+    folder=Path(folder_override) if folder_override is not None else stage_folder(cfg,task_name,number,final=final)
     state=stage_state(cfg,folder)
     method=stage["method"]
     requested_method=method
@@ -317,10 +318,10 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
     policy_checked=bool(not final and method!="esmfold2-fast" and parents)
     if policy_checked:
         first_record=_candidate_record(parents[0],previous)
-        if has_special_polymer_bond(first_record):
+        if method in {"af2_ig", "af3"} and has_special_polymer_bond(first_record):
             method="esmfold2-fast"
             validation=copy.deepcopy(stage["validation"])
-            requested_group={"af2_ig":"af2","af3":"af3"}[requested_method]
+            requested_group={"af2_ig":"af2","af3":"af3","mol1":"mol1"}[requested_method]
             validation["methods"]=[method]
             validation["esmfold2"]["samples"]=stage["samples"]
             validation["esmfold2"]["seed"]=validation[requested_group]["seed"]
@@ -390,7 +391,7 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
     eligible=[]
     candidate_by_id={}
     input_by_id={}
-    group={"af2_ig":"af2","af3":"af3","esmfold2-fast":"esmfold2"}[method]
+    group={"af2_ig":"af2","af3":"af3","mol1":"mol1","esmfold2-fast":"esmfold2"}[method]
     score_profile=json.dumps([method,stage["validation"].get(group,{})],sort_keys=True)
     result_rows=[]
     motif_policy=cfg.get("motif_policy")=="first_and_final"
@@ -441,10 +442,24 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
             selection_info["status"]="passed" if all_models_passed else "filtered"
             if not all_models_passed:
                 passing=set()
+        for prediction in record['predictions'].values():
+            for reference in prediction.get('msa_context', {}).get('chains', []):
+                usage = getattr(owner, '_msa_usage', None)
+                if usage is None:
+                    owner._msa_usage = usage = {}
+                key = (task_name, method, reference['source_id'], reference.get('entry_id'),
+                       reference.get('profile_id'), reference.get('generation_id'))
+                usage[key] = {'task': task_name, 'method': method, 'chain': reference['source_id'],
+                              'modality': reference['modality'], 'length': len(reference['sequence']),
+                              **{field: reference.get(field) for field in
+                                 ('source', 'cache_dir', 'entry_id', 'profile_id', 'generation_id',
+                                  'msa_depth', 'paired_msa_depth', 'template_count')}}
         record.update(decisions=evaluated,request_key=request_key,cache_hit=hit,
                       parent_id=parent.candidate_id,origin_id=parent.origin_id)
         public=((folder/"predictions" if final else folder/".work"/"predictions")
                 if task_layout(cfg) else folder/"validate"/method)
+        if predictions_dir is not None:
+            public=Path(predictions_dir)
         public.mkdir(parents=True,exist_ok=True)
         for prediction in record["predictions"].values():
             source=Path(prediction["structure_path"]) if prediction.get("structure_path") else None
@@ -553,9 +568,10 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
     survivors=[]
     if final:
         for candidate,current in chosen:
-            destination=folder/"success"/Path(candidate.path).name
+            destination=(folder/"success"/Path(candidate.path).name if publish_success else Path(candidate.path))
             destination.parent.mkdir(parents=True,exist_ok=True)
-            _publish(candidate.path,destination)
+            if publish_success:
+                _publish(candidate.path,destination)
             survivors.append(replace(candidate,path=str(destination),row=dict(candidate.row,filename=str(destination))))
             if task_layout(cfg):
                 for row in result_rows:
@@ -680,6 +696,14 @@ def run(args):
         for name in cfg["task_names"]:
             task=cfg["tasks"][name]
             authored=cfg["task_payload"][name]
+            final_stages = task["final"].get("validators", [task["final"]])
+            final_samples, final_structures = {}, {}
+            for final_stage in final_stages:
+                method = final_stage["method"]
+                group = {"af2_ig": "af2", "mol1": "mol1"}.get(method, "af3")
+                settings = final_stage["validation"][group]
+                final_samples[method] = settings["samples"]
+                final_structures[method] = settings["samples"] * (2 * len(settings["models"]) if method == "af2_ig" else 1)
             budget.append({"task":name,"initial_mode":"from_run" if cfg["from_run"] else ("partial" if authored.get("partial") else "de_novo"),
                            "sample_num":authored.get("sample_num",1),
                            "design_length":authored.get("design_length"),
@@ -691,16 +715,15 @@ def run(args):
                            "structure_multipliers":[(r["partial"]["replicas"]+int(r["partial"]["include_parent"]))
                                                     if r["partial"]["enabled"] else 1 for r in task["rounds"]],
                            "final_pool":task["final"]["pool"],
-                           "final_samples_per_sequence":task["final"]["validation"]["af2" if task["final"]["method"]=="af2_ig" else "af3"]["samples"],
-                           "final_structures_per_sequence":(2*len(task["final"]["validation"]["af2"]["models"])*task["final"]["validation"]["af2"]["samples"]
-                                                            if task["final"]["method"]=="af2_ig" else task["final"]["validation"]["af3"]["samples"]),
+                           "final_samples_per_sequence":final_samples if len(final_stages)>1 else next(iter(final_samples.values())),
+                           "final_structures_per_sequence":final_structures if len(final_stages)>1 else next(iter(final_structures.values())),
                            "final_prediction_selection":task["final"]["prediction_selection"],
-                           "final":task["final"]["method"]+" / GT-only"})
+                           "final":" + ".join(final_samples)+" / GT-only"})
         print(yaml.safe_dump({"effective_config":cfg,"budget":budget,
                               "generation_expansion":"sample_num follows native per-length-plan expansion",
                               "capabilities":{"design":"protein, peptide, RNA, DNA",
                                               "af2_ig":"one standard protein design chain with protein context; paired protocols",
-                                              "cyclic_offset":"native AF2/AF3; ESM uses explicit covalent bonds",
+                                              "cyclic_offset":"native AF2/AF3/Mol-1; ESM uses explicit covalent bonds",
                                               "context_motion":True,"pure_ligand_design":False,
                                               "polymer_bond_iteration":"special polymer-polymer bonds force esmfold2-fast; final AF3 is unchanged"}},
                              sort_keys=False),end="")
@@ -739,6 +762,8 @@ def run(args):
     started=time.monotonic()
     lock=work/"run.lock" if task_layout(cfg) else root/".run.lock"
     with locked(lock), using_model_dir(cfg["model_dir"]):
+        from .msa import prepare_run
+        cfg['_msa_references'], msa_rows = prepare_run(cfg, repo, work)
         initial_state=work/"generation.json" if task_layout(cfg) else root/".generation.json"
         if initial_state.is_file():
             initial={name:[Candidate(**c) for c in rows] for name,rows in json.loads(initial_state.read_text()).items()}
@@ -767,10 +792,11 @@ def run(args):
             groups={}
             for name in cfg["task_names"]:
                 methods=[r["method"] for r in cfg["tasks"][name]["rounds"]]
-                if initial[name] and any(method!="esmfold2-fast" for method in methods):
+                if initial[name] and any(method in {"af2_ig", "af3"} for method in methods):
                     record=_candidate_record(initial[name][0],previous_dirs[name])
                     if has_special_polymer_bond(record):
-                        methods=["esmfold2-fast"]*len(methods)
+                        methods=["esmfold2-fast" if method in {"af2_ig", "af3"} else method
+                                 for method in methods]
                 signature=tuple(methods)
                 groups.setdefault(signature,[]).append(name)
             # Compatible tasks advance together; heterogeneous backends do not
@@ -791,17 +817,28 @@ def run(args):
                         summaries.append(summary)
                         previous_dirs[name]=stage_folder(cfg,name,number)
                         write_csv(root/"summary.csv",summaries)
+                        if getattr(owner, '_msa_usage', None):
+                            write_csv(root/'msa.csv', list(owner._msa_usage.values()))
+            final_jobs=[]
             for name in cfg["task_names"]:
                 pool=cfg["tasks"][name]["final"]["pool"]
                 live[name]=final_pool(history[name],live[name],pool)
                 if not live[name]:
                     continue
-                live[name],summary=run_stage(owner,cfg,name,cfg["tasks"][name]["final"],live[name],
-                                             previous_dirs[name],final=True,force=invalidated[name])
+                final_jobs.append(dict(task_name=name, stage=cfg["tasks"][name]["final"],
+                                       parents=live[name], previous=previous_dirs[name],
+                                       force=invalidated[name]))
+            from .final import prepare_finals
+            final_outputs=prepare_finals(owner,cfg,final_jobs)
+            for job in final_jobs:
+                name=job["task_name"]
+                live[name],summary=final_outputs[name]
                 summary.pop("_resumed",None)
                 summary.pop("_archive",None)
                 summaries.append(summary)
                 write_csv(root/"summary.csv",summaries)
+                if getattr(owner, '_msa_usage', None):
+                    write_csv(root/'msa.csv', list(owner._msa_usage.values()))
         finally:
             owner.close()
         atomic_json(work/"summary.json",{"status":"complete","seconds":time.monotonic()-started,
@@ -819,9 +856,9 @@ def run(args):
 
 class _ResourceOwner:
     """One Ray reservation owns MPNN, refold and direct OpenMM."""
-    def __init__(self, repo, cache):
+    def __init__(self, repo, cache, msa_references=()):
         from .backends import NativeOwner
-        self.owner=NativeOwner(Path(repo),Path(cache),device="cuda:0")
+        self.owner=NativeOwner(Path(repo),Path(cache),device="cuda:0", msa_references=msa_references)
         self.fm=None
     def generate(self,*args,**kwargs):
         return self.owner.generate(*args,**kwargs)
@@ -872,7 +909,7 @@ class _OwnerPool:
                 raise RuntimeError("No CUDA GPUs are visible for pipeline")
             budgets=[]
             for task in self.cfg["tasks"].values():
-                for stage in [*task["rounds"],task["final"]]:
+                for stage in [*task["rounds"], *task["final"].get("validators", [task["final"]])]:
                     settings=stage["validation"]
                     fraction=settings.get("worker_gpus")
                     fraction=float(fraction if fraction is not None else
@@ -891,7 +928,7 @@ class _OwnerPool:
         remote=ray.remote(num_gpus=gpu,num_cpus=cpu,max_restarts=0,
                           runtime_env={"env_vars":{"XLA_PYTHON_CLIENT_PREALLOCATE":"false"}})(_ResourceOwner)
         cache=getattr(self,"cache",self.root/".prediction_cache")
-        self.actors=[remote.remote(str(self.repo),str(cache)) for _ in range(capacity)]
+        self.actors=[remote.remote(str(self.repo),str(cache),self.cfg.get("_msa_references", ())) for _ in range(capacity)]
         self.identity=identity
         print(f"Resident {method} pool: {capacity} workers, {gpu:g} GPU / {cpu:g} CPU each",flush=True)
 
