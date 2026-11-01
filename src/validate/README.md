@@ -19,7 +19,9 @@ Protein/cyclic fold validation defaults to GT1+SolubleMPNN1. Nucleic sequence
 validation defaults to GT1+NA-MPNN1. Explicit source counts, settings and labels
 preserve benchmark budgets. AF2 uses model1 by default. AF3/AF3-LA use automatic
 context MSA cache/search with templates enabled by default; select `--msa off`
-to disable these searches. They do not preallocate JAX GPU memory by default. GPU-backed
+to disable these searches, or `--msa server` (with optional `--msa-server <url>`)
+to query ColabFold MMseqs2 servers without requiring local genetic databases.
+They do not preallocate JAX GPU memory by default. GPU-backed
 validation uses persistent Ray owners; neural backends stay resident for the
 owner lifetime. Missing/unsupported metrics cannot silently satisfy a preset.
 

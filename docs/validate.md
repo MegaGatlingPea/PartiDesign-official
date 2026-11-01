@@ -307,13 +307,24 @@ prediction templates.
 | Policy | Behavior |
 | --- | --- |
 | `--msa off` | No MSA/template searches; useful for a first evaluator trial |
-| `--msa auto` | Reuse matching cache entries; search missing entries using prepared databases and HMMER binaries |
+| `--msa auto` | Reuse matching cache entries; search missing entries locally using prepared databases and HMMER binaries |
+| `--msa server` | Query a ColabFold-compatible MMseqs2 API server (default `https://api.colabfold.com`); format hits to AF3 Jackhmmer-compatible A3Ms and write to cache |
 | `--msa cache-only` | Require exact ready cache entries; never search to fill a miss |
 
 ```bash
 # A bounded AF3 trial without database searches.
 partidesign validate inference/first_run --method af3 \
   --source gt:1 --criteria af3_basic --msa off --limit 2 --plan
+
+# Server-mode evaluation using public ColabFold MMseqs2 API (no local genetic databases required).
+partidesign validate inference/first_run --method af3 --source gt:1 \
+  --criteria af3_basic --msa server --msa-cache-dir msa_cache \
+  --worker-gpus 0.5 --worker-cpus 1 --plan
+
+# Server-mode with a custom or self-hosted ColabFold MSA server:
+partidesign validate inference/first_run --method af3 --source gt:1 \
+  --criteria af3_basic --msa server --msa-server https://custom.colabfold.org \
+  --msa-cache-dir msa_cache --plan
 
 # Database-backed evaluation; choose paths containing your prepared resources.
 partidesign validate inference/first_run --method af3 --source gt:1 \
@@ -324,8 +335,14 @@ partidesign validate inference/first_run --method af3 --source gt:1 \
 ```
 
 Remove `--plan` after checking the resources. `partidesign download af3` prepares model assets, not
-the full search databases. `--msa-profile` selects a recorded cache profile and requires
-`--msa cache-only`. `--msa-refresh` requires `--msa auto` and refreshes matching cache
+the full search databases. `--msa server` delegates protein MSA searches to a remote ColabFold-compatible
+server, eliminating the need to download large local databases (UniRef90, BFD, MGnify). The server
+host defaults to `https://api.colabfold.com` (configurable via `--msa-server` or `MMSEQS_SERVICE_HOST_URL`).
+Retrieved alignments are converted into AF3 Jackhmmer-compatible A3M format, pairedMSA-free, and written
+to the durable SQLite cache so subsequent runs hit cache locally. Note that server mode supports
+protein context chains only (RNA chains require local `--msa auto` or `--msa cache-only`).
+`--msa-profile` selects a recorded cache profile and requires
+`--msa cache-only`. `--msa-refresh` requires `--msa auto` or `--msa server` and refreshes matching cache
 generations. If an existing prediction used a different MSA/cache profile
 or generation, the runtime requires an explicit rerun decision; add `--rerun-refold` to retain
 sequences and replace AF3 predictions, or `--rerun` to regenerate sequences too.

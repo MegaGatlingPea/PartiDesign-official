@@ -22,8 +22,9 @@ def search_resources(settings, actor_count, worker_cpus):
     """Reserve actor CPUs, host headroom, and tool costs before Ray starts."""
     capacity = available_cpus()
     actor_cpus = math.ceil(actor_count * worker_cpus)
-    headroom = max(2, min(16, capacity // 6))
-    maximum = max(0, capacity - actor_cpus - headroom)
+    is_server = settings.get("mode") == "server"
+    headroom = max(1 if is_server else 2, min(16, capacity // 6))
+    maximum = max(1 if is_server else 0, capacity - actor_cpus - headroom)
     raw = settings["cpu_budget"]
     budget = min(72, maximum) if raw == "auto" else int(raw)
     if budget > maximum:
@@ -33,8 +34,8 @@ def search_resources(settings, actor_count, worker_cpus):
 
 
 def query_cost(settings, modality):
-    if settings["mode"] == "cache-only":
-        return 0
+    if settings["mode"] in ("cache-only", "server"):
+        return 1 if settings["mode"] == "server" else 0
     return (max(4 * (settings["jackhmmer_n_cpu"] + 1), 9 if settings.get("templates") else 0) if modality == "protein"
             else 3 * (settings["nhmmer_n_cpu"] + 1))
 
@@ -61,7 +62,7 @@ def run_staged_jobs(ray, actors, jobs, repo, cfg, resources, finished):
     cache = None
     position = 0
     reserved = 0
-    helpers = max(2, settings["search_workers"])
+    helpers = 1 if settings.get("mode") == "server" else max(2, settings["search_workers"])
 
     def key(query):
         return query["modality"], query["sequence"]
@@ -80,7 +81,7 @@ def run_staged_jobs(ray, actors, jobs, repo, cfg, resources, finished):
             emit({"phase": "msa_cache_hit", "modality": identity[0], "length": len(identity[1])})
         elif settings["mode"] == "cache-only":
             results[identity] = {"status": "failed", "error": "No matching ready AF3 MSA cache entry (cache-only)"}
-        elif query_cost(settings, identity[0]) + helpers > resources["search_cpus"]:
+        elif settings["mode"] != "server" and query_cost(settings, identity[0]) + helpers > resources["search_cpus"]:
             raise ValueError(f"MSA {identity[0]} query needs {query_cost(settings, identity[0]) + helpers} CPU slots including helpers; search budget is {resources['search_cpus']}. Increase --msa-cpus or lower tool threads")
         return identity
 

@@ -61,8 +61,9 @@ def _task_options(parser, *, generation=False):
 
 def _msa_options(parser):
     """Add the lightweight AF3 MSA policy flags shared by validate/check."""
-    _single(parser, "--msa", choices=("auto", "off", "cache-only"),
+    _single(parser, "--msa", choices=("auto", "off", "cache-only", "server"),
             help="AF3 target/context MSA policy")
+    _single(parser, "--msa-server", help="ColabFold MMseqs2 MSA server API URL")
     _single(parser, "--msa-cache-dir", help="AF3 MSA cache directory")
     _single(parser, "--msa-profile", help="Recorded AF3 MSA cache profile")
     _single(parser, "--msa-database-dir", help="AF3 public database root")

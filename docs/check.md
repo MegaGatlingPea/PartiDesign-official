@@ -94,6 +94,7 @@ requested check. Native-generation smoke checks require the generation bundle.
 | `--execution-backend auto\|native\|bioir` | Request an execution backend for a task check; default `auto`. |
 | `--load`, `--smoke` | Opt into CPU loading or real execution as described above. |
 | `--msa off` | Check explicit AF3/AF3-LA resources without MSA databases. |
+| `--msa server` | Check AF3/AF3-LA resources using ColabFold MMseqs2 server policy without local MSA databases. |
 
 The terminal report shows `PASS`, `FAIL`, `SKIP`, and `NOT_RUN` entries. Unused
 optional models are skipped. A failed check returns a nonzero status; no

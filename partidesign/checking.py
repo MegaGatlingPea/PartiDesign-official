@@ -132,6 +132,7 @@ def _msa_settings_for_check(args, root: Path) -> dict:
     settings = copy.deepcopy(DEFAULT_MSA_CONFIG)
     values = {
         "mode": args.msa,
+        "server_url": getattr(args, "msa_server", None),
         "cache_dir": args.msa_cache_dir,
         "cache_profile": args.msa_profile,
         "database_dir": args.msa_database_dir,

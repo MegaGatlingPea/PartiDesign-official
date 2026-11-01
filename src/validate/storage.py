@@ -10,7 +10,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from contextlib import contextmanager
 import csv
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 import json
 import math
 from numbers import Number
@@ -59,14 +62,16 @@ def locked(path: Path, *, blocking=True):
     if path.is_symlink():
         raise ValueError(f"Lock may not be a symlink: {path}")
     with path.open("a+") as stream:
-        try:
-            fcntl.flock(stream, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
-        except BlockingIOError as exc:
-            raise RuntimeError(f"Another validation owns {path.parent}") from exc
+        if fcntl is not None:
+            try:
+                fcntl.flock(stream, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
+            except BlockingIOError as exc:
+                raise RuntimeError(f"Another validation owns {path.parent}") from exc
         try:
             yield
         finally:
-            fcntl.flock(stream, fcntl.LOCK_UN)
+            if fcntl is not None:
+                fcntl.flock(stream, fcntl.LOCK_UN)
 
 
 def atomic_text(path: Path, content: str) -> None:

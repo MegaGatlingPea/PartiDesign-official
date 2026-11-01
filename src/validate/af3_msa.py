@@ -8,7 +8,10 @@ from __future__ import annotations
 import contextlib
 import copy
 import datetime as _dt
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 import json
 import math
 import os
@@ -30,6 +33,7 @@ from partidesign.paths import af3_source, asset_root
 
 DEFAULT_MSA_CONFIG: dict[str, Any] = {
     "mode": "auto",
+    "server_url": "https://api.colabfold.com",
     "cache_dir": ".cache/af3_msa",
     "cache_profile": None,
     "database_dir": None,
@@ -123,13 +127,20 @@ def validate_msa_settings(settings: Mapping[str, Any] | None) -> dict[str, Any]:
         raise MSAConfigError(f"Unknown MSA settings: {sorted(unknown)}")
     result = copy.deepcopy(DEFAULT_MSA_CONFIG)
     result.update(copy.deepcopy(dict(raw)))
-    if not isinstance(result["mode"], str) or result["mode"] not in {"auto", "off", "cache-only"}:
-        raise MSAConfigError("mode must be auto, off, or cache-only")
+    if not isinstance(result["mode"], str) or result["mode"] not in {"auto", "off", "cache-only", "server"}:
+        raise MSAConfigError("mode must be auto, off, cache-only, or server")
     for key in ("cache_dir",):
         if isinstance(result[key], os.PathLike):
             result[key] = os.fspath(result[key])
         if not isinstance(result[key], str) or not result[key].strip():
             raise MSAConfigError(f"{key} must be a nonempty path string")
+    for key in ("server_url",):
+        if not isinstance(result[key], str) or not result[key].strip():
+            raise MSAConfigError(f"{key} must be a nonempty string")
+        url = result[key].strip()
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+        result[key] = url.rstrip("/")
     for key in ("database_dir", "binaries_dir", "database_revision"):
         if isinstance(result[key], os.PathLike):
             result[key] = os.fspath(result[key])
@@ -164,8 +175,10 @@ def validate_msa_settings(settings: Mapping[str, Any] | None) -> dict[str, Any]:
         raise MSAConfigError("timeout_seconds must be a positive finite number")
     if type(result["refresh"]) is not bool or type(result["templates"]) is not bool:
         raise MSAConfigError("refresh and templates must be boolean")
-    if result["refresh"] and result["mode"] != "auto":
-        raise MSAConfigError("MSA refresh requires mode auto; cache-only/off cannot publish a new generation")
+    if result["mode"] == "server":
+        result["templates"] = False
+    if result["refresh"] and result["mode"] not in {"auto", "server"}:
+        raise MSAConfigError("MSA refresh requires mode auto or server; cache-only/off cannot publish a new generation")
     if result["cache_profile"] is not None and result["mode"] != "cache-only":
         raise MSAConfigError("cache_profile requires mode cache-only")
     if not isinstance(result["max_template_date"], str):
@@ -360,7 +373,7 @@ class AF3MSACache:
         self.work_dir = self.cache_dir / ".work"
         self.lock_dir = self.cache_dir / ".locks"
         self._native_probe: bool | None = None
-        if not self.readonly and self.settings["mode"] == "auto":
+        if not self.readonly and self.settings["mode"] in {"auto", "server"}:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             self.work_dir.mkdir(parents=True, exist_ok=True)
             self.lock_dir.mkdir(parents=True, exist_ok=True)
@@ -561,6 +574,24 @@ class AF3MSACache:
 
     def _profile(self) -> dict[str, Any]:
         source_version = self._source_version()
+        if self.settings["mode"] == "server":
+            return {
+                "schema_version": _SCHEMA,
+                "adapter_version": "af3_msa_cache_v1",
+                "source_api": "colabfold.msa.server",
+                "af3_version": source_version,
+                "msa_mode": "env",
+                "provenance_server_url": self.settings["server_url"],
+                "result_params": {
+                    "modality": "protein",
+                    "mode": "env",
+                    "deduplicate": True,
+                },
+                "template_settings": {
+                    "enabled": False,
+                    "max_template_date": self.settings["max_template_date"],
+                },
+            }
         dbs = {}
         for name in _DATABASES:
             path = self._db_path(name)
@@ -674,9 +705,18 @@ class AF3MSACache:
         if not isinstance(payload, Mapping):
             return False
         if (payload.get("schema_version") != _SCHEMA
-                or payload.get("adapter_version") != "af3_msa_cache_v1"
-                or payload.get("source_api") != "alphafold3.data.pipeline.DataPipeline"):
+                or payload.get("adapter_version") != "af3_msa_cache_v1"):
             return False
+
+        source_api = payload.get("source_api")
+        if source_api == "colabfold.msa.server":
+            if modality != "protein":
+                return False
+            return True
+
+        if source_api != "alphafold3.data.pipeline.DataPipeline":
+            return False
+
         revision = self.settings["database_revision"]
         if revision is not None and payload.get("database_revision") != revision:
             return False
@@ -690,11 +730,12 @@ class AF3MSACache:
             template_settings = payload.get("template_settings")
             if not isinstance(template_settings, Mapping):
                 return False
-            if template_settings.get("enabled") is not self.settings["templates"]:
-                return False
-            if (self.settings["templates"] and template_settings.get("max_template_date")
-                    != self.settings["max_template_date"]):
-                return False
+            if self.settings["mode"] != "server":
+                if template_settings.get("enabled") is not self.settings["templates"]:
+                    return False
+                if (self.settings["templates"] and template_settings.get("max_template_date")
+                        != self.settings["max_template_date"]):
+                    return False
         return True
 
     def _cached_candidates(self, modality: str, sequence: str | None = None) -> list[sqlite3.Row]:
@@ -754,11 +795,13 @@ class AF3MSACache:
         path = self.lock_dir / f"entry{entry_id:06d}.lock"
         self.lock_dir.mkdir(parents=True, exist_ok=True)
         with path.open("a+") as handle:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            if fcntl is not None:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
             try:
                 yield
             finally:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                if fcntl is not None:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
     def _entry(self, modality: str, sequence: str, profile_id: int) -> int:
         if self.readonly:
@@ -868,7 +911,7 @@ class AF3MSACache:
             "unpaired_msa_path": str(unpaired),
             **({"paired_msa_path": str(paired)} if paired is not None else {}),
             "templates": templates,
-            "provenance": "native-searched",
+            "provenance": str(manifest.get("provenance", "native-searched")),
             "status": "ready",
             "no_hit": bool(manifest.get("no_hit", False)),
         }
@@ -1048,6 +1091,27 @@ class AF3MSACache:
                     pass
             shutil.rmtree(temporary, ignore_errors=True)
 
+    def _server_search(self, modality: str, sequence: str) -> dict[str, Any]:
+        if modality != "protein":
+            raise MSASearchError("ColabFold MSA server mode only supports protein modality")
+        if self.readonly:
+            raise MSAReadOnlyError("server search is disabled read-only")
+        from .colabfold_msa_client import ColabFoldMSAClient, ColabFoldMSAError, ColabFoldMSATimeout
+
+        client = ColabFoldMSAClient(
+            server_url=self.settings["server_url"],
+            timeout_seconds=float(self.settings["timeout_seconds"]),
+        )
+        self.work_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            return client.search(sequence, work_dir=self.work_dir)
+        except ColabFoldMSATimeout as exc:
+            raise MSASearchTimeout(f"ColabFold server MSA search timed out: {exc}") from exc
+        except ColabFoldMSAError as exc:
+            raise MSASearchError(f"ColabFold server MSA search failed: {exc}") from exc
+        except Exception as exc:
+            raise MSASearchError(f"ColabFold server MSA search failed: {exc}") from exc
+
     def _normal_result(
         self, modality: str, sequence: str, result: Mapping[str, Any]
     ) -> tuple[str, str | None, list[dict[str, Any]], bool]:
@@ -1091,6 +1155,7 @@ class AF3MSACache:
     def _publish(
         self, entry_id: int, profile_id: int, modality: str, sequence: str,
         unpaired: str, paired: str | None, templates: Sequence[Mapping[str, Any]], no_hit: bool,
+        provenance: str = "native-searched",
     ) -> dict[str, Any]:
         if self.readonly:
             raise MSAReadOnlyError("cannot publish read-only cache")
@@ -1121,7 +1186,7 @@ class AF3MSACache:
                 "schema_version": _SCHEMA, "status": "ready", "modality": modality,
                 "exact_query": sequence, "entry_id": entry_id, "profile_id": profile_id,
                 "generation_id": generation_id, "unpaired_msa": "unpaired.a3m",
-                "templates": [], "no_hit": no_hit, "provenance": "native-searched",
+                "templates": [], "no_hit": no_hit, "provenance": provenance,
             }
             if modality == "protein":
                 if paired is None:
@@ -1202,7 +1267,7 @@ class AF3MSACache:
             if result is not None:
                 return result
         if self.readonly:
-            raise MSAReadOnlyError("auto ensure cannot search read-only")
+            raise MSAReadOnlyError(f"{mode} ensure cannot search read-only")
         profile_id = self._profile_id(self._profile(), create=True)
         if profile_id is None:
             raise MSAError("could not allocate profile")
@@ -1213,11 +1278,15 @@ class AF3MSACache:
             if ready is not None and not self.settings["refresh"]:
                 return ready
             try:
-                result = self._native_search(modality, sequence)
+                if mode == "server":
+                    result = self._server_search(modality, sequence)
+                else:
+                    result = self._native_search(modality, sequence)
                 unpaired, paired, templates, no_hit = self._normal_result(modality, sequence, result)
                 return self._publish(
                     entry_id, profile_id, modality, sequence,
                     unpaired, paired, templates, no_hit,
+                    provenance="server-searched" if mode == "server" else "native-searched",
                 )
             except MSAError as exc:
                 self._failure(entry_id, exc, ready is not None)
@@ -1306,6 +1375,14 @@ class AF3MSACache:
             elif self.settings["mode"] == "cache-only":
                 report.update(ready=False, search_resources_checked=False,
                               reason="no readable compatible cache entries for modality")
+            elif self.settings["mode"] == "server":
+                if item == "protein":
+                    report.update(ready=True, search_resources_checked=True,
+                                  server_url=self.settings["server_url"],
+                                  reason=f"ready via ColabFold MSA server at {self.settings['server_url']}")
+                else:
+                    report.update(ready=False, search_resources_checked=True,
+                                  reason="ColabFold MSA server mode only supports protein modality")
             else:
                 report.update(self._resources(item))
                 if report["resources_ready"] and native_ready is None:

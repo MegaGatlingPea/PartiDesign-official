@@ -136,15 +136,18 @@ not automatically prediction templates.
 
 - `auto` reuses exact matching cache entries and searches misses with prepared
   databases/HMMER. Check those resources before execution.
+- `server` queries a ColabFold MMseqs2 API server (defaults to `https://api.colabfold.com`,
+  override via `--msa-server`), eliminating local database requirements for protein chains.
 - `cache-only` requires exact ready entries and never fills misses.
 - `off` performs no MSA/template searches. Choose it explicitly for a requested
   search-free evaluator trial; do not silently replace a requested MSA policy.
 
 For a search-free AF3 plan, use the first example with `--method af3 --msa off`.
+To run protein MSA searches via ColabFold API without local databases, use `--method af3 --msa server`.
 `partidesign check --model af3 --msa off` checks AF3 weights/chemistry without
 MSA databases; it does not change later validation's defaults. Read
 `docs/validate.md` for database/cache paths, search CPU limits, and templates.
-`--msa-profile` needs `cache-only`; `--msa-refresh` needs `auto`. A changed
+`--msa-profile` needs `cache-only`; `--msa-refresh` needs `auto` or `server`. A changed
 cache/profile for saved predictions requires an intentional refold/full rerun.
 
 GPU methods use visible CUDA devices. Fractional `--worker-gpus` reserves

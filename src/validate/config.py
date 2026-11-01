@@ -254,7 +254,7 @@ def validate_af3_settings(value: Any) -> dict[str, Any]:
     timeout = value["timeout_seconds"]
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("af3.timeout_seconds must be finite and positive")
-    validate_msa_settings(value["msa"])
+    value["msa"] = validate_msa_settings(value["msa"])
     return value
 
 
@@ -325,8 +325,9 @@ def parse_args(argv=None):
         "--rerun-refold", action="store_true",
         help="AF3/AF3-LA only: reuse saved sequence slots and regenerate refolds",
     )
-    parser.add_argument("--msa", choices=("auto", "off", "cache-only"),
+    parser.add_argument("--msa", choices=("auto", "off", "cache-only", "server"),
                         help="AF3 target/context MSA policy")
+    parser.add_argument("--msa-server", help="ColabFold MMseqs2 MSA server API URL")
     parser.add_argument("--msa-cache-dir", help="AF3 MSA cache directory")
     parser.add_argument("--msa-profile", help="Recorded AF3 MSA cache profile")
     parser.add_argument("--msa-database-dir", help="AF3 public database root")
@@ -396,6 +397,7 @@ def parse_args(argv=None):
         cfg["rerun"] = True
     msa_cli_values = {
         "mode": args.msa,
+        "server_url": args.msa_server,
         "cache_dir": args.msa_cache_dir,
         "cache_profile": args.msa_profile,
         "database_dir": args.msa_database_dir,
