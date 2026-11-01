@@ -2031,6 +2031,37 @@ def _restore_authoritative_cif(
   return cif_file.serialize(), _flatten_cif_file(cif_file), restored_rows
 
 
+def _token_residue_atom_names(
+    atom_names: Any, token_count: int, *, atom_to_token_idx: Any = None,
+) -> list[str]:
+  """Mark native PAE tokens that own a protein or nucleic residue anchor.
+
+  AF3 supplies a padded [token, atom] layout; Mol1 supplies flattened atom
+  names with their token indices. Whole-residue tokens own every atom in their
+  row, whereas an atomized modified residue marks only its anchor atom token.
+  """
+  names = np.asarray(atom_names).astype(str)
+  has_ca = np.zeros(token_count, dtype=bool)
+  has_c1 = np.zeros(token_count, dtype=bool)
+  if atom_to_token_idx is None:
+    if names.ndim != 2 or names.shape[0] < token_count:
+      raise AF3OutputError("native token atom layout differs from confidence tokens")
+    names = names[:token_count]
+    has_ca = np.any(names == "CA", axis=1)
+    has_c1 = np.any((names == "C1'") | (names == "C1*"), axis=1)
+  else:
+    indexes = np.asarray(atom_to_token_idx)
+    if (names.ndim != 1 or indexes.shape != names.shape or indexes.dtype.kind not in "iu"
+        or np.any(indexes < 0) or np.any(indexes >= token_count)):
+      raise AF3OutputError("native atom-to-token mapping differs from confidence tokens")
+    np.logical_or.at(has_ca, indexes, names == "CA")
+    np.logical_or.at(has_c1, indexes, (names == "C1'") | (names == "C1*"))
+  anchors = np.full(token_count, "", dtype="<U3")
+  anchors[has_c1] = "C1'"
+  anchors[has_ca] = "CA"
+  return anchors.tolist()
+
+
 def _native_prediction(
     inference_result: Any,
     *,
@@ -2040,6 +2071,7 @@ def _native_prediction(
     sample: int,
     directory: Path,
     native_frame_mask: Any = None,
+    native_token_atoms_layout: Any = None,
 ) -> dict[str, Any]:
   """Convert one native SDK result to the validation/reward prediction ABI."""
   structure = inference_result.predicted_structure
@@ -2127,7 +2159,20 @@ def _native_prediction(
   for name, value in (("full PAE", full_pae), ("full PDE", full_pde)):
     _confidence_array(value, name, (len(token_chain_ids), len(token_chain_ids)))
   from .af3_restore import project_source_confidence
-  projection = project_source_confidence(payload, token_chain_ids, token_res_ids, full_pae, full_pde)
+  token_atom_names = metadata.get("token_residue_atom_names")
+  if native_token_atoms_layout is not None:
+    token_atom_names = _token_residue_atom_names(
+        native_token_atoms_layout, np.asarray(full_pae).shape[0],
+    )
+  if token_atom_names is not None:
+    polymer_ids = {str(entry["id"]) for entry in payload["chains"]
+                   if entry["modality"] in {"protein", "rna", "dna"}}
+    token_atom_names = [name if chain in polymer_ids else ""
+                       for name, chain in zip(token_atom_names, token_chain_ids, strict=True)]
+  projection = project_source_confidence(
+      payload, token_chain_ids, token_res_ids, full_pae, full_pde,
+      native_token_residue_atom_names=token_atom_names,
+  )
   native_to_source = {str(native): str(source) for native, source in payload["native_to_source_chain"].items()}
   native_chain_ids = []
   for field in ("chain_ids", "native_chain_ids"):
@@ -2533,6 +2578,12 @@ class AF3Worker:
         native_frame_mask = frame_mask[:token_count].copy()
       except (KeyError, TypeError, ValueError) as exc:
         raise AF3WorkerError("AF3 CPU features have no valid native frame mask") from exc
+      try:
+        native_token_atoms_layout = np.asarray(
+            self._sdk["features"].ConvertModelOutput.from_data_dict(batch).token_atoms_layout.atom_name,
+        )
+      except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        raise AF3WorkerError("AF3 CPU features have no valid native token atom layout") from exc
       jax = self._sdk["jax"]
       result = self._runner.run_inference(
           batch,
@@ -2555,6 +2606,7 @@ class AF3Worker:
                 sample=index,
                 directory=output_dir,
                 native_frame_mask=native_frame_mask,
+                native_token_atoms_layout=native_token_atoms_layout,
             )
             for index, inference_result in enumerate(inference_results)
         ]

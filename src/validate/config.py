@@ -51,6 +51,7 @@ DEFAULT_MSA_CONFIG = copy.deepcopy(_EXPORTED_MSA_CONFIG)
 
 DEFAULTS = {
     "methods": ["esmfold2-fast"],
+    "ipsae": {"pae_cutoff": 10.0},
     # The fold-validation default is resolved per input after its designed
     # modality is known. Protein/cyclic inputs use SolubleMPNN; nucleic-acid
     # inputs use NA-MPNN. Keep a protein default here for config consumers
@@ -262,6 +263,17 @@ def validate_af3_settings(value: Any) -> dict[str, Any]:
     return value
 
 
+def validate_ipsae_settings(value):
+    if not isinstance(value, dict) or set(value) != {"pae_cutoff"}:
+        raise ValueError("ipsae must contain only pae_cutoff")
+    cutoff = value["pae_cutoff"]
+    if (isinstance(cutoff, bool) or not isinstance(cutoff, (int, float))
+            or not math.isfinite(cutoff) or cutoff <= 0):
+        raise ValueError("ipsae.pae_cutoff must be finite and positive (angstroms)")
+    value["pae_cutoff"] = float(cutoff)
+    return value
+
+
 def validate_mol1_settings(value):
     if not isinstance(value, dict) or set(value) != set(DEFAULTS["mol1"]):
         raise ValueError("mol1 must contain only the documented Mol-1 settings")
@@ -380,6 +392,7 @@ def parse_args(argv=None):
     overlay = load_yaml(args.config) if args.config else {}
     from .msa_options import merge_shared
     cfg = merge_shared(DEFAULTS, overlay)
+    cfg["_ipsae_explicit"] = "ipsae" in overlay
     if ENV_MODEL_DIR in os.environ:
         scorer_overlay = overlay.get("scorer", {})
         if isinstance(scorer_overlay, dict) and "checkpoint" in scorer_overlay:
@@ -471,6 +484,7 @@ def parse_args(argv=None):
     _validate_vina(cfg.get("vina"))
     validate_af3_settings(cfg.get("af3"))
     validate_mol1_settings(cfg.get("mol1"))
+    validate_ipsae_settings(cfg.get("ipsae"))
     if "vina_dock" in cfg["methods"] and len(cfg["methods"]) != 1:
         raise ValueError("vina_dock cannot be combined with other validation methods")
     if "vina_dock" in cfg["methods"] and cfg["scorer"]["enabled"]:

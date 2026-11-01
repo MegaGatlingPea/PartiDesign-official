@@ -15,6 +15,7 @@ from partidesign.paths import inference_config_dir, model_dir as resolve_model_d
 from src.validate.msa_options import cli_settings
 from src.validate.config import DEFAULTS as VALIDATE_DEFAULTS
 from src.validate.config import merge as merge_validation
+from src.validate.config import validate_ipsae_settings
 from src.validate.config import validate_af3_settings, validate_mol1_settings, _settings, _validate_vina
 
 METHODS = ("esmfold2-fast", "af2_ig", "af3", "mol1")
@@ -549,6 +550,7 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
     for group in ('af3', 'mol1'):
         defaults[group]['msa'] = merge_validation(defaults[group]['msa'], shared_msa or {})
     cfg = merge_validation(defaults, overrides)
+    validate_ipsae_settings(cfg["ipsae"])
     for group in ('af3', 'mol1'):
         cfg[group]['msa'] = merge_validation(cfg[group]['msa'], cli_msa or {})
     # Validate caller values before workflow-owned sample/mode normalization:

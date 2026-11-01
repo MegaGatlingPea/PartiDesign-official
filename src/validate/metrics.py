@@ -18,6 +18,7 @@ import numpy as np
 from ..design.utils.reader import read_structure
 from ..design.utils.atoms import COMMON_STANDARD_PARENT
 from .inputs import ValidationInput
+from .ipsae import IPSAE_METRIC_NAMES
 
 
 _BACKBONE3 = ("N", "CA", "C")
@@ -43,7 +44,7 @@ _METRIC_NAMES = (
     "has_ligand_clashes",
     "na_token_center_rmsd", "na_aligned_protein_ca_rmsd",
     "protein_aligned_na_p_rmsd",
-)
+) + IPSAE_METRIC_NAMES
 
 
 class MetricUnavailable(ValueError):
@@ -464,16 +465,17 @@ def _read_confidence_file(path: Path) -> Any:
         with np.load(path, allow_pickle=False) as archive:
             result: dict[str, Any] = {}
             if "pae" in archive:
-                result["pae_matrix"] = np.asarray(archive["pae"], dtype=np.float64)
+                result["pae_matrix"] = np.asarray(archive["pae"])
             elif len(archive.files) == 1:
-                result["pae_matrix"] = np.asarray(archive[archive.files[0]], dtype=np.float64)
+                result["pae_matrix"] = np.asarray(archive[archive.files[0]])
             keys = list(archive.files)
             # Preserve native token identity metadata. ``asym_id`` is often
             # numeric in ESMFold2 archives; the caller must resolve it using
             # exact token labels or declared per-chain token counts.
             for key in (
                 "asym_id", "token_chain_ids", "pae_chain_ids", "chain_ids",
-                "token_index", "residue_index",
+                "token_index", "residue_index", "token_res_ids", "token_ins_codes",
+                "token_residue_atom_names",
             ):
                 if key in archive:
                     result[key] = np.asarray(archive[key]).copy()
@@ -600,7 +602,15 @@ def _confidence_metrics(
     design_chains: Sequence[str],
     input_data: ValidationInput | None = None,
     metric_provenance: dict[str, Any] | None = None,
+    ipsae_config: Mapping[str, Any] | None = None,
 ) -> None:
+    ipsae_state = None
+    if ipsae_config is not None:
+        from .ipsae_mapping import initialize_ipsae
+        ipsae_state = initialize_ipsae(
+            metrics, reasons, metric_provenance if metric_provenance is not None else {},
+            reference, design_chains, ipsae_config,
+        )
     scoped_names = ("min_design_target_pae_angstrom", "min_target_design_pae_angstrom")
     for name in scoped_names:
         metrics[name] = None
@@ -673,8 +683,10 @@ def _confidence_metrics(
         antibody_unavailable("prediction confidence has no PAE matrix")
         return
     try:
-        matrix = np.asarray(pae, dtype=np.float64)
+        raw_matrix = np.asarray(pae)
+        matrix = np.asarray(raw_matrix, dtype=np.float64)
     except (TypeError, ValueError):
+        raw_matrix = np.asarray([])
         matrix = np.asarray([])
     if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
         reason = "PAE is not a square matrix"
@@ -740,6 +752,9 @@ def _confidence_metrics(
             offset += count
         if offset != matrix.shape[0]:
             positions = {}
+    if ipsae_state is not None and token_labels is not None:
+        from .ipsae_mapping import compute_ipsae
+        compute_ipsae(ipsae_state, raw_matrix, positions, payload, prediction, metrics, reasons)
     if not positions or sum(len(value) for value in positions.values()) != matrix.shape[0]:
         reason = "PAE dimensions do not match prediction chain/token order"
         if direct_angstrom is None:
@@ -1590,6 +1605,8 @@ def evaluate_prediction(
     input_data: ValidationInput,
     variant: Mapping[str, Any] | None,
     prediction: Mapping[str, Any],
+    *,
+    ipsae_config: Mapping[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Evaluate one completed complex/monomer prediction.
 
@@ -1939,7 +1956,7 @@ def evaluate_prediction(
     # Without source geometry, sequence checks use retained input/fixed identities.
     _confidence_metrics(
         metrics, reasons, prediction, reference, predicted, chain_map, design_chains, input_data,
-        metric_provenance,
+        metric_provenance, ipsae_config=ipsae_config,
     )
     _sequence_metrics(
         metrics,

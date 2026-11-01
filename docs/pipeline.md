@@ -223,6 +223,18 @@ rejection reasons, open `final/predictions/proposal*.json`; its
 `prediction_selection` and `decisions` explain final acceptance. Multi-method
 runs put these records under `final/predictions/<method>/`; start with
 `final/filter_results.csv` to compare method outcomes.
+Round and single-method final `result.csv` rows include `ipsae`,
+`ipsae_design_to_context`, `ipsae_context_to_design`, `ipsae_pae_cutoff`, and
+`ipsae_pairs` when the predictor supports them, for both passed and filtered
+proposals. The three scores are in [0, 1] and use the maximum over eligible
+design–context polymer pairs; design–design and context–context pairs are
+excluded. Protein and RNA/DNA pairs, including atomized residues with resolvable
+protein Cα or nucleic-acid C1′ representatives, are supported; ligand/ion pairs
+are not applicable. AF2 does not calculate
+ipSAE. These columns do not change ranking or passing criteria.
+For multi-method finals, `final/result.csv` keeps each method's scores under
+`<method>_metrics`; `final/success/result.csv` has the same ipSAE columns for
+each published best-ranked CIF.
 `result.csv` points to visible candidate CIFs. Iteration prediction artifacts
 are under the round's `.work/predictions/`. To use a candidate as a
 standalone partial start, supply its one `refold/*.cif` and define the new task's
@@ -240,6 +252,12 @@ structures, final predictions, small metric records, resumable state, and input
 snapshots. Add `--keep-cache` to retain raw prediction data and the request
 cache for later PAE/PDE metric recomputation. This CLI flag controls retention
 and does not belong in workflow YAML. Failed or interrupted runs retain caches.
+ipSAE uses a default PAE cutoff of 10.0 Å. Missing PAE leaves scores unavailable
+unless matching saved ipSAE evidence exists. Completed pipeline stages keep
+their saved metrics on resume. For an existing standalone validation evaluation,
+explicit `validate --recompute-metrics` can add ipSAE using its saved plan and
+confidence data. It cannot recover missing PAE, and a changed cutoff cannot
+reuse an old score.
 A completed-stage `--resume` still reuses saved results; an invalidated stage
 needs new predictions when its raw cache has been removed.
 
@@ -414,6 +432,23 @@ sampling without changing iteration refolding. Mol-1 uses the same syntax:
 `final: {method: mol1, mol1: {samples: 5}, max_pass: 8}`. Mol-1 shares the
 AF3 context MSA/template cache; designed chains remain query-only. Native predictor settings are
 listed in the [validation guide](validate.md).
+
+Set ipSAE's PAE cutoff through the existing validation overrides, independently
+for iteration and final prediction:
+
+```yaml
+iteration:
+  refold:
+    validation:
+      ipsae: {pae_cutoff: 10.0}
+final:
+  validation:
+    ipsae: {pae_cutoff: 10.0}
+```
+
+Use the same `refold.validation.ipsae` mapping under `rounds.N` for one round.
+The [validation guide](validate.md#ipsae-interface-confidence) describes
+directional scores, pair availability, and saved-evidence limits.
 
 Settings resolve in this order:
 

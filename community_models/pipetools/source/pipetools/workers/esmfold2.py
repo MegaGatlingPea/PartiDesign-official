@@ -829,9 +829,12 @@ def _execute_request(
         forward_seconds,
     ) = attempt_result
     prepared_atom_inventory = _prepared_atom_inventory(features, bundle.np)
-    # The CCD leaving-atom rule is checked against the in-memory prepared
-    # tensors.  These labels are consumed for validation only and never enter
-    # the confidence NPZ.
+    token_residue_atom_names = _token_residue_atom_names(prepared_atom_inventory, bundle.np)
+    polymer_asym = [index for index, entry in enumerate(spec["sequences"])
+                    if entry.get("modality") in {"protein", "rna", "dna"}]
+    token_residue_atom_names[~bundle.np.isin(prepared_atom_inventory["asym_id"], polymer_asym)] = ""
+    # Validate CCD leaving atoms from the in-memory prepared inventory;
+    # the confidence archive stores only the per-token residue anchors.
     _leaving_atom_omission_arrays(
         spec,
         prepared_atom_inventory,
@@ -903,6 +906,7 @@ def _execute_request(
         _write_raw_confidence(
             raw_confidence_path, output, features, spec,
             bundle.ccd_bond_reader, sample_index, bundle.np,
+            token_residue_atom_names=token_residue_atom_names,
         )
         artifacts.append({
             "sample_index": sample_index,
@@ -1580,6 +1584,8 @@ def _write_raw_confidence(
     ccd_bond_reader: CCDBondCacheReader,
     sample_index: int,
     np: Any,
+    *,
+    token_residue_atom_names: Any | None = None,
 ) -> None:
     """Write confidence tensors and token labels consumed by downstream metrics.
 
@@ -1612,6 +1618,13 @@ def _write_raw_confidence(
         if name not in features:
             raise RuntimeError(f"ESMFold2 output lacks token label {name}")
         arrays[name] = features[name][0].detach().cpu().numpy()
+    if token_residue_atom_names is not None:
+        anchors = np.asarray(token_residue_atom_names)
+        if (anchors.ndim != 1 or anchors.shape != arrays["token_attention_mask"].shape
+                or arrays["pae"].shape != (anchors.size, anchors.size)
+                or anchors.dtype.kind not in {"U", "S"}):
+            raise RuntimeError("ESMFold2 residue-anchor token labels are malformed")
+        arrays["token_residue_atom_names"] = anchors
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{path.name}.", suffix=".npz", dir=path.parent
     )
@@ -2186,6 +2199,35 @@ def _prepared_atom_inventory(features: dict[str, Any], np: Any) -> dict[str, Any
         name: _unbatch_feature_array(features[name], np)
         for name in required
     }
+
+
+def _token_residue_atom_names(prepared: dict[str, Any], np: Any) -> Any:
+    """Mark each PAE token only when its prepared atoms own a residue anchor.
+
+    Whole-residue tokens own their CA/C1' even when the distogram uses CB or
+    another representative. Atomized modified residues mark only the token
+    containing that atom. Padded token/atom rows never acquire an anchor.
+    """
+    token_mask = np.asarray(prepared["token_attention_mask"], dtype=bool)
+    atom_mask = np.asarray(prepared["atom_attention_mask"], dtype=bool)
+    atom_to_token = np.asarray(prepared["atom_to_token"])
+    name_chars = np.asarray(prepared["ref_atom_name_chars"])
+    if (token_mask.ndim != 1 or atom_mask.ndim != 1
+            or atom_to_token.shape != atom_mask.shape
+            or name_chars.shape != (atom_mask.size, 4)):
+        raise RuntimeError("ESMFold2 residue-anchor atom/token shapes differ")
+    owned_tokens = atom_to_token[atom_mask].astype(np.int64, copy=False)
+    if (np.any(owned_tokens < 0) or np.any(owned_tokens >= token_mask.size)
+            or not np.all(token_mask[owned_tokens])):
+        raise RuntimeError("ESMFold2 residue-anchor atom-to-token map is invalid")
+    names = decode_atom_name_rows(name_chars[atom_mask])
+    anchors = np.full(token_mask.shape, "", dtype="<U3")
+    for token, name in zip(owned_tokens, names, strict=True):
+        if name == "CA":
+            anchors[token] = "CA"
+        elif name in {"C1'", "C1*"} and anchors[token] != "CA":
+            anchors[token] = "C1'"
+    return anchors
 
 
 def _validate_output_atom_inventory_in_memory(

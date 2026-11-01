@@ -389,9 +389,17 @@ def _read_native_confidence_arrays(path: Path) -> dict[str, Any]:
             "entity_id", "sym_id", "token_attention_mask")
     with np.load(path, allow_pickle=False) as archive:
         try:
-            return {"pae_matrix" if key == "pae" else key: archive[key] for key in keys}
+            arrays = {"pae_matrix" if key == "pae" else key: archive[key] for key in keys}
         except KeyError as exc:
             raise ESMFold2Error(f"native ESMFold2 token confidence field is missing: {exc}") from exc
+        if "token_residue_atom_names" in archive.files:
+            anchors = archive["token_residue_atom_names"]
+            if (anchors.ndim != 1 or anchors.shape != arrays["token_attention_mask"].shape
+                    or arrays["pae_matrix"].shape != (anchors.size, anchors.size)
+                    or anchors.dtype.kind not in {"U", "S"}):
+                raise ESMFold2Error("native ESMFold2 residue-anchor token labels are malformed")
+            arrays["token_residue_atom_names"] = anchors
+        return arrays
 
 
 def _logical_confidence_arrays(

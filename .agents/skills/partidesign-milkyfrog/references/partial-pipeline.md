@@ -86,6 +86,22 @@ Explicit names such as `filter: [af3_basic]` select the existing strict filter.
 All final selectors choose before criteria and never backfill a failing winner
 with a lower-ranked passing sample. All prediction evidence remains available.
 
+ESMFold2, AF3, and Mol-1 also report `ipsae`, `ipsae_design_to_context`, and
+`ipsae_context_to_design` in [0, 1], plus `ipsae_pae_cutoff` and `ipsae_pairs`.
+Round and single-method final result rows retain these fields for passed and
+filtered proposals. Scores use the maximum over design–context polymer pairs,
+excluding design–design/context–context pairs. Protein and RNA/DNA pairs,
+including atomized residues with identifiable protein Cα or nucleic-acid C1′
+representatives, are supported;
+ligand/ion pairs are not applicable. Missing required PAE leaves scores
+unavailable. AF2 does not calculate ipSAE. Filters and ranking are unchanged.
+Multi-method finals retain these scores in `<method>_metrics` in
+`final/result.csv`, and as direct columns per published CIF in
+`final/success/result.csv`.
+Use `iteration.refold.validation.ipsae: {pae_cutoff: 10.0}` and
+`final.validation.ipsae: {pae_cutoff: 10.0}` in workflow YAML to set the default
+10.0 Å cutoff; use the same refold override under `rounds.N` for one round.
+
 A final filter can use `method: af2_ig`, `method: mol1`, or `method: af3`.
 Use `methods: [af2_ig, mol1, af3]` instead of `method` to run all three. A
 candidate passes when any method passes its own criteria; AF2 still requires
@@ -194,6 +210,14 @@ inputs and selects only accepted final representatives with their saved policy,
 not all raw predictions or monomers.
 
 Existing runs retain their legacy layout and resume behavior.
+
+Completed pipeline stages keep saved metrics on resume. Existing standalone
+validation evaluations require explicit `--recompute-metrics` to add ipSAE
+using their saved plan and confidence data. Without raw PAE, only
+saved ipSAE with a matching definition, chain-pair scope, and cutoff can be
+retained; absent evidence or a changed cutoff stays unavailable. Recomputation
+does not start new predictions. See [validation.md](validation.md) for saved-plan
+cutoff rules.
 
 A completed run can have fewer rounds, failed partial children or no final
 passes. Inspect counts and row errors before reporting success. A reference

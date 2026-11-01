@@ -652,10 +652,12 @@ def _load_esmfold2_raw_confidence(path: Path) -> dict[str, np.ndarray]:
                 "iptm", "complex_plddt", "complex_iplddt", "pair_chains_iptm",
                 "token_index", "residue_index", "asym_id", "entity_id",
                 "sym_id", "token_attention_mask"}
+    optional = {"token_residue_atom_names"}
     with np.load(raw_path, allow_pickle=False) as archive:
-        if set(archive.files) != expected:
+        keys = set(archive.files)
+        if not expected <= keys or not keys <= expected | optional:
             raise AdapterError("ESMFold2 confidence array keys differ")
-        return {name: np.asarray(archive[name]) for name in expected}
+        return {name: np.asarray(archive[name]) for name in archive.files}
 
 
 def validate_esmfold2_raw_confidence(
@@ -676,6 +678,10 @@ def validate_esmfold2_raw_confidence(
         raise AdapterError("ESMFold2 expected sequence ledger is malformed")
     arrays = _load_esmfold2_raw_confidence(path) if raw_arrays is None else raw_arrays
     for name, array in arrays.items():
+        if name == "token_residue_atom_names":
+            if array.dtype.kind not in {"U", "S"}:
+                raise AdapterError("ESMFold2 residue-anchor token labels are not strings")
+            continue
         if (array.dtype == np.dtype("O")
                 or np.issubdtype(array.dtype, np.complexfloating)
                 or not (np.issubdtype(array.dtype, np.number)
@@ -686,6 +692,9 @@ def validate_esmfold2_raw_confidence(
     if token_mask.ndim != 1 or not token_mask.any():
         raise AdapterError("ESMFold2 token labels are malformed")
     token_count = token_mask.size
+    if ("token_residue_atom_names" in arrays
+            and np.asarray(arrays["token_residue_atom_names"]).shape != (token_count,)):
+        raise AdapterError("ESMFold2 residue-anchor token label shape differs")
     for name in ("token_index", "residue_index", "asym_id", "entity_id", "sym_id"):
         if np.asarray(arrays[name]).shape != (token_count,):
             raise AdapterError(f"ESMFold2 token label {name} shape differs")

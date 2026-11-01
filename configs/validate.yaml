@@ -1,6 +1,8 @@
 # Shared context search defaults; model-specific settings below remain independently configurable.
 methods:
 - af3
+ipsae:
+  pae_cutoff: 10.0
 sequence:
   seed: 101
   sources:

@@ -307,6 +307,7 @@ def _selection_family(parent):
 def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, force=False,
               folder_override=None, predictions_dir=None, publish_success=True):
     from .backends import design_score
+    from src.validate.ipsae import IPSAE_METRIC_NAMES
     task_cfg=cfg["tasks"][task_name]
     number=stage.get("round",task_cfg["recycle"])
     folder=Path(folder_override) if folder_override is not None else stage_folder(cfg,task_name,number,final=final)
@@ -482,14 +483,18 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
                         published[identity]=str(target)
                     prediction[field]=published[identity]
         atomic_json(public/f"proposal{ordinal:06d}.json",record)
+        ipsae_metrics={name:record.get("metrics",{})[name] for name in IPSAE_METRIC_NAMES
+                       if name in record.get("metrics",{})}
         if not passing:
             result_rows.append({"candidate_id":f"proposal{ordinal:06d}","parent_id":parent.candidate_id,
                                 "origin_id":parent.origin_id,"source":variant["source"],"status":"filtered",
                                 "request_key":request_key,"cache_hit":hit,"decisions":evaluated,
-                                "sequences":variant["sequences"]})
+                                "sequences":variant["sequences"],**ipsae_metrics})
         raw_by_key={p["key"]:p for p in raw}
         for key in sorted(passing):
             prediction=record["predictions"][key]
+            ipsae_metrics={name:prediction.get("metrics",{})[name] for name in IPSAE_METRIC_NAMES
+                           if name in prediction.get("metrics",{})}
             candidate_id=f"{'final' if final else f'r{number:03d}'}_c{len(result_rows)+1:07d}"
             source=Path(prediction["structure_path"])
             refolds=refold_folder(cfg,folder,final=final)
@@ -539,7 +544,7 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
                                 "origin_id":parent.origin_id,"origin_path":parent.origin_path,
                                 "lineage_id":candidate.lineage_id,"source":variant["source"],
                                 "prediction_key":candidate.prediction_key,"design_score":score,
-                                "status":"passed","cache_hit":hit})
+                                "status":"passed","cache_hit":hit,**ipsae_metrics})
         print(f"[{task_name}] {'final' if final else f'round {number}'} proposal {ordinal}/{len(proposals)}"
               f" ({method}, {'cache' if hit else 'predicted'}, passing={len(passing)})",flush=True)
     count["unique_request_count"]=len(actual_requests)

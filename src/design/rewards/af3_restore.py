@@ -219,12 +219,20 @@ def _native_residue_groups(rows: Sequence[Mapping[str, Any]]) -> dict[tuple[str,
 def project_source_confidence(
     payload: Mapping[str, Any], native_chain_ids: Sequence[str],
     native_res_ids: Sequence[int], full_pae: Any, full_pde: Any,
+    *, native_token_residue_atom_names: Sequence[str] | None = None,
 ) -> dict[str, Any]:
   """Project native token matrices in the exact restored logical/source order."""
   pae, pde = np.asarray(full_pae), np.asarray(full_pde)
   size = len(native_chain_ids)
   if len(native_res_ids) != size or pae.shape != (size, size) or pde.shape != (size, size):
     raise AF3InputError("native confidence token locators and PAE/PDE dimensions differ")
+  anchors = None
+  if native_token_residue_atom_names is not None:
+    anchors = np.asarray(native_token_residue_atom_names)
+    if (anchors.ndim != 1 or len(anchors) != size
+        or any(not isinstance(value, str) or value not in {"", "CA", "C1'"}
+               for value in anchors.tolist())):
+      raise AF3InputError("native token residue atom names differ from confidence tokens")
   order = {chain: index for index, chain in enumerate(payload["source_to_native_chain"])}
   selected: list[tuple[int, Mapping[str, Any]]] = []
   mask = []
@@ -239,7 +247,7 @@ def project_source_confidence(
   selected.sort(key=lambda item: (order[item[1]["chain_id"]], item[1]["source_observed_index"], item[0]))
   indexes = [index for index, _source in selected]
   locators = [dict(source) for _index, source in selected]
-  return {
+  result = {
       "native_full_pae": full_pae, "native_full_pde": full_pde,
       "native_token_chain_ids": list(native_chain_ids), "native_token_res_ids": list(native_res_ids),
       "native_token_source_mask": mask, "source_token_indices": indexes,
@@ -250,3 +258,7 @@ def project_source_confidence(
       "token_res_ids": [source["res_id"] for source in locators],
       "token_ins_codes": [source["ins_code"] for source in locators],
   }
+  if anchors is not None:
+    result["native_token_residue_atom_names"] = anchors.tolist()
+    result["token_residue_atom_names"] = anchors[indexes].tolist()
+  return result

@@ -329,7 +329,7 @@ class Mol1Backend:
 
     def _prediction(self, coordinates, summary, full, atoms, data, payload, protocol, sample, folder):
         from mol.data.utils import save_structure_cif
-        from src.design.rewards.af3_worker import _native_prediction
+        from src.design.rewards.af3_worker import _native_prediction, _token_residue_atom_names
         def plain(value):
             if hasattr(value, "detach"):
                 return value.detach().float().cpu().numpy()
@@ -350,6 +350,8 @@ class Mol1Backend:
         metadata = {key: plain(value) for key, value in summary.items()}
         metadata.update(token_chain_ids=[str(native.chain_id[i]) for i in first],
                         token_res_ids=[int(native.res_id[i]) for i in first],
+                        token_residue_atom_names=_token_residue_atom_names(
+                            native.atom_name, n_token, atom_to_token_idx=atom_to_token),
                         chain_ids=list(dict.fromkeys(str(x) for x in native.chain_id)))
         result = _native_prediction(
             SimpleNamespace(predicted_structure=structure, metadata=metadata,

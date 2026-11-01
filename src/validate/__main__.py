@@ -271,7 +271,10 @@ def main(argv=None):
                             if Path(sample).name != sample or sample in {".", ".."}:
                                 raise ValueError("Invalid sample in saved plan")
                             workers.enter_context(locked(root / ".state" / f"{sample}.worker.lock", blocking=False))
-                        summary = recompute_persisted_metrics(root, plan)
+                        summary = recompute_persisted_metrics(
+                            root, plan,
+                            ipsae_config=cfg["ipsae"] if cfg.get("_ipsae_explicit") else None,
+                        )
                         report = rebuild(root, cfg["criteria"], presets, persist=True)
                 emit({"task": str(task), "method": method, **summary, **report}, root / "logs" / "validate.log")
         return 0

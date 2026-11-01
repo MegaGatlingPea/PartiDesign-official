@@ -128,6 +128,18 @@ use [0, 1], RMSD/angstrom PAE use Å, and `ipae_normalized` differs from
 questions. PartiScore (`--score`) adds learned interface scores on original and
 successful refolds, requires its weights, and does not replace criteria.
 
+ESMFold2-fast/standard, AF3/AF3-LA, and Mol-1 also report `ipsae`,
+`ipsae_design_to_context`, and `ipsae_context_to_design` in [0, 1], plus
+`ipsae_pae_cutoff` (Å) and per-pair `ipsae_pairs`. The default profile setting is
+`ipsae: {pae_cutoff: 10.0}`. Each directional score is the maximum over
+design–context polymer pairs; `ipsae` is the maximum of the two directions.
+Exclude design–design/context–context pairs. Protein and RNA/DNA, including
+atomized residues with identifiable protein Cα or nucleic-acid C1′
+representatives, are supported;
+ligand/ion pairs are not applicable. Missing required PAE leaves scores
+unavailable. AF2/PartiScore/Vina do not calculate ipSAE, and shipped filtering
+and ranking remain unchanged.
+
 ## Mol-1 and shared MSA policy
 
 Use `partidesign download mol1` and `partidesign check --model mol1 --msa off`
@@ -242,6 +254,13 @@ Refiltering needs the saved plan and per-sequence records in those directories;
 `metrics.csv` alone is insufficient. Use the existing run/task directory as input.
 Specify the intended method: each method has separate reports. Rerun flags
 replace selected validation outputs, not original generated models.
+
+Older completed results need explicit `--recompute-metrics` to add ipSAE.
+Recompute keeps the saved cutoff (default 10.0 Å for older plans) unless the
+`--config` profile explicitly supplies `ipsae: {pae_cutoff: ...}`. Without raw
+PAE, only saved ipSAE with the same definition, chain-pair scope, and cutoff can
+survive recomputation; absent evidence or a changed cutoff stays unavailable.
+This operation does not create new predictions.
 
 Refilter/recompute use the saved plan; `--limit` does not narrow it. Select tasks
 explicitly. `--plan`, `--refilter`, and `--recompute-metrics` are mutually

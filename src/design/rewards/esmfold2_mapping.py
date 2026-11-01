@@ -383,7 +383,7 @@ def logical_confidence_arrays(
         asym, arrays["residue_index"], arrays.get("token_attention_mask", np.ones(asym.shape, dtype=bool)), payload, mapping=mapping)
     selected = np.flatnonzero(retained)
     result = {f"native_{name}": value for name, value in arrays.items()}
-    token_fields = {"plddt", "plddt_ca", "token_index", "residue_index", "asym_id", "entity_id", "sym_id", "token_attention_mask"}
+    token_fields = {"plddt", "plddt_ca", "token_index", "residue_index", "asym_id", "entity_id", "sym_id", "token_attention_mask", "token_residue_atom_names"}
     for name, value in arrays.items():
         array = np.asarray(value)
         if name in {"pae", "pae_matrix", "pde"}:

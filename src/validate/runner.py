@@ -9,6 +9,7 @@ from time import perf_counter
 from typing import Any, Mapping
 
 from .config import config_for_method
+from .ipsae import IPSAE_METHODS, IPSAE_METRIC_NAMES
 from .progress import emit
 
 from .filters import apply_presets
@@ -117,8 +118,9 @@ def _compact_confidence(value):
 
 def _clean_prediction(prediction: dict) -> None:
     """Remove worker-only arrays and legacy artifact fields in place."""
-    prediction.pop("_confidence_arrays", None)
-    prediction.pop("_confidence_chain_map", None)
+    for field in ("_confidence_arrays", "_confidence_chain_map", "token_residue_atom_names",
+                  "native_token_residue_atom_names"):
+        prediction.pop(field, None)
     native_af3 = prediction.get("model") in {"af3", "af3-la", "mol1"}
     for field in ("confidence_path", "artifacts"):
         prediction.pop(field, None)
@@ -211,12 +213,32 @@ def _restore_persisted_only_metrics(
     previous_metrics: Mapping[str, Any],
     metrics: dict[str, Any],
     reasons: dict[str, str],
+    *,
+    previous_provenance: Mapping[str, Any] | None = None,
+    provenance: dict[str, Any] | None = None,
 ) -> None:
     """Retain values whose raw confidence arrays were intentionally discarded."""
+    previous_provenance = previous_provenance or {}
     for name in _UNRECOMPUTABLE_CONFIDENCE_METRICS:
         if metrics.get(name) is None and previous_metrics.get(name) is not None:
             metrics[name] = previous_metrics[name]
             reasons.pop(name, None)
+            if provenance is not None and name in previous_provenance:
+                provenance[name] = previous_provenance[name]
+    # ipSAE fields form one definition-scoped group. A missing-PAE evaluation
+    # can still contain a cutoff and per-pair status rows; restore those along
+    # with the scores only when every saved definition matches this request.
+    definition = (provenance or {}).get("ipsae")
+    if (metrics.get("ipsae") is None and previous_metrics.get("ipsae") is not None
+            and isinstance(definition, Mapping)
+            and {"implementation", "pae_cutoff", "aggregation", "chain_pairs", "pair_types"} <= definition.keys()
+            and all(name in previous_metrics and previous_provenance.get(name) == definition
+                    and (provenance or {}).get(name) == definition
+                    for name in IPSAE_METRIC_NAMES)):
+        for name in IPSAE_METRIC_NAMES:
+            metrics[name] = previous_metrics[name]
+            reasons.pop(name, None)
+            provenance[name] = previous_provenance[name]
     if "partiscore" in previous_metrics:
         metrics["partiscore"] = previous_metrics["partiscore"]
 
@@ -233,7 +255,9 @@ def _completed_prediction(prediction: Mapping[str, Any]) -> bool:
     )
 
 
-def recompute_persisted_metrics(root: Path, plan: Mapping[str, Any]) -> dict[str, int]:
+def recompute_persisted_metrics(
+    root: Path, plan: Mapping[str, Any], *, ipsae_config: Mapping[str, Any] | None = None,
+) -> dict[str, int]:
     """Re-evaluate saved structures without starting validation backends."""
     from .inputs import load_input
     from .metrics import evaluate_pair, evaluate_prediction
@@ -248,6 +272,9 @@ def recompute_persisted_metrics(root: Path, plan: Mapping[str, Any]) -> dict[str
             or sequence_count < 0 or not isinstance(task_dir, str)):
         raise ValueError(f"Malformed saved validation plan: {root}")
     expected = expected_keys(method, config)
+    metric_config = ((ipsae_config if ipsae_config is not None else
+                      config.get("ipsae", {"pae_cutoff": 10.0}))
+                     if method in IPSAE_METHODS else None)
     source_map = sequence_sources_by_sample(plan)
     recomputed_predictions = skipped_predictions = recomputed_pairs = updated_records = 0
     for sample, entry in samples.items():
@@ -289,20 +316,28 @@ def recompute_persisted_metrics(root: Path, plan: Mapping[str, Any]) -> dict[str
                 previous_metrics = prediction.get("metrics", {})
                 if not isinstance(previous_metrics, Mapping):
                     raise ValueError(f"Malformed saved metrics: {record_path}")
+                previous_provenance = prediction.get("metric_provenance", {})
+                if not isinstance(previous_provenance, Mapping):
+                    raise ValueError(f"Malformed saved metric provenance: {record_path}")
                 if method in {"af3", "af3-la", "mol1"}:
                     from .af3 import normalize_af3_confidence
                     prediction.update(normalize_af3_confidence(
                         prediction, input_data.design_chains,
                         antibody_chains=tuple(filter(None, (input_data.row.get("heavy_chain"), input_data.row.get("light_chain")))),
                     ))
-                evaluated = evaluate_prediction(input_data, sequence, prediction)
+                evaluated = evaluate_prediction(input_data, sequence, prediction,
+                                                ipsae_config=metric_config)
                 metrics = dict(evaluated["metrics"])
                 reasons = dict(evaluated.get("reasons", {}))
-                _restore_persisted_only_metrics(previous_metrics, metrics, reasons)
+                provenance = dict(evaluated.get("provenance", {}))
+                _restore_persisted_only_metrics(
+                    previous_metrics, metrics, reasons,
+                    previous_provenance=previous_provenance, provenance=provenance,
+                )
                 prediction.update(
                     metrics=metrics,
                     reasons=reasons,
-                    metric_provenance=dict(evaluated.get("provenance", {})),
+                    metric_provenance=provenance,
                     metrics_status="complete",
                 )
                 recomputed_predictions += 1
@@ -523,7 +558,7 @@ class ValidationWorker:
         _clean_record(record)
         atomic_json(path, record)
 
-    def _metrics(self, input, variant, prediction):
+    def _metrics(self, input, variant, prediction, ipsae_config=None):
         from .metrics import evaluate_prediction
 
         started = perf_counter()
@@ -534,7 +569,11 @@ class ValidationWorker:
                     prediction, input.design_chains,
                     antibody_chains=tuple(filter(None, (input.row.get("heavy_chain"), input.row.get("light_chain")))),
                 ))
-            evaluated = evaluate_prediction(input, variant, prediction)
+            metric_config = ((ipsae_config if ipsae_config is not None else
+                              self.cfg.get("ipsae", {"pae_cutoff": 10.0}))
+                             if self.method in IPSAE_METHODS else None)
+            evaluated = evaluate_prediction(input, variant, prediction,
+                                            ipsae_config=metric_config)
             prediction.update(metrics=evaluated["metrics"], reasons=evaluated.get("reasons", {}),
                               metric_provenance=evaluated.get("provenance", {}),
                               metrics_status="complete")

@@ -47,6 +47,15 @@ def _finite_array(value: Any, name: str) -> None:
     raise AF3ValidationError(f"AF3 {name} contains non-finite values")
 
 
+def _residue_atom_names(value: Any, size: int, name: str) -> list[str]:
+  names = np.asarray(value)
+  if (names.ndim != 1 or len(names) != size
+      or any(not isinstance(item, str) or item not in {"", "CA", "C1'"}
+             for item in names.tolist())):
+    raise AF3ValidationError(f"AF3 {name} do not match confidence tokens")
+  return names.tolist()
+
+
 def validate_af3_prediction(
     prediction: Mapping[str, Any],
     *,
@@ -149,6 +158,17 @@ def validate_af3_prediction(
       raise AF3ValidationError("AF3 token chain labels do not match confidence matrices")
     if any(not str(label) for label in labels):
       raise AF3ValidationError("AF3 token chain labels must not be empty")
+  if result.get("token_residue_atom_names") is not None:
+    result["token_residue_atom_names"] = _residue_atom_names(
+        result["token_residue_atom_names"], matrices["full_pae"].shape[0], "token residue atom names",
+    )
+  if result.get("native_token_residue_atom_names") is not None:
+    native_pae = np.asarray(result.get("native_full_pae", matrices["full_pae"]))
+    if native_pae.ndim != 2:
+      raise AF3ValidationError("AF3 native PAE must be a token matrix")
+    result["native_token_residue_atom_names"] = _residue_atom_names(
+        result["native_token_residue_atom_names"], native_pae.shape[0], "native token residue atom names",
+    )
   if result.get("source_token_indices") is not None:
     try:
       indexes = np.asarray(result["source_token_indices"], dtype=np.int64)
@@ -166,6 +186,11 @@ def validate_af3_prediction(
                and [int(item["res_id"]) for item in locators] == list(map(int, result["token_res_ids"]))
                and np.array_equal(native_pae[np.ix_(indexes, indexes)], matrices["full_pae"])
                and np.array_equal(native_pde[np.ix_(indexes, indexes)], matrices["full_pde"]))
+      if (result.get("native_token_residue_atom_names") is not None
+          and result.get("token_residue_atom_names") is not None):
+        valid = valid and np.array_equal(
+            np.asarray(result["native_token_residue_atom_names"])[indexes], result["token_residue_atom_names"],
+        )
     except (KeyError, TypeError, ValueError, IndexError) as exc:
       raise AF3ValidationError("AF3 source confidence projection is malformed") from exc
     if not valid:
@@ -217,6 +242,7 @@ def normalize_af3_confidence(
       "native_chain_ids", "source_chain_ids", "token_chain_ids", "ptm", "iptm",
       "native_to_source_chain", "source_to_native_chain", "mean_plddt",
       "native_full_pae", "native_full_pde", "native_token_chain_ids", "native_token_res_ids",
+      "native_token_residue_atom_names", "token_residue_atom_names",
       "native_token_source_mask", "source_token_indices", "source_token_residue_map",
       "source_token_chain_ids", "token_res_ids", "token_ins_codes", "token_chain_label_map",
       "native_per_chain_source_token_count", "native_per_chain_token_count",
@@ -259,6 +285,7 @@ def normalize_af3_confidence(
   result.update(full_pae=pae, full_pde=pde, native_plddt=native_plddt,
                 plddt=_scalar(native_plddt, "native_plddt") / 100.0)
   for name in ("native_full_pae", "native_full_pde", "native_token_chain_ids", "native_token_res_ids",
+               "native_token_residue_atom_names", "token_residue_atom_names",
                "native_token_source_mask", "source_token_indices", "source_token_residue_map", "token_res_ids"):
     if name in confidence:
       result[name] = confidence[name]

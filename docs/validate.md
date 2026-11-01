@@ -217,6 +217,26 @@ fractions in [0, 1]. `ipae_normalized` is distinct from `ipae_angstrom`. Vina af
 kcal/mol; QED is dimensionless. Preserve the alignment choice in metric names: joint-complex RMSD,
 self-aligned RMSD, and partner-aligned RMSD answer different questions.
 
+### ipSAE interface confidence
+
+ESMFold2-fast/standard, AF3/AF3-LA, and Mol-1 report `ipsae`,
+`ipsae_design_to_context`, and `ipsae_context_to_design` in [0, 1].
+`ipsae_pae_cutoff` records the PAE cutoff in Å (default 10.0), and `ipsae_pairs`
+contains each chain pair's scores and availability. The calculation uses
+[DunbrackLab/IPSAE](https://github.com/DunbrackLab/IPSAE) v4 d0res with PAE
+values strictly below that cutoff. This cutoff controls the calculation;
+an acceptance threshold belongs in a criteria rule on `ipsae`.
+
+Scores cover design–context polymer chain pairs only: each directional score
+is the maximum across eligible pairs, and `ipsae` is the maximum of the two
+directions. Design–design and context–context pairs are excluded. Protein and
+RNA/DNA pairs are supported, including atomized residues with identifiable
+protein Cα or nucleic-acid C1′ representative atoms. Ligand/ion pairs are not
+applicable. Missing PAE or an
+unresolved required polymer pair leaves the overall scores unavailable with a
+reason. AF2, PartiScore, and Vina do not calculate ipSAE. These metrics do not
+change the shipped filters or ranking.
+
 ### Save a repeatable validation profile
 
 A validation profile is separate from the task YAML. For example, save this as
@@ -234,6 +254,7 @@ sequence:
         fixed_interface: {enabled: true, cutoff: 6.0}
 criteria: [af3_basic]
 scorer: {enabled: false}
+ipsae: {pae_cutoff: 10.0}
 ```
 
 The profile requests two sequence slots per backbone. CLI `--source` and `--criteria` replace its
@@ -300,6 +321,14 @@ structures and relevant confidence data and does not rerun PartiScore. Use the i
 explicitly: reports for another method are stored separately. Rerun flags replace their selected
 validation outputs, not the original generated models. Refiltering and recomputation use the saved
 plan; `--limit` does not narrow that existing plan. Select tasks explicitly when needed.
+
+Completed older outputs gain ipSAE only through an explicit `--recompute-metrics`;
+ordinary resume and `--refilter` reuse saved metrics. Recomputation uses the saved
+plan's ipSAE cutoff, or 10.0 Å for an older plan. To change it, include
+`ipsae: {pae_cutoff: 8.0}` in a profile passed with `--config`. Saved ipSAE values
+can be retained without raw PAE only when their definition, chain-pair scope, and
+cutoff match. If old outputs lack both PAE and matching saved ipSAE evidence,
+the score remains unavailable; recomputation does not run new predictions.
 
 `--plan`, `--refilter`, and `--recompute-metrics` are mutually exclusive. `--rerun` and
 `--rerun-refold` are mutually exclusive. Neither refiltering nor recomputation can accompany

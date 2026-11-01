@@ -929,7 +929,9 @@ class NativeOwner:
                     parsed_by_key[key] = read_structure(Path(prediction["structure_path"]))
                 prediction["_parsed_atoms"] = parsed_by_key[key]
                 try:
-                    worker._metrics(input_record, metric_variant, prediction)
+                    metric_options = ({"ipsae_config": config["ipsae"]}
+                                      if method != "af2_ig" else {})
+                    worker._metrics(input_record, metric_variant, prediction, **metric_options)
                 finally:
                     prediction.pop("_parsed_atoms", None)
                 if prediction.get("metrics_status") != "complete":
