@@ -8,10 +8,7 @@ from __future__ import annotations
 import contextlib
 import copy
 import datetime as _dt
-try:
-    import fcntl
-except ImportError:
-    fcntl = None
+import fcntl
 import json
 import math
 import os
@@ -795,13 +792,11 @@ class AF3MSACache:
         path = self.lock_dir / f"entry{entry_id:06d}.lock"
         self.lock_dir.mkdir(parents=True, exist_ok=True)
         with path.open("a+") as handle:
-            if fcntl is not None:
-                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
             try:
                 yield
             finally:
-                if fcntl is not None:
-                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
     def _entry(self, modality: str, sequence: str, profile_id: int) -> int:
         if self.readonly:
