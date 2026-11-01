@@ -686,6 +686,10 @@ def _configure_motif_policy(cfg, *, legacy=False):
 
 
 def run(args):
+    from .generation_worker import generation_launch, run_generation_worker
+    child_status = run_generation_worker()
+    if child_status is not None:
+        return child_status
     import yaml
     from partidesign.paths import using_model_dir
     repo=Path(__file__).resolve().parents[2]
@@ -778,7 +782,8 @@ def run(args):
             if cfg["from_run"]:
                 source=Path(cfg["from_run"])
             else:
-                native.run()
+                with generation_launch(native.config, Path.cwd(), work):
+                    native.run()
                 import gc
                 import torch
                 gc.collect()
