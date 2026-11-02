@@ -10,6 +10,7 @@ _NATIVE_PRESETS = (
     "af2_ig_protein",
     "af2_ig_peptide",
     "af3_basic",
+    "af3_alphaproteo",
     "af3_protein_monomer",
     "af3_na_monomer",
     "af3_protein_na_complex",
@@ -19,8 +20,13 @@ _NATIVE_PRESETS = (
     "af3_na_bind_ligand",
     "af3_antibody",
     "af3_ame",
+    "af3_ame_strict",
+    "af3_protein_bind_na_strict",
+    "af3_na_bind_protein_strict",
+    "af3_protein_bind_ligand_strict",
+    "af3_na_bind_ligand_strict",
 )
-# Confidence, sequence correctness, and clash thresholds retain native values.
+# PAE and geometry upper bounds relax; pTM/ipTM, identity and clash rules stay fixed.
 _RELAXED_METRICS = frozenset({
     "bound_unbound_rmsd",
     "design_rmsd",
@@ -37,6 +43,13 @@ _RELAXED_METRICS = frozenset({
     "antigen_aligned_antibody_ca_rmsd",
     "binder_scRMSD_bb3",
     "motif_rmsd_reference",
+    "min_interchain_pae_angstrom",
+    "rfd4_min_ipae_angstrom",
+    "rfd4_backbone_rmsd",
+    "rfd4_target_aligned_binder_rmsd",
+    "rfd4_target_backbone_aligned_binder_rmsd",
+    "rfd4_backbone_aligned_ligand_rmsd",
+    "rfd4_motif_rmsd_reference",
 })
 
 
@@ -50,7 +63,7 @@ def _relaxed(preset: dict) -> dict:
 
 def _protein_binder(preset: dict) -> dict:
     result = copy.deepcopy(preset)
-    result["methods"] = ["esmfold2-fast", "af3", "mol1"]
+    result["methods"] = ["esmfold2-fast", "esmfold2-standard", "af3", "mol1"]
     thresholds = {
         "binder_iptm": 0.6,
         "binder_ptm": 0.7,
@@ -94,11 +107,15 @@ def include_native_presets(definitions, names):
         native = load_presets(inference_config_dir() / "criteria.yaml")
         for name in sorted(missing & native.keys()):
             definitions[name] = copy.deepcopy(native[name])
+        for name in sorted(missing):
+            if name.startswith("pipeline_") and name[9:] in native:
+                definitions[name] = _relaxed(native[name[9:]])
     return definitions
 
 
 MOTIF_GEOMETRY_METRICS = frozenset({
     "motif_rmsd_reference", "motif_rmsd_design", "motif_rmsd_reference_bb3",
+    "rfd4_motif_rmsd_reference",
 })
 
 
@@ -112,7 +129,7 @@ def motif_reference_preset(native=None, *, nucleic=False):
              if rule["metric"] == "motif_rmsd_reference"]
     if not rules:
         raise ValueError(f"validate {source_name} must define the strict motif RMSD rule")
-    return {"methods": ["esmfold2-fast", "af2_ig", "af3", "mol1"],
+    return {"methods": ["esmfold2-fast", "esmfold2-standard", "af2_ig", "af3", "mol1"],
             "reduction": "any_prediction", "rules": rules}
 
 

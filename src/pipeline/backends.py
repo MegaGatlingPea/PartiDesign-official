@@ -21,7 +21,7 @@ import zlib
 
 import numpy as np
 
-_METHODS = {"esmfold2-fast", "af2_ig", "af3", "mol1"}
+_METHODS = {"esmfold2-fast", "esmfold2-standard", "af2_ig", "af3", "mol1"}
 _ARTIFACT_FIELDS = (
     "structure_path", "cif_path", "native_cif_path", "pdb_path",
     "confidence_path", "raw_confidence_path",
@@ -307,7 +307,8 @@ def _restoration_identity(input_record):
 
 def _model_settings(config, method):
     """Search policy is resolved into inputs before the resident model runs."""
-    section = {"af2_ig": "af2", "esmfold2-fast": "esmfold2", "af3": "af3", "mol1": "mol1"}[method]
+    section = {"af2_ig": "af2", "esmfold2-fast": "esmfold2", "esmfold2-standard": "esmfold2",
+               "af3": "af3", "mol1": "mol1"}[method]
     settings = config[section]
     return {key: value for key, value in settings.items() if key != "msa"} if method in {"af3", "mol1"} else settings
 
@@ -334,7 +335,7 @@ def _model_payload_identity(payload, method):
                 identity[protocol].pop("cyclic_lengths", None)
                 identity[protocol]["covalent_bonds"] = mol1_covalent_bonds(value)
         return identity
-    if method == "esmfold2-fast":
+    if method in {"esmfold2-fast", "esmfold2-standard"}:
         return {name: value for name, value in payload.items()
                 if name not in {"sample_id", "variant_id", "name", "partidesign_receptor_segments"}}
     return payload
@@ -456,7 +457,7 @@ def design_score(input_record, method, raw_prediction):
             raise ValueError("AF3 prediction lacks design-chain atomic confidence")
         return float(sum(score * count for score, count in values)
                      / sum(count for _, count in values) / 100.0)
-    if method != "esmfold2-fast":
+    if method not in {"esmfold2-fast", "esmfold2-standard"}:
         raise ValueError(f"unsupported pipeline score method: {method!r}")
     arrays = raw_prediction.get("_confidence_arrays", {})
     labels = arrays.get("token_chain_ids")
@@ -528,13 +529,14 @@ class NativeOwner:
     def _assets(self, method, config):
         """Inspect only the native checkpoint/chemistry files, once per owner."""
         from partidesign.paths import af3_asset, community_asset
-        if method == "esmfold2-fast":
+        if method in {"esmfold2-fast", "esmfold2-standard"}:
             default_models = community_asset("esmfold2", self.repo).parent
             root = Path(os.environ.get("PIPETOOLS_MODEL_ROOT", default_models)).expanduser().resolve() / "esmfold2"
             key = _canonical([method, str(root)])
             if key not in self._asset_cache:
                 files = []
-                for directory in (root / "checkpoint/fast", root / "checkpoint/esmc-6b"):
+                fold = root / "checkpoint" / method.removeprefix("esmfold2-")
+                for directory in (fold, root / "checkpoint/esmc-6b"):
                     index = directory / "model.safetensors.index.json"
                     if index.is_file():
                         manifest = json.loads(index.read_text())
@@ -630,7 +632,7 @@ class NativeOwner:
         return reference
 
     def _payload(self, input_record, variant, method, config):
-        if method == "esmfold2-fast":
+        if method in {"esmfold2-fast", "esmfold2-standard"}:
             from src.validate.esmfold2 import _build_payload
             return _build_payload(input_record, variant), None
         if method == "af2_ig":
@@ -812,7 +814,7 @@ class NativeOwner:
         self._check_open()
         config = _validation_config(validation_config, method)
         _design_arrays(input_record)
-        if method=="esmfold2-fast" and set(getattr(input_record,"cyclic_offset_chains",()))-set(getattr(input_record,"cyclic_chains",())):
+        if method in {"esmfold2-fast", "esmfold2-standard"} and set(getattr(input_record,"cyclic_offset_chains",()))-set(getattr(input_record,"cyclic_chains",())):
             raise ValueError("ESMFold2 uses explicit ring bonds; offset-only inputs require af2_ig or af3")
         canonical_input, canonical_variant = _alias_input(input_record), _alias_variant(variant)
         payload, prepared = self._payload(canonical_input, canonical_variant, method, config)

@@ -184,6 +184,50 @@ Useful shipped presets in [configs/criteria.yaml](../configs/criteria.yaml):
 | Atomic motif scaffolding | `af3_ame` |
 | Refined ligand generation in a protein pocket | `odesign_denovo_ligand` |
 
+For stricter interface and geometry checks, choose one of these presets explicitly:
+
+| Preset | Required checks (distances in Å) |
+| --- | --- |
+| `af3_ame_strict` | min iPAE <1.5; protein backbone RMSD ≤2; reference-motif RMSD ≤1.5; correct motif identities; no eligible refold polymer–ligand clash below 1.5 Å. Requires a target interface. |
+| `af3_protein_bind_na_strict` | min iPAE ≤1.5; nucleic-acid-target-aligned protein RMSD ≤8. Applies to RNA and DNA context. |
+| `af3_na_bind_protein_strict` | min iPAE ≤1.5; protein-target-aligned designed nucleic-acid RMSD ≤8. |
+| `af3_protein_bind_ligand_strict` | min iPAE ≤1.5; binder ipTM ≥0.8; protein backbone RMSD ≤1.5; backbone-aligned ligand RMSD ≤5. |
+| `af3_na_bind_ligand_strict` | min iPAE ≤1.5; designed-nucleic-acid phosphate RMSD ≤5; nucleic-acid-aligned ligand RMSD ≤5. |
+
+`af3_alphaproteo` uses min iPAE ≤1.5, binder pTM ≥0.8, and target-backbone-aligned
+binder RMSD ≤2.5. `af3_antibody` uses min iPAE ≤2 and
+antigen-aligned antibody RMSD ≤2. Antibody heavy/light internal interfaces
+do not replace the antigen interface.
+
+Min iPAE takes the minimum valid PAE in each direction of a design–target chain
+pair, averages the available directions, then takes the minimum across those
+pairs. Context–context and design–design pairs are excluded. The strict presets
+use `rfd4_min_ipae_angstrom`; `min_interchain_pae_angstrom` has the same definition.
+The legacy `min_design_target_pae_angstrom` retains its original calculation.
+The reverse nucleic-acid and nucleic-acid–ligand strict screens extend these
+interface conventions to their respective design directions.
+
+Partner-aligned RMSDs preserve the target fit when measuring the binder; they
+differ from whole-complex Cα RMSD. With unchanged residue types, all observed
+reference atoms are compared. MPNN redesign is supported: changed protein
+positions compare their conserved N/CA/C/O backbone, plus OXT when present in
+both structures; changed
+RNA/DNA bases compare the conserved sugar-phosphate framework. Unchanged
+positions keep their sidechain/base atoms. Every mapped residue still contributes,
+and no coordinates are invented for new sidechain atoms. Per-prediction metric
+provenance records the comparison selection and atom/residue counts.
+
+Fixed identities, motifs, modified CCD residues and identity-dependent bond
+anchors remain protected. Motif checks use the original source reference.
+An unrequested ordinary terminal OXT omitted by a predictor is normalized out;
+an explicitly required bond endpoint or motif atom is not omitted.
+Missing required PAE, backbone atoms, correspondence, or motif evidence is
+unavailable and cannot pass; an ordinary authorized MPNN mutation alone is not
+an error.
+For older validation results, use
+`--recompute-metrics` to calculate the new metrics from retained evidence;
+`--refilter` alone does not calculate them.
+
 ### Define your own thresholds
 
 Save the following as `binder_presets.yaml`. This reproduces the shipped `af3_basic` screen under a

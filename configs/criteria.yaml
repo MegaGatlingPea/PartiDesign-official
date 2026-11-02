@@ -142,13 +142,13 @@ presets:
     reduction: best_ranked
     rules:
     - metric: min_interchain_pae_angstrom
-      op: <
+      op: '<='
       value: 1.5
     - metric: binder_ptm
-      op: '>'
+      op: '>='
       value: 0.8
-    - metric: complex_design_rmsd
-      op: <
+    - metric: rfd4_target_backbone_aligned_binder_rmsd
+      op: '<='
       value: 2.5
   af3_ame:
     methods:
@@ -284,12 +284,12 @@ presets:
     - esmfold2-standard
     reduction: any_prediction
     rules:
-    - metric: antibody_antigen_pae_angstrom
-      op: <
-      value: 10.0
+    - metric: rfd4_min_ipae_angstrom
+      op: '<='
+      value: 2.0
       scope: complex
-    - metric: antigen_aligned_antibody_ca_rmsd
-      op: <
+    - metric: rfd4_target_aligned_binder_rmsd
+      op: '<='
       value: 2.0
       scope: complex
   af3_na_bind_ligand:
@@ -306,6 +306,74 @@ presets:
       value: 5.0
     - metric: na_aligned_ligand_rmsd
       op: <
+      value: 5.0
+  af3_ame_strict:
+    methods: [af3, af3-la, mol1, esmfold2-fast, esmfold2-standard]
+    reduction: any_prediction
+    rules:
+    - metric: rfd4_min_ipae_angstrom
+      op: <
+      value: 1.5
+    - metric: rfd4_backbone_rmsd
+      op: '<='
+      value: 2.0
+    - metric: rfd4_motif_rmsd_reference
+      op: '<='
+      value: 1.5
+    - metric: correct_motif_sequence
+      op: '>='
+      value: 1.0
+    - metric: rfd4_has_ligand_clashes
+      op: '=='
+      value: 0.0
+  af3_protein_bind_na_strict:
+    methods: [af3, af3-la, mol1, esmfold2-fast, esmfold2-standard]
+    reduction: any_prediction
+    rules:
+    - metric: rfd4_min_ipae_angstrom
+      op: '<='
+      value: 1.5
+    - metric: rfd4_target_aligned_binder_rmsd
+      op: '<='
+      value: 8.0
+  af3_na_bind_protein_strict:
+    methods: [af3, af3-la, mol1, esmfold2-fast, esmfold2-standard]
+    reduction: any_prediction
+    rules:
+    - metric: rfd4_min_ipae_angstrom
+      op: '<='
+      value: 1.5
+    - metric: rfd4_target_aligned_binder_rmsd
+      op: '<='
+      value: 8.0
+  af3_protein_bind_ligand_strict:
+    methods: [af3, af3-la, mol1, esmfold2-fast, esmfold2-standard]
+    reduction: any_prediction
+    rules:
+    - metric: rfd4_min_ipae_angstrom
+      op: '<='
+      value: 1.5
+    - metric: binder_iptm
+      op: '>='
+      value: 0.8
+    - metric: rfd4_backbone_rmsd
+      op: '<='
+      value: 1.5
+    - metric: rfd4_backbone_aligned_ligand_rmsd
+      op: '<='
+      value: 5.0
+  af3_na_bind_ligand_strict:
+    methods: [af3, af3-la, mol1, esmfold2-fast, esmfold2-standard]
+    reduction: any_prediction
+    rules:
+    - metric: rfd4_min_ipae_angstrom
+      op: '<='
+      value: 1.5
+    - metric: na_p_self_rmsd
+      op: '<='
+      value: 5.0
+    - metric: na_aligned_ligand_rmsd
+      op: '<='
       value: 5.0
   odesign_denovo_ligand:
     methods:

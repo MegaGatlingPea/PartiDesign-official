@@ -25,7 +25,8 @@ def public_config(cfg):
 
     def validation_view(stage, profile, final=False):
         method = stage["method"]
-        group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1", "esmfold2-fast": "esmfold2"}[method]
+        group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1", "esmfold2-fast": "esmfold2",
+                 "esmfold2-standard": "esmfold2"}[method]
         count = stage["validation"][group]["samples"]
         key = profile, method, count, final, str(sorted(shared_msa.items()))
         if key not in native_defaults:
@@ -90,6 +91,7 @@ def public_config(cfg):
             final_view.pop("af2", None)
             final_view.pop("af3", None)
             final_view.pop("mol1", None)
+            final_view.pop("esmfold2", None)
             final_view["methods"] = final["methods"]
             for validator in final["validators"]:
                 view = validation_view(validator, profile, final=True)
@@ -168,7 +170,8 @@ def plan_view(cfg):
                                    if stage["partial"]["enabled"] else False)
             rows[stage["round"]] = row
         final = task["final"]
-        group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1"}[final["method"]]
+        group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1",
+                 "esmfold2-standard": "esmfold2"}[final["method"]]
         final_view = {"method": final["method"], "samples": final["validation"][group]["samples"],
                       "pool": final["pool"], "filter": final["criteria"] if final["criteria"] is not None else "auto"}
         if group == "af2":
@@ -178,7 +181,7 @@ def plan_view(cfg):
             final_view.pop("method", None)
             final_view["methods"] = final["methods"]
             final_view["combination"] = "any"
-            final_view["samples"] = {v["method"]: v["validation"][{"af2_ig": "af2", "af3": "af3", "mol1": "mol1"}[v["method"]]]["samples"] for v in final["validators"]}
+            final_view["samples"] = {v["method"]: v["validation"][{"af2_ig": "af2", "af3": "af3", "mol1": "mol1", "esmfold2-standard": "esmfold2"}[v["method"]]]["samples"] for v in final["validators"]}
         final_view['msa'] = {}
         for validator in final.get('validators', [final]):
             if validator['method'] in {'af3', 'mol1'}:

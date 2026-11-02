@@ -102,7 +102,11 @@ Use `iteration.refold.validation.ipsae: {pae_cutoff: 10.0}` and
 `final.validation.ipsae: {pae_cutoff: 10.0}` in workflow YAML to set the default
 10.0 Å cutoff; use the same refold override under `rounds.N` for one round.
 
-A final filter can use `method: af2_ig`, `method: mol1`, or `method: af3`.
+A final filter can use `method: af2_ig`, `method: mol1`, `method: af3`, or
+`method: esmfold2-standard`. Standard uses its own checkpoint, query-only input,
+and native `0.8*ipTM+0.2*pTM` best-sample ordering before filtering; it does not
+consume external MSA/templates. Set `esmfold2: {samples: 5}` under `final` to
+request five samples. ESMFold2-fast remains the default iteration model.
 Use `methods: [af2_ig, mol1, af3]` instead of `method` to run all three. A
 candidate passes when any method passes its own criteria; AF2 still requires
 both configured model pairs internally. Do not turn this into an intersection
@@ -145,6 +149,22 @@ and refresh.
 
 Motif tasks use design-only pLDDT ranking plus applicable native motif filters.
 Do not introduce a separate motif ranking score.
+
+Strict validation screens can be selected by their native names in `final.criteria`.
+Their `pipeline_` variants can be selected in iteration filters, including from
+the PPI profile. Derived PAE/RMSD upper bounds are 1.5 times the native value;
+pTM/ipTM, sequence and clash conditions stay fixed. Keep automatic routes unless
+the user selects a different criterion. The extra original-reference motif gate
+still applies only at first round and final; middle rounds omit both legacy and
+strict motif RMSD rules while retaining other strict conditions. Read
+`docs/validate.md` for exact thresholds and atom/alignment conventions.
+
+MPNN proposals remain eligible for strict partner-aligned RMSDs. Same-type
+residues retain all observed reference atoms; redesigned positions use the
+conserved protein backbone or nucleic-acid sugar-phosphate framework. Preserve
+the target-only fit and original fixed/motif/chemistry constraints, and report
+the comparison selection in metric provenance. Do not turn sequence redesign
+into an unavailable metric merely because a new sidechain has no old coordinates.
 
 ## Geometry and execution
 

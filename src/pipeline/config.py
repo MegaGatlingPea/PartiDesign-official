@@ -19,6 +19,7 @@ from src.validate.config import validate_ipsae_settings
 from src.validate.config import validate_af3_settings, validate_mol1_settings, _settings, _validate_vina
 
 METHODS = ("esmfold2-fast", "af2_ig", "af3", "mol1")
+FINAL_METHODS = ("esmfold2-standard", "af2_ig", "af3", "mol1")
 PROFILES = ("auto", "protein", "nuc", "ppi")
 _ROUTES = {"monomer", "protein", "nuc", "ligand", "peptide", "antibody", "ame", "joint"}
 _ROUTE_ALIASES = {"protein_context": "protein", "nucleic_context": "nuc",
@@ -214,13 +215,13 @@ def _check_overlay(value: dict, label: str, *, task: bool = False) -> None:
     if "final" in value:
         final = value["final"]
         if "method" in final:
-            _choice(final["method"], {"af3", "af2_ig", "mol1"}, f"{label}.final.method")
+            _choice(final["method"], FINAL_METHODS, f"{label}.final.method")
         if "methods" in final:
             methods = final["methods"]
             if not isinstance(methods, list) or not methods or len(set(methods)) != len(methods):
                 raise ValueError(f"{label}.final.methods must be a nonempty unique list")
             for method in methods:
-                _choice(method, {"af3", "af2_ig", "mol1"}, f"{label}.final.methods")
+                _choice(method, FINAL_METHODS, f"{label}.final.methods")
             if "method" in final:
                 raise ValueError(f"{label}.final.method and final.methods are mutually exclusive")
         _check_filter({k: v for k, v in final.items() if k in _FILTER_FIELDS},
@@ -464,7 +465,8 @@ def _criteria_routes(value: dict, definitions: dict) -> dict:
         for stage in ("screen", "final"):
             names = spec.get(stage)
             if isinstance(names, dict):
-                _mapping(names, f"criteria_routes.{route}.{stage}", set(METHODS))
+                methods = FINAL_METHODS if stage == "final" else METHODS
+                _mapping(names, f"criteria_routes.{route}.{stage}", set(methods))
                 result[route][stage] = {
                     method: _names(items, f"criteria_routes.{route}.{stage}.{method}")
                     for method, items in names.items()
@@ -499,7 +501,7 @@ def criteria_for(task_config: dict, stage: dict | str, context_route: str,
     else:
         row = stage
     selected_method = method or row["method"]
-    if selected_method not in METHODS:
+    if selected_method not in METHODS and not (is_final and selected_method in FINAL_METHODS):
         raise ValueError(f"Unsupported pipeline method: {selected_method}")
     names = row.get("criteria")
     if names is None:
@@ -557,8 +559,7 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
     # bool-as-int or invalid dormant native settings must not be hidden by it.
     for group in ("af2", "esmfold2", "af3", "mol1"):
         _integer(cfg[group]["samples"], f"validation.{group}.samples")
-    if cfg["esmfold2"]["mode"] != "fast":
-        raise ValueError("pipeline esmfold2.mode must be fast; select method at iteration.refold.method")
+    _choice(cfg["esmfold2"]["mode"], {"fast", "standard"}, "validation.esmfold2.mode")
     if cfg["structure_stage"] != "base":
         raise ValueError("pipeline validation.structure_stage must be base")
     for key in ("enabled", "original", "refold"):
@@ -582,9 +583,10 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
         cfg["worker_gpus"] = worker_gpus
     if worker_cpus is not None:
         cfg["worker_cpus"] = worker_cpus
-    selected_group = {"esmfold2-fast": "esmfold2", "af2_ig": "af2", "af3": "af3", "mol1": "mol1"}[method]
+    selected_group = {"esmfold2-fast": "esmfold2", "esmfold2-standard": "esmfold2",
+                      "af2_ig": "af2", "af3": "af3", "mol1": "mol1"}[method]
     cfg[selected_group]["samples"] = samples
-    cfg["esmfold2"]["mode"] = "fast"
+    cfg["esmfold2"]["mode"] = "standard" if method == "esmfold2-standard" else "fast"
     for group in ("sequence", "af2", "esmfold2", "af3", "mol1"):
         _integer(cfg[group]["seed"], f"validation.{group}.seed", 0)
     for group in ("af2", "esmfold2", "af3", "mol1"):
@@ -867,8 +869,9 @@ def build_config(args: Any, repo_root: str | Path, *,
         final["criteria_route"] = _route(final["criteria_route"], "final.criteria_route")
         validators = []
         for method in methods:
-            _choice(method, {"af3", "af2_ig", "mol1"}, f"task {name}.final.methods")
-            group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1"}[method]
+            _choice(method, FINAL_METHODS, f"task {name}.final.methods")
+            group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1",
+                     "esmfold2-standard": "esmfold2"}[method]
             samples = final["validation"].get(group, {}).get("samples", 5)
             validator = dict(final, method=method)
             validator.pop("methods", None)

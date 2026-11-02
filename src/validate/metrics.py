@@ -19,6 +19,7 @@ from ..design.utils.reader import read_structure
 from ..design.utils.atoms import COMMON_STANDARD_PARENT
 from .inputs import ValidationInput
 from .ipsae import IPSAE_METRIC_NAMES
+from .rfd4_metrics import RFD4_METRIC_NAMES
 
 
 _BACKBONE3 = ("N", "CA", "C")
@@ -44,7 +45,7 @@ _METRIC_NAMES = (
     "has_ligand_clashes",
     "na_token_center_rmsd", "na_aligned_protein_ca_rmsd",
     "protein_aligned_na_p_rmsd",
-) + IPSAE_METRIC_NAMES
+) + IPSAE_METRIC_NAMES + RFD4_METRIC_NAMES
 
 
 class MetricUnavailable(ValueError):
@@ -475,7 +476,10 @@ def _read_confidence_file(path: Path) -> Any:
             for key in (
                 "asym_id", "token_chain_ids", "pae_chain_ids", "chain_ids",
                 "token_index", "residue_index", "token_res_ids", "token_ins_codes",
-                "token_residue_atom_names",
+                "token_residue_atom_names", "token_attention_mask", "token_has_frame",
+                "token_frame_mask", "pae_frame_mask", "frames_mask", "pae_mask",
+                "native_full_pae", "native_pae_matrix", "native_token_chain_ids",
+                "native_frame_mask", "native_token_attention_mask",
             ):
                 if key in archive:
                     result[key] = np.asarray(archive[key]).copy()
@@ -630,6 +634,12 @@ def _confidence_metrics(
             _missing(metrics, reasons, "antibody_antigen_pae_angstrom", reason)
 
     payload = _confidence_payload(prediction)
+    from .rfd4_metrics import confidence_metrics as rfd4_confidence_metrics
+    rfd4_confidence_metrics(
+        metrics, reasons, metric_provenance if metric_provenance is not None else {},
+        reference, predicted, chain_map, design_chains,
+        input_data.row if input_data is not None else {}, prediction, payload,
+    )
     plddt = _lookup(payload, "plddt", "mean_plddt", "mean_pLDDT")
     if plddt is None:
         _missing(metrics, reasons, "plddt", "prediction confidence has no pLDDT")
@@ -678,7 +688,6 @@ def _confidence_metrics(
             _missing(metrics, reasons, "ipae_angstrom", "prediction confidence has no PAE matrix")
         if direct_normalized is None:
             _missing(metrics, reasons, "ipae_normalized", "prediction confidence has no normalized iPAE")
-        _missing(metrics, reasons, "min_interchain_pae_angstrom", "prediction confidence has no PAE matrix")
         scoped_unavailable("prediction confidence has no PAE matrix")
         antibody_unavailable("prediction confidence has no PAE matrix")
         return
@@ -694,7 +703,6 @@ def _confidence_metrics(
             _missing(metrics, reasons, "ipae_angstrom", reason)
         if direct_normalized is None:
             _missing(metrics, reasons, "ipae_normalized", reason)
-        _missing(metrics, reasons, "min_interchain_pae_angstrom", reason)
         scoped_unavailable(reason)
         antibody_unavailable(reason)
         return
@@ -737,7 +745,6 @@ def _confidence_metrics(
                 _missing(metrics, reasons, "ipae_angstrom", reason)
             if direct_normalized is None:
                 _missing(metrics, reasons, "ipae_normalized", reason)
-            _missing(metrics, reasons, "min_interchain_pae_angstrom", reason)
             scoped_unavailable(reason)
             antibody_unavailable(reason)
             return
@@ -761,7 +768,6 @@ def _confidence_metrics(
             _missing(metrics, reasons, "ipae_angstrom", reason)
         if direct_normalized is None:
             _missing(metrics, reasons, "ipae_normalized", reason)
-        _missing(metrics, reasons, "min_interchain_pae_angstrom", reason)
         scoped_unavailable(reason)
         antibody_unavailable(reason)
         return
@@ -788,39 +794,6 @@ def _confidence_metrics(
         except (IndexError, KeyError, TypeError, ValueError) as exc:
             reasons[name] = str(exc)
 
-    # AlphaProteo's inter-chain minimum is taken over every distinct chain
-    # pair, rather than only binder/context pairs. Keep that scope separate
-    # from the native iPAE summary below, whose definition is binder/context.
-    all_interchain_values: list[np.ndarray] = []
-    reference_chains = [
-        chain for chain in _ordered_chains(reference) if chain in positions
-    ]
-    for index, left_chain in enumerate(reference_chains):
-        for right_chain in reference_chains[index + 1 :]:
-            left_idx = positions[left_chain]
-            right_idx = positions[right_chain]
-            all_interchain_values.append(matrix[np.ix_(left_idx, right_idx)].ravel())
-            all_interchain_values.append(matrix[np.ix_(right_idx, left_idx)].ravel())
-    if all_interchain_values:
-        flattened = np.concatenate(all_interchain_values)
-        flattened = flattened[np.isfinite(flattened)]
-        if len(flattened):
-            metrics["min_interchain_pae_angstrom"] = float(np.min(flattened))
-        else:
-            _missing(
-                metrics,
-                reasons,
-                "min_interchain_pae_angstrom",
-                "inter-chain PAE contains no finite values",
-            )
-    else:
-        _missing(
-            metrics,
-            reasons,
-            "min_interchain_pae_angstrom",
-            "prediction has no distinct inter-chain pair",
-        )
-
     design_idx = np.concatenate([positions[chain] for chain in design_chains if chain in positions]) if any(chain in positions for chain in design_chains) else np.asarray([], dtype=np.int64)
     context_idx = np.concatenate([values for chain, values in positions.items() if chain not in design_chains]) if len(positions) > len(design_chains) else np.asarray([], dtype=np.int64)
     if not len(design_idx) or not len(context_idx):
@@ -829,14 +802,12 @@ def _confidence_metrics(
             _missing(metrics, reasons, "ipae_angstrom", reason)
         if direct_normalized is None:
             _missing(metrics, reasons, "ipae_normalized", reason)
-        # A joint protein–ligand design has no fixed context, but its two
-        # generated chains still define an inter-chain PAE minimum above.
+        # The legacy native iPAE mean requires fixed context; the independent
+        # scoped RFD4 reduction above has already recorded its own availability.
         return
     values = np.concatenate((matrix[np.ix_(design_idx, context_idx)].ravel(), matrix[np.ix_(context_idx, design_idx)].ravel()))
     values = values[np.isfinite(values)]
     if not len(values):
-        if "min_interchain_pae_angstrom" not in metrics:
-            _missing(metrics, reasons, "min_interchain_pae_angstrom", "inter-chain PAE contains no finite values")
         return
     mean_value = float(np.mean(values))
     if direct_angstrom is None:
@@ -2023,6 +1994,25 @@ def evaluate_prediction(
         motif_geometry=motif_geometry)
     metrics.update(extra)
     reasons.update(extra_reasons)
+
+    from .rfd4_metrics import geometry_metrics as rfd4_geometry_metrics
+    rfd4_reference_chain_map = prediction.get("motif_reference_chain_map")
+    if not isinstance(rfd4_reference_chain_map, Mapping) and variant:
+        rfd4_reference_chain_map = variant.get("motif_reference_chain_map")
+    if not isinstance(rfd4_reference_chain_map, Mapping):
+        rfd4_reference_chain_map = None
+    rfd4_values, rfd4_reasons = rfd4_geometry_metrics(
+        input_data, predicted, chain_map, ligand_chain_map, ligand_atom_maps,
+        motif_reference_structure, motif_geometry=motif_geometry,
+        reference_chain_map=rfd4_reference_chain_map,
+        metric_provenance=metric_provenance,
+    )
+    metrics.update(rfd4_values)
+    reasons.update(rfd4_reasons)
+    metric_provenance["rfd4_has_ligand_clashes"] = {
+        "stage": "refold", "pair_scope": "inter_residue_polymer_nonpolymer",
+        "distance_angstrom_lt": 1.5, "exclude": ["direct_bonds", "both_coordinate_conditioned"],
+    }
 
     clash, clash_reason = _ligand_clashes(predicted)
     if clash is None:

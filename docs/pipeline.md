@@ -99,12 +99,46 @@ change this cap, or `final.pool.source: last` to use last-round survivors.
 for an eligible standard protein/peptide binder with protein context. PPI final
 criteria are `af2_ig_protdbench` for proteins and `af2_ig_peptide` for peptides.
 PPI produces ten pairs (twenty structures) per candidate with its default two
-models. Mol-1 and AF3 can also be selected explicitly with `final.method`.
+models. Mol-1, AF3, and ESMFold2-standard can also be selected explicitly with
+`final.method`. ESMFold2-standard selects its best sample by
+`0.8 * ipTM + 0.2 * pTM`, then applies the requested criteria. It uses the standard
+checkpoint and query-only inputs; external MSA and templates are not supplied.
 Prediction selection precedes criteria; a lower-ranked passing sample
 does not replace a selected failing sample. All final structures remain in
 `predictions/`. Each accepted candidate has one representative complex in
 `success/`; the metrics and selection records retain both PPI model winners
 and their matching monomer evidence.
+
+For example, keep the protein profile's iteration settings and change only final
+validation in a workflow YAML:
+
+```yaml
+preset: protein
+final:
+  method: esmfold2-standard
+  esmfold2: {samples: 5}
+  criteria: [af3_basic]
+```
+
+ESMFold2-standard can also appear in `final.methods` for union filtering. Each
+executed method still publishes its own best complex for accepted candidates.
+The default iteration backend remains ESMFold2-fast.
+
+The strict validation presets listed in [validate.md](validate.md) can be selected
+with `final.criteria`. Their `pipeline_` variants are available for iteration
+filters, for example `filter: [pipeline_af3_protein_bind_ligand_strict]`.
+These variants multiply PAE and RMSD upper bounds by 1.5; pTM/ipTM, identity and
+clash thresholds stay fixed. Explicit strict presets do not change the automatic
+route defaults. Original-reference motif geometry is still checked at round 1
+and final, with the existing protein/nucleic-acid limits, and omitted in middle
+rounds.
+
+Strict partner-aligned RMSDs support MPNN proposals. Unchanged residues retain
+their all-atom comparison; redesigned protein residues use their conserved
+backbone, and redesigned nucleotides use their sugar-phosphate framework.
+The target fit and fixed/motif/bond constraints stay intact. This keeps every
+designed position in the comparison without requiring reference coordinates for
+new sidechains; see [validate.md](validate.md) for the recorded metric selection.
 
 ### Combine final filters
 
@@ -425,7 +459,7 @@ tasks:
 The workflow's `tasks` mapping contains only workflow overrides. Keep molecular
 fields in the native task YAML, without duplicating them here.
 
-`final` accepts `method` or `methods`, native `af2`/`af3`/`mol1` settings,
+`final` accepts `method` or `methods`, native `af2`/`esmfold2`/`af3`/`mol1` settings,
 `max_pass`, `criteria` and the native final-selection controls. For example,
 `final: {method: af3, af3: {samples: 3}, max_pass: 8}` changes final prediction
 sampling without changing iteration refolding. Mol-1 uses the same syntax:

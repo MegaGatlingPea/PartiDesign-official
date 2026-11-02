@@ -361,12 +361,12 @@ def mapped_token_inventory(
         position = int(positions[index])
         if not 0 <= position < len(row["observed_positions"]):
             raise ValueError("ESMFold2 native token residue index is outside its source map")
+        chain = str(row["logical_chain_id"])
+        labels[index] = chain
         observed = row["observed_positions"][position]
         if observed is None:
             retained[index] = False
             continue
-        chain = str(row["logical_chain_id"])
-        labels[index] = chain
         logical_asym[index] = mapping["logical_index"][chain]
         logical_positions[index] = int(observed)
     return labels.astype(str), logical_asym, logical_positions, retained
@@ -408,6 +408,7 @@ def logical_confidence_arrays(
     result["asym_id"] = chains[selected]
     result["residue_index"] = positions[selected]
     result["token_chain_ids"] = labels[selected]
+    result["native_token_chain_ids"] = labels.copy()
     result["native_mapped_token_mask"] = retained
     return result
 

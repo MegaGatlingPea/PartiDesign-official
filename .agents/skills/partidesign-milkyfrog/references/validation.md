@@ -122,6 +122,31 @@ For `any_prediction`, all its rules must hold in the same complete prediction.
 `--presets FILE` replaces the preset catalog; follow the custom-rule examples
 in `docs/validate.md` rather than inventing metric names or reductions.
 
+Optional strict screens are `af3_ame_strict`, `af3_protein_bind_na_strict`,
+`af3_na_bind_protein_strict`, `af3_protein_bind_ligand_strict`, and
+`af3_na_bind_ligand_strict`. They include min iPAE: directional design–target PAE
+minima are averaged per chain pair, then reduced to the minimum across eligible
+pairs. Do not include design–design or context–context interfaces. The updated
+`af3_alphaproteo` and `af3_antibody` also use this convention and target-aligned
+binder partner-aligned geometry. Read the preset table in `docs/validate.md` for exact
+thresholds and the reverse nucleic-acid extensions. Strict AME clash checks use
+the refold, exclude directly bonded and truly coordinate-conditioned pairs,
+and use distance <1.5 Å. Fixed residue identity alone is not a coordinate condition.
+Legacy nonstrict ligand/NA/AME screens remain available. Older saved validation
+requires `--recompute-metrics` for the new fields; refiltering does not create
+missing evidence.
+
+MPNN residue changes are supported in these partner-aligned metrics. Unchanged
+residues use all observed reference atoms. Authorized changed protein positions
+use N/CA/C/O and OXT present on both sides; changed RNA/DNA bases use sugar-phosphate atoms.
+Do not discard the whole mutated residue or invent new sidechain coordinates.
+Record selection and comparison counts in metric provenance. Same-sequence
+comparisons remain all-atom. Fixed/motif/modified identities, context and
+identity-dependent bond anchors must still match; missing required backbone
+geometry is unavailable, while a normal permitted sequence change is not.
+Normalize an unrequested ordinary terminal OXT absent from a predictor output;
+retain explicit motif/chemical endpoint requirements.
+
 Preserve metric units and alignment semantics: normalized confidence metrics
 use [0, 1], RMSD/angstrom PAE use Å, and `ipae_normalized` differs from
 `ipae_angstrom`. Joint-, self-, and partner-aligned RMSDs answer different

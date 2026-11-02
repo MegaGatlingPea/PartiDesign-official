@@ -99,7 +99,7 @@ def decisions(record, names, definitions, mode="all"):
 
 
 def final_prediction_view(record, selection="best_ranked", *, models=None):
-    """Choose one final complex per AF2 model with its matched controls."""
+    """Rank native predictions before filtering, retaining AF2 matched controls."""
     if selection == "all":
         return record, {"mode": "all"}
     from math import isfinite
@@ -111,7 +111,8 @@ def final_prediction_view(record, selection="best_ranked", *, models=None):
             prediction = record["predictions"][key]
             if prediction["protocol"] != "complex":
                 continue
-            if record["method"] == "af2_ig":
+            if record["method"] in {"af2_ig", "esmfold2-fast", "esmfold2-standard"}:
+                # Match native validate best_ranked, including monomer ipTM=0.
                 metrics = prediction["metrics"]
                 score = 0.8 * float(metrics["iptm"]) + 0.2 * float(metrics["ptm"])
             else:
@@ -123,7 +124,9 @@ def final_prediction_view(record, selection="best_ranked", *, models=None):
                 return dict(record, status="partial"), {
                     "mode": "best_ranked", "status": "unavailable",
                     "reason": f"AF2 prediction {key!r} lacks complete ranking metrics"}
-            raise ValueError(f"Final {record['method']} prediction {key!r} lacks ranking confidence") from exc
+            evidence = ("native iptm/ptm ranking metrics" if record["method"].startswith("esmfold2-")
+                        else "ranking confidence")
+            raise ValueError(f"Final {record['method']} prediction {key!r} lacks {evidence}") from exc
         ranked.append((-score, key))
     if record["method"] == "af2_ig":
         by_model = {}
@@ -392,7 +395,8 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
     eligible=[]
     candidate_by_id={}
     input_by_id={}
-    group={"af2_ig":"af2","af3":"af3","mol1":"mol1","esmfold2-fast":"esmfold2"}[method]
+    group={"af2_ig":"af2","af3":"af3","mol1":"mol1",
+           "esmfold2-fast":"esmfold2","esmfold2-standard":"esmfold2"}[method]
     score_profile=json.dumps([method,stage["validation"].get(group,{})],sort_keys=True)
     result_rows=[]
     motif_policy=cfg.get("motif_policy")=="first_and_final"
