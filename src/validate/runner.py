@@ -717,7 +717,7 @@ class ValidationWorker:
                         completed.add(key)
                 failure_stage = "refold"
                 predictions = ([] if set(expected) <= completed else
-                               self._models().predict(input, variant, output, completed,
+                               self._models().predict(input, variant, output, completed_keys=completed,
                                    **({"prepared_inputs": prepared_inputs} if prepared_inputs is not None else {})))
                 try:
                     for prediction in predictions:
