@@ -1,0 +1,39 @@
+# VHH data from PacesaLab/BindCraft2; see README.md and LICENSE.
+# These are source label_seq_id edit windows, not IMGT numbering.
+path: VHH.cif
+include:
+  - chain:
+      id: B
+      res_index: 1..127
+design:
+  - chain:
+      id: B
+      res_index: 27..33,52..57,100..114
+structure_groups:
+  - group:
+      id: B
+      visibility: 2
+  - group:
+      id: B
+      visibility: 0
+      res_index: 27..33,52..57,100..114,35,37,45,47,50,59,97..99,115..116
+exclude:
+  - chain:
+      id: B
+      res_index: 27..33,52..57,100..114
+design_insertions:
+  - insertion:
+      id: B
+      res_index: 27
+      num_residues: 7
+  - insertion:
+      id: B
+      res_index: 52
+      num_residues: 5..7
+  - insertion:
+      id: B
+      res_index: 100
+      num_residues: 3..25
+reset_res_index:
+  - chain:
+      id: B

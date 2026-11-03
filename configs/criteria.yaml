@@ -1,5 +1,20 @@
 # Runtime criteria; metric units, sources and protocols are in docs/validation.md.
 presets:
+  # No general quality threshold; separate pipeline motif/contact gates still apply.
+  blank:
+    methods:
+    - af2_ig
+    - af3
+    - af3-la
+    - mol1
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: plddt
+      op: '>='
+      value: 0.0
+      scope: complex
   af2_ig_protein:
     methods:
     - af2_ig
@@ -114,6 +129,25 @@ presets:
     - metric: complex_design_rmsd
       op: <
       value: 2.5
+  # Linear and cyclic peptide binders use interface confidence and consistency.
+  af3_peptide:
+    methods:
+    - af3
+    - af3-la
+    - mol1
+    - esmfold2-fast
+    - esmfold2-standard
+    reduction: any_prediction
+    rules:
+    - metric: binder_iptm
+      op: '>'
+      value: 0.8
+    - metric: complex_design_rmsd
+      op: <
+      value: 2.5
+    - metric: rfd4_min_ipae_angstrom
+      op: <
+      value: 1.5
   af3_strict:
     methods:
     - af3
@@ -292,6 +326,17 @@ presets:
       op: '<='
       value: 2.0
       scope: complex
+  # Optional antibody contact gate, independent of the confidence/RMSD preset.
+  antibody_contacts:
+    methods: [af3, af3-la, mol1, esmfold2-fast, esmfold2-standard]
+    reduction: any_prediction
+    rules:
+    - metric: antibody_interface_residues
+      op: '>='
+      value: 7
+    - metric: antibody_off_paratope_contact_fraction
+      op: '<='
+      value: 0.20
   af3_na_bind_ligand:
     methods:
     - af3

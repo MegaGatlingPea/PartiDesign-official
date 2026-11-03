@@ -86,6 +86,16 @@ def load_candidate(candidate,task_dir,*,atoms=None):
         design=tuple(x["chain"] for x in metadata)
         atoms=_prepared_atoms(atoms,design)
         fixed=[x for x in json.loads(row.get("fixed_restypes") or "[]") if x.get("chain") in design]
+        if row.get("heavy_role"):
+            from src.validate.inputs import _antibody_chain_metadata
+            metadata,antibody_fixed=_antibody_chain_metadata(row,atoms,candidate.candidate_id)
+            if tuple(item["chain"] for item in metadata)!=design:
+                raise ValueError("antibody chain roles differ from design metadata")
+            # The public antibody policy and the resolved native ledger must agree.
+            fixed_positions={(x["chain"],int(x.get("res_id",x.get("resid",0)))) for x in fixed}
+            for item in antibody_fixed:
+                if (item["chain"],int(item["res_id"])) not in fixed_positions:
+                    fixed.append(item)
         bonds=json.loads(row.get("bond_constraints") or "[]")
         contig=row.get("contig_string","")
         tips=row.get("tip_atoms","")
@@ -142,16 +152,24 @@ def _bond_anchor(record,bond):
             "required_output":bond.get("required_output",True)}
 
 
-def chain_sequences(record,variant=None):
+@dataclass(frozen=True, slots=True)
+class _PreparedChainSequences:
+    owner: object
+    chains: tuple[ChainSequence, ...]
+    mutable_positions: tuple[tuple[int, ...], ...]
+
+
+def prepare_chain_sequences(record):
+    """Derive anchors once while this input's atoms and conditions stay unchanged."""
     from src.validate.sequences import _AA3_TO_1,_RNA3_TO_1,_DNA3_TO_1,_fixed_modified_map
     from src.validate.inputs import _locator_rows
     atoms=record.atoms
     modified,_=_fixed_modified_map(record)
     maps={"protein":_AA3_TO_1,"rna":_RNA3_TO_1,"dna":_DNA3_TO_1}
-    proposals={} if variant is None else variant.get("sequences",{})
     fixed_rows={row for entry in record.fixed_restypes for row in _locator_rows(atoms,entry)}
     graph=special_edges(record)
     result=[]
+    mutable_positions=[]
     for chain in record.design_chains:
         groups=residues(atoms,chain)
         if not groups:
@@ -159,18 +177,15 @@ def chain_sequences(record,variant=None):
         modality=str(atoms.mol_type[groups[0][0]])
         if modality not in maps:
             raise ValueError("pipeline supports polymer designs only; pure ligand design is unsupported")
-        proposal=tokens(str(proposals[chain])) if chain in proposals else None
-        if proposal is not None and len(proposal)!=len(groups):
-            raise ValueError(f"proposal changed chain {chain!r} length")
-        values,anchors=[],[]
+        values,anchors,mutable=[],[],[]
         for ordinal,rows in enumerate(groups):
             i=rows[0]
             pos=position(atoms,i)
             name=str(atoms.res_name[i]).upper()
             uid=int(atoms.residue_uid[i])
             token=f"[{modified[uid]}]" if uid in modified else maps[modality].get(name,f"[{name.strip('[]')}]")
-            if proposal is not None and uid not in modified:
-                token=proposal[ordinal]
+            if uid not in modified:
+                mutable.append(ordinal)
             values.append(token)
             fixed=[]
             for field in ("fixed_positions","motif_positions","tip_positions"):
@@ -191,6 +206,28 @@ def chain_sequences(record,variant=None):
             anchors.append(tuple(sorted(set(fixed))))
         cyclic=chain in (*record.cyclic_chains,*record.cyclic_offset_chains)
         result.append(ChainSequence(chain,modality,tuple(values),cyclic,tuple(anchors)))
+        mutable_positions.append(tuple(mutable))
+    return _PreparedChainSequences(record,tuple(result),tuple(mutable_positions))
+
+
+def chain_sequences(record,variant=None,*,prepared=None):
+    if prepared is None:
+        prepared=prepare_chain_sequences(record)
+    elif prepared.owner is not record:
+        raise ValueError("prepared chain sequences belong to a different input record")
+    proposals={} if variant is None else variant.get("sequences",{})
+    result=[]
+    for chain,mutable in zip(prepared.chains,prepared.mutable_positions):
+        if chain.chain_id not in proposals:
+            result.append(chain)
+            continue
+        proposal=tokens(str(proposals[chain.chain_id]))
+        if len(proposal)!=len(chain.tokens):
+            raise ValueError(f"proposal changed chain {chain.chain_id!r} length")
+        values=list(chain.tokens)
+        for ordinal in mutable:
+            values[ordinal]=proposal[ordinal]
+        result.append(replace(chain,tokens=tuple(values)))
     return tuple(result)
 
 def refreshed_row(record,path,*,atoms=None):
@@ -233,6 +270,19 @@ def refreshed_row(record,path,*,atoms=None):
         for bond in record.bond_constraints],separators=(",",":"))
     row.pop("design_sequence",None)
     row["filename"]=str(path)
+    if row.get("heavy_role"):
+        from src.design.antibody.results import refresh_antibody_result
+        context=row.get("_antibody_context")
+        if isinstance(context,str):
+            context=json.loads(context)
+        if context is None and row.get("_antibody_context_path"):
+            context=json.loads(Path(row["_antibody_context_path"]).read_text())
+        if context is None:
+            raise ValueError("antibody result is missing its native region/source context")
+        row.update(refresh_antibody_result(row,atoms,context))
+        row["filename"]=str(path)
+        if row.get("_antibody_context_path"):
+            row.pop("_antibody_context",None)
     return row
 
 def _context_atom_key(atoms, index):
@@ -249,26 +299,39 @@ def _context_rows(record):
             and str(atoms.element[i]) not in {"H", "D", "T"}]
 
 
-def _assert_context(parent, child):
+@dataclass(frozen=True, slots=True)
+class _ContextBaseline:
+    atom_keys: frozenset
+    residue_keys: frozenset
+    optional_oxt: frozenset
+
+
+def _prepare_context(record):
+    original=frozenset(_context_atom_key(record.atoms,i) for i in _context_rows(record))
+    optional_oxt=set()
+    for chain in {key[0] for key in original if key[4:]==("OXT","O")}:
+        terminal=residues(record.atoms,chain)[-1]
+        pos=position(record.atoms,terminal[0])
+        if (record.atoms.mol_type[terminal[0]]=="protein" and
+                "OXT" not in record.tip_positions.get(chain,{}).get(pos,())):
+            optional_oxt.update(key for i in terminal
+                if (key:=_context_atom_key(record.atoms,i))[4:]==("OXT","O"))
+    return _ContextBaseline(original,frozenset(key[:4] for key in original),
+                            frozenset(optional_oxt))
+
+
+def _assert_context(parent, child, *, prepared=None):
     # Native refolding owns canonical polymer completion. Preserve known
     # source facts without rejecting newly completed standard terminal atoms.
-    original={_context_atom_key(parent.atoms,i) for i in _context_rows(parent)}
+    baseline=_prepare_context(parent) if prepared is None else prepared
     predicted={_context_atom_key(child.atoms,i) for i in _context_rows(child)}
-    missing=original-predicted
+    missing=baseline.atom_keys-predicted
     if missing:
-        optional_oxt=set()
         present_names={key[:5] for key in predicted}
-        for chain in {key[0] for key in missing if key[4:]==("OXT","O")}:
-            terminal=residues(parent.atoms,chain)[-1]
-            pos=position(parent.atoms,terminal[0])
-            if (parent.atoms.mol_type[terminal[0]]=="protein" and
-                    "OXT" not in parent.tip_positions.get(chain,{}).get(pos,())):
-                optional_oxt.update(key for i in terminal
-                    if (key:=_context_atom_key(parent.atoms,i))[4:]==("OXT","O")
-                    and key[:5] not in present_names)
+        optional_oxt={key for key in baseline.optional_oxt if key[:5] not in present_names}
         if not missing.issubset(optional_oxt):
             raise ValueError("refold changed context atom identity: missing or replaced source atom")
-    if {key[:4] for key in original}!={key[:4] for key in predicted}:
+    if baseline.residue_keys!={key[:4] for key in predicted}:
         raise ValueError("refold changed context residue identity")
 
 
@@ -391,35 +454,85 @@ def restore_context_aliases(parent_record,target_cif,*,atoms=None):
     return target
 
 
-def assert_invariants(parent,child):
-    import numpy as np
+@dataclass(frozen=True, slots=True)
+class _InvariantBaseline:
+    owner: object
+    design_lengths: tuple[int, ...]
+    fixed_names: tuple[frozenset, ...]
+    motif_names: tuple[tuple[str, tuple, frozenset], ...]
+    special_edges: tuple
+    context: _ContextBaseline
+
+
+def _residue_identity_index(atoms,chain):
+    result={}
+    for rows in residues(atoms,chain):
+        result.setdefault(position(atoms,rows[0]),set()).add(str(atoms.res_name[rows[0]]))
+    return result
+
+
+def prepare_invariants(parent):
+    """Snapshot one unchanged parent's identities; derive every child afresh.
+
+    The caller owns this value's lifetime and must prepare again after replacing
+    the input record or changing its atom inventory, graph, or conditions.
+    """
     from src.validate.inputs import _locator_rows
+    fixed=tuple(frozenset(parent.atoms.res_name[_locator_rows(parent.atoms,entry)])
+                for entry in parent.fixed_restypes)
+    motifs=[]
+    for chain,positions in parent.motif_positions.items():
+        identities=_residue_identity_index(parent.atoms,chain)
+        motifs.extend((chain,pos,frozenset(identities.get(pos,())))
+                      for pos in positions)
+    return _InvariantBaseline(parent,
+        tuple(len(residues(parent.atoms,chain)) for chain in parent.design_chains),
+        fixed,tuple(motifs),special_edges(parent),_prepare_context(parent))
+
+
+def assert_invariants(parent,child,*,prepared=None):
+    from src.validate.inputs import _locator_rows
+    if prepared is not None and prepared.owner is not parent:
+        raise ValueError("prepared invariants belong to a different input record")
     if parent.design_chains!=child.design_chains:
         raise ValueError("refold changed design chain roles")
-    for chain in parent.design_chains:
-        if len(residues(parent.atoms,chain))!=len(residues(child.atoms,chain)):
+    for index,chain in enumerate(parent.design_chains):
+        length=(len(residues(parent.atoms,chain)) if prepared is None
+                else prepared.design_lengths[index])
+        if length!=len(residues(child.atoms,chain)):
             raise ValueError(f"refold changed chain {chain!r} length")
     if parent.cyclic_offset_chains!=child.cyclic_offset_chains:
         raise ValueError("cyclic_offset intent was lost")
-    for entry in parent.fixed_restypes:
-        a,b=_locator_rows(parent.atoms,entry),_locator_rows(child.atoms,{k:v for k,v in entry.items() if k!="atom_id"})
-        if not a or not b or set(parent.atoms.res_name[a])!=set(child.atoms.res_name[b]):
+    for index,entry in enumerate(parent.fixed_restypes):
+        names=(frozenset(parent.atoms.res_name[_locator_rows(parent.atoms,entry)])
+               if prepared is None else prepared.fixed_names[index])
+        rows=_locator_rows(child.atoms,{k:v for k,v in entry.items() if k!="atom_id"})
+        if not names or not rows or names!=set(child.atoms.res_name[rows]):
             raise ValueError(f"fixed residue identity changed: {entry}")
-    for chain,positions in parent.motif_positions.items():
-        for pos in positions:
-            def identity(record):
-                return {str(record.atoms.res_name[g[0]]) for g in residues(record.atoms,chain)
-                        if position(record.atoms,g[0])==pos}
-            if not identity(parent) or identity(parent)!=identity(child):
-                raise ValueError(f"motif identity changed: {chain}:{pos}")
-    for bond in parent.bond_constraints:
-        a,b=(_locator_rows(child.atoms,{k:v for k,v in bond[end].items() if k!="atom_id"}) for end in ("atom1","atom2"))
-        if len(a)!=1 or len(b)!=1 or not any(
-            {int(i),int(j)}=={a[0],b[0]} for i,j,_ in child.atoms.bonds.as_array()):
-            raise ValueError(f"required chemical connection missing: {bond}")
-    if special_edges(parent)!=special_edges(child):
+    if prepared is None:
+        motifs=[]
+        for chain,positions in parent.motif_positions.items():
+            identities=_residue_identity_index(parent.atoms,chain)
+            motifs.extend((chain,pos,frozenset(identities.get(pos,()))) for pos in positions)
+    else:
+        motifs=prepared.motif_names
+    child_identities={}
+    for chain,pos,names in motifs:
+        if chain not in child_identities:
+            child_identities[chain]=_residue_identity_index(child.atoms,chain)
+        if not names or names!=child_identities[chain].get(pos,set()):
+            raise ValueError(f"motif identity changed: {chain}:{pos}")
+    if parent.bond_constraints:
+        child_edges={frozenset((int(i),int(j))) for i,j,_ in child.atoms.bonds.as_array()}
+        for bond in parent.bond_constraints:
+            a,b=(_locator_rows(child.atoms,{k:v for k,v in bond[end].items() if k!="atom_id"})
+                 for end in ("atom1","atom2"))
+            if len(a)!=1 or len(b)!=1 or frozenset((a[0],b[0])) not in child_edges:
+                raise ValueError(f"required chemical connection missing: {bond}")
+    original_edges=special_edges(parent) if prepared is None else prepared.special_edges
+    if original_edges!=special_edges(child):
         raise ValueError("refold changed the required special-bond graph")
-    _assert_context(parent,child)
+    _assert_context(parent,child,prepared=None if prepared is None else prepared.context)
 
 
 

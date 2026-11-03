@@ -26,6 +26,7 @@ Each command has a separate guide:
 | [`download`](download.md) | Prepare generation and optional model assets |
 | [`check`](check.md) | Check tasks, model assets, and the installation |
 | [`design`](design.md) | Generate molecular structures and identities |
+| [`msa`](msa.md) | Prepare shared context MSA and templates for selected tasks |
 | [`pipeline`](pipeline.md) | Run design, refinement, and validation in one command |
 | [`score`](score.md) | Score interfaces in saved structures with PartiScore |
 | [`relax`](relax.md) | Refine existing structures with OpenMM |
@@ -43,6 +44,9 @@ Clustering independently compares original generated polymer backbones.
 
 ## Tasks and examples
 
+- [Capabilities](../README.md#capabilities): illustrated protein, DNA, RNA, and
+  ligand design.
+- [A first run](design.md#a-first-run): check a task and generate initial structures.
 - [PartiDesign MilkyFrog skill](../.agents/skills/partidesign-milkyfrog/SKILL.md):
   invoke `$partidesign-milkyfrog` in Codex for task preparation, workflows,
   troubleshooting, and usage questions.
@@ -50,8 +54,10 @@ Clustering independently compares original generated polymer backbones.
   chemistry, and antibody-specific fields.
 - [Partial diffusion](partial.md): one reference CIF with task-defined conditions,
   schedule semantics, and optional native metadata recovery.
-- [Pipeline](pipeline.md): protein/nuc presets with final AF3, the explicit PPI preset
-  with final AF2 pairs, and insulin receptor examples.
+- [Pipeline](pipeline.md): Mol-1, AF3 and ESMFold2-standard final validation, PPI
+  with additional AF2 pairs, and a lighter Mol-1-only insulin receptor demo.
+  [Antibody pipelines](pipeline.md#antibody-pipelines) include GLP1R VHH de novo
+  and annotated-complex optimization with Mol-1 final validation.
 - [Example index](../configs/examples/README.md): named runnable tasks by modality
   and peptide topology.
 - [Command index](commands.md): all CLI entry points.
@@ -59,6 +65,6 @@ Clustering independently compares original generated polymer backbones.
   protocols, task-level figures, and timing boundaries.
 
 Docking, antibody CDR design, and peptide design with multiple topologies are
-supported for inference. These Preview workflows remain under active development,
-and results can vary across targets. Run normal and antibody tasks in separate
-submissions, as described in the [generation guide](design.md).
+supported for inference. Results can vary across targets. Run normal and
+antibody tasks in separate submissions, as described in the
+[generation guide](design.md).

@@ -774,7 +774,34 @@ def load_input(
     if source.suffix.lower() not in {".cif", ".pdb"}:
         raise ValidationInputError(f"unsupported validation structure suffix: {source.suffix}")
 
-    row_copy = {str(key): ("" if value is None else str(value)) for key, value in row.items()}
+    row_copy = {str(key): ("" if value is None else json.dumps(value)
+                          if key == "_antibody_context" and isinstance(value, Mapping)
+                          else str(value)) for key, value in row.items()}
+    if "heavy_role" in row:
+        needs_private = (any(not row_copy.get(key) for key in
+                            ("design_chains", "fixed_restypes", "bond_constraints"))
+                         or not (row_copy.get("_antibody_context")
+                                 or row_copy.get("_antibody_context_path")))
+        private = source.parent / ".work" / "antibody" / (source.name + ".json")
+        if needs_private and private.is_file():
+            try:
+                saved = json.loads(private.read_text())
+            except (OSError, ValueError) as exc:
+                raise ValidationInputError(f"invalid antibody restart metadata: {private}: {exc}") from exc
+            if not isinstance(saved, Mapping):
+                raise ValidationInputError(f"antibody restart metadata must be an object: {private}")
+            for key, value in saved.items():
+                if not row_copy.get(key):
+                    row_copy[key] = value if isinstance(value, str) else json.dumps(value)
+        context_path = row_copy.get("_antibody_context_path")
+        if context_path and not row_copy.get("_antibody_context"):
+            try:
+                row_copy["_antibody_context"] = Path(context_path).read_text()
+                context = json.loads(row_copy["_antibody_context"])
+                if not isinstance(context, Mapping):
+                    raise ValueError("antibody context must be an object")
+            except (OSError, ValueError) as exc:
+                raise ValidationInputError(f"invalid antibody context: {context_path}: {exc}") from exc
     sample_id = source.stem
     row_context = f"{task_root.name}/{sample_id}"
     fixed_restypes = _normalise_locators(
@@ -824,11 +851,17 @@ def load_input(
         if any(len(set(labels[authors == author])) > 1 for author in set(authors)):
             raise ValidationInputError("Repeated author chain spans multiple TER/label segments; use unique source chain IDs")
     if antibody_row:
-        design_chain_metadata, fixed_restypes = _antibody_chain_metadata(row_copy, atoms, row_context)
+        design_chain_metadata, role_fixed = _antibody_chain_metadata(row_copy, atoms, row_context)
+        fixed_keys = {(_locator_chain(item), item.get("res_id"), item.get("ins_code", ""))
+                      for item in fixed_restypes}
+        for fixed in role_fixed:
+            key = (_locator_chain(fixed), fixed.get("res_id"), fixed.get("ins_code", ""))
+            if key not in fixed_keys:
+                fixed_restypes.append(fixed)
+                fixed_keys.add(key)
         row_copy["design_chains"] = json.dumps(design_chain_metadata, separators=(",", ":"))
         row_copy["design_modality"] = "joint" if len(design_chain_metadata)>1 else "protein"
         row_copy["fixed_restypes"] = json.dumps(fixed_restypes, separators=(",", ":"))
-        row_copy["bond_constraints"] = "[]"
     if design_chain_metadata is not None:
         # The final CIF label_asym_id values are authoritative when the new
         # metadata is present. Never replace a complete list with constraint

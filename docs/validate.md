@@ -176,6 +176,7 @@ Useful shipped presets in [configs/criteria.yaml](../configs/criteria.yaml):
 | Protein binder, AF2 complex/monomer screen | `af2_ig_protein` or benchmark-specific `af2_ig_protdbench` |
 | Standard/cyclic peptide with eligible AF2 chemistry | `af2_ig_peptide` |
 | Protein binder, AF3/Mol-1/ESMFold2 | `af3_basic`, `af3_strict` |
+| Linear/cyclic peptide binder, AF3/Mol-1/ESMFold2 | `af3_peptide` |
 | Protein or RNA/DNA monomer consistency | `af3_protein_monomer`, `af3_na_monomer` |
 | Joint protein–nucleic acid geometry | `af3_protein_na_complex` |
 | Protein binding a small molecule | `af3_protein_bind_ligand` |
@@ -183,6 +184,10 @@ Useful shipped presets in [configs/criteria.yaml](../configs/criteria.yaml):
 | Antibody with antigen context | `af3_antibody` |
 | Atomic motif scaffolding | `af3_ame` |
 | Refined ligand generation in a protein pocket | `odesign_denovo_ligand` |
+
+`af3_peptide` requires `binder_iptm > 0.8`, `complex_design_rmsd < 2.5 Å`
+and `rfd4_min_ipae_angstrom < 1.5 Å`,
+without a binder pTM threshold. It applies to both linear and cyclic peptides.
 
 For stricter interface and geometry checks, choose one of these presets explicitly:
 
@@ -227,6 +232,28 @@ an error.
 For older validation results, use
 `--recompute-metrics` to calculate the new metrics from retained evidence;
 `--refilter` alone does not calculate them.
+
+### Antibody contact metrics
+
+Antibody–antigen evaluations also report `antibody_interface_residues` and
+`antibody_off_paratope_contact_fraction`. A contact is any binder–antigen
+heavy-atom pair at distance ≤4 Å. The first metric counts unique contacting
+antibody residues across the complete VHH or VH/VL binder. The second is the
+fraction of those residues outside the declared `antibody.paratope`.
+VH–VL internal contacts do not count as antigen contacts. These metrics use the
+refolded prediction and require native role/paratope mappings and antigen
+context; absent evidence is unavailable rather than a passing value.
+
+The optional standalone criterion `antibody_contacts` requires at least seven
+contacting antibody residues and an off-paratope fraction ≤0.20. Existing
+standalone criteria, including `af3_antibody`, retain their defaults. Select
+`antibody_contacts` explicitly for a contact-only screen; to require confidence,
+geometry and contacts together in standalone validation, put their rules in
+one custom preset. Repeating `--criteria` is a union, not a conjunction.
+[Antibody pipelines](pipeline.md#antibody-pipelines) automatically conjoin the
+contact rules with the selected prediction's criteria, including
+`criteria_mode: any`. Native `presets.antibody_contacts` overrides can change
+the two thresholds without a separate contact configuration format.
 
 ### Define your own thresholds
 

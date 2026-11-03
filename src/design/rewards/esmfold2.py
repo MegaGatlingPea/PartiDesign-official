@@ -94,12 +94,10 @@ class ESMFold2ScoreBatch:
 
 
 def _token_rows(atoms: AtomArray) -> list[np.ndarray]:
-    result: list[np.ndarray] = []
-    for token_uid in sorted(set(int(value) for value in atoms.token_uid)):
-        rows = np.flatnonzero(np.asarray(atoms.token_uid, dtype=np.int64) == token_uid)
-        if len(rows):
-            result.append(rows)
-    return result
+    by_token: dict[int, list[int]] = {}
+    for row, value in enumerate(atoms.token_uid):
+        by_token.setdefault(int(value), []).append(row)
+    return [np.asarray(by_token[key], dtype=np.intp) for key in sorted(by_token)]
 
 
 def protein_tokens(atoms: AtomArray) -> tuple[ProteinToken, ...]:

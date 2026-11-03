@@ -18,6 +18,7 @@ import numpy as np
 from ..design.utils.reader import read_structure
 from ..design.utils.atoms import COMMON_STANDARD_PARENT
 from .inputs import ValidationInput
+from .antibody_metrics import ANTIBODY_CONTACT_METRIC_NAMES, contact_metrics as antibody_contact_metrics
 from .ipsae import IPSAE_METRIC_NAMES
 from .rfd4_metrics import RFD4_METRIC_NAMES
 
@@ -45,7 +46,7 @@ _METRIC_NAMES = (
     "has_ligand_clashes",
     "na_token_center_rmsd", "na_aligned_protein_ca_rmsd",
     "protein_aligned_na_p_rmsd",
-) + IPSAE_METRIC_NAMES + RFD4_METRIC_NAMES
+) + IPSAE_METRIC_NAMES + RFD4_METRIC_NAMES + ANTIBODY_CONTACT_METRIC_NAMES
 
 
 class MetricUnavailable(ValueError):
@@ -1643,8 +1644,9 @@ def evaluate_prediction(
             if chain in ligand_chain_map and component_count == 1 and not _polymer_chain(reference, chain):
                 continue
             try:
+                from .metadata import authoring_dir
                 components, names = resolve_context_ligand_components(
-                    input_data.task_dir, reference,
+                    authoring_dir(input_data), reference,
                     design_chains=input_data.design_chains, chains=(chain,))
                 if len(components) == 1:
                     entry = next(iter(components.values()))
@@ -1696,6 +1698,12 @@ def evaluate_prediction(
             chain_map.pop(chain, None)
         else:
             chain_map[chain] = mapped_chain
+    antibody_values, antibody_reasons = antibody_contact_metrics(
+        input_data, predicted, chain_map, ligand_chain_map, ligand_atom_maps,
+        metric_provenance=metric_provenance,
+    )
+    metrics.update(antibody_values)
+    reasons.update(antibody_reasons)
     design_chains = tuple(input_data.design_chains)
     if not design_chains:
         _missing(metrics, reasons, "design_rmsd", "no design_chain_id or joint design-chain ledger")
@@ -1922,8 +1930,8 @@ def evaluate_prediction(
                 motif_reference_requested = True
             except (ReferenceUnavailable, OSError, ValueError, TypeError, KeyError) as exc:
                 reference_error = f"source motif recovery unavailable: {type(exc).__name__}: {exc}"
-                from .metadata import snapshot_path
-                motif_reference_requested = snapshot_path(input_data.task_dir) is not None
+                from .metadata import authoring_dir, snapshot_path
+                motif_reference_requested = snapshot_path(authoring_dir(input_data)) is not None
     # Without source geometry, sequence checks use retained input/fixed identities.
     _confidence_metrics(
         metrics, reasons, prediction, reference, predicted, chain_map, design_chains, input_data,

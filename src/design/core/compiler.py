@@ -3593,6 +3593,12 @@ def prepare_task_source(
     """Read, validate, and crop one task's deterministic source stage."""
 
     ccd_path = None if ccd_path is None else Path(ccd_path)
+    partial_reference = None
+    source_path = task.input_path
+    full_antibody_reference = bool(task.antibody is not None and task.partial is not None
+        and (source_path is None or source_path.resolve() == task.partial.reference.resolve()))
+    if full_antibody_reference:
+        source_path = task.partial.reference
     condition = _native_mapping(task.condition, "condition")
     ligand_condition = _native_mapping(
         condition.get("ligand", {}) or {},
@@ -3604,12 +3610,12 @@ def prepare_task_source(
         if isinstance(raw_entry, Mapping) and raw_entry.get("mode") == "type_bond"
     )
     embedded_ccd, configured_ccd, packaged_ccd = _polymer_ccd_sources(
-        task.input_path, ccd_path
+        source_path, ccd_path
     )
     parent_sources = _ccd_parent_hints(
         embedded_ccd, configured_ccd, packaged_ccd
     )
-    parent_sources.update(_parent_sources(task.input_path, ccd_path))
+    parent_sources.update(_parent_sources(source_path, ccd_path))
     # Parent hints from a concrete CCD component outrank the historical
     # COMMON_STANDARD_PARENT table.  The latter is only a last-resort name
     # fallback; for example packaged 5HM explicitly declares RNA parent C,
@@ -3647,9 +3653,9 @@ def prepare_task_source(
         declared_polymer_chain_modalities = {}
     source = (
         None
-        if task.input_path is None
+        if source_path is None
         else read_structure(
-            task.input_path,
+            source_path,
             ccd_path=ccd_path,
             strict_type_bond_chains=strict_type_bond_chains,
             polymer_parent_sources=parent_sources,
@@ -3673,11 +3679,22 @@ def prepare_task_source(
     asym_order_source: struc.AtomArray | None = None
     if source is not None:
         source_declared_bonds = _source_declared_bonds(
-            task.input_path,
+            source_path,
             source,
             parent_sources=parent_sources,
             declared_polymer_chain_modalities=declared_polymer_chain_modalities,
         )
+        if full_antibody_reference:
+            from .partial import load_partial_reference
+            partial_reference = load_partial_reference(task.partial, task=task)
+            design_labels = {str(entry["chain"]) for entry in partial_reference.design_metadata}
+            labels = np.asarray(getattr(source, "label_asym_id", source.chain_id)).astype(str)
+            keep = ~np.isin(labels, list(design_labels))
+            retained = np.flatnonzero(keep)
+            remap = {int(old): new for new, old in enumerate(retained)}
+            source_declared_bonds = tuple((remap[i], remap[j], order)
+                for i, j, order in source_declared_bonds if i in remap and j in remap)
+            source = source[keep]
         for chain in task.design_chains:
             source_rows = np.where(source.chain_id == chain.chain_id)[0]
             if len(source_rows) and len(np.unique(source.asym_uid[source_rows])) > 1:
@@ -3741,8 +3758,12 @@ def prepare_task_source(
         design_ids=frozenset(design_ids),
     )
     if task.partial is not None:
-        from .partial import load_partial_reference
-        prepared = replace(prepared, partial_reference=load_partial_reference(task.partial, task=task))
+        from .partial import load_partial_reference, crop_partial_reference
+        if partial_reference is None:
+            partial_reference = load_partial_reference(task.partial, task=task)
+        if task.crop is not None:
+            partial_reference = crop_partial_reference(partial_reference, prepared.source)
+        prepared = replace(prepared, partial_reference=partial_reference)
     return prepared
 
 

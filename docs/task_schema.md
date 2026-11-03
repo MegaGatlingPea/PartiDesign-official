@@ -132,7 +132,7 @@ length. If independent conditions provide lengths, they must agree.
 
 ## Partial reference tasks
 
-Write a normal task with its molecular conditions, then add `partial` to
+Write a native task with its molecular conditions, then add `partial` to
 start from one reference CIF. No earlier task file or input CSV is required.
 The bundled example starts from a 100-residue protein chain `P`:
 
@@ -153,8 +153,9 @@ partial_protein:
 | `reference` | Required single actual candidate CIF with complete current complex geometry; directory input is unsupported. |
 | `result_csv` | Optional explicit native CSV for saved locators and motif mappings. Omitted: use the task and CIF directly, without sibling CSV lookup. Supplied: exactly one successful row must resolve to the reference filename. |
 | `fraction` | Required finite number in `(0, 1]` with `round(fraction * 400) >= 1`; retained fraction of native sampling intervals. |
+| `cdr_lengths` | Antibody-only actual counts by role and CDR, when the reference layout is ambiguous. |
 
-These are the only fields inside `partial`. Paths resolve from the invocation
+These fields are accepted inside `partial`. Paths resolve from the invocation
 directory. The bundled demo uses one reference CIF and its task YAML. CIF-only
 input uses the task's design-chain labels, fixed identities, motifs, required
 bonds and offsets. Keep labels consistent with the reference. To restore native
@@ -181,6 +182,11 @@ The [partial guide](partial.md) gives the command, optional metadata and outputs
 `partidesign pipeline` reads this same native task YAML and selects names with
 `--task`, just like `design`. Keep workflow settings in a separate
 `configs/pipeline/` YAML selected through `--preset` or `--config`.
+The pipeline can instead start from a directory with `annotation.csv`: each
+row carries the same native molecular fields, with JSON cells for structured
+values. Fixed sequences, motifs and bonds keep their native syntax; see
+[annotation.csv](pipeline.md#write-annotationcsv). Each row names an actual
+starting complex rather than a requested new length.
 The iteration operation
 `partial: {fraction: 0.625, replicas: 4, include_parent: true}` controls selected
 parents between rounds; the pipeline creates the same task-level `partial`
@@ -516,3 +522,86 @@ are generated, including CDRs whose sequence is fixed. Top-level `score`,
 Normal contig, bond, and cyclic fields are not accepted by this schema. Compare
 `antibody_fixture`, `pdl1_adalimumab_selective_cdr3_official`, and
 `pdl1_adalimumab_reference` in [antibody.yaml](../configs/examples/antibody.yaml).
+
+### Custom scaffold data
+
+A custom scaffold needs a native scaffold YAML and a real local CIF containing
+its variable-domain coordinates and sequence metadata. Point the task to the
+YAML, rather than passing a CIF as the scaffold:
+
+```yaml
+antibody:
+  scaffold:
+    path: ./my_scaffolds/vhh.yaml
+    roles: {VHH: B}
+    numbering: label_seq_id
+  chains: {VHH: B}
+```
+
+The YAML's `path` names its CIF relative to that YAML. Task paths resolve from
+the invocation directory; annotation paths resolve from `annotation.csv`.
+`roles` maps one `VHH`, or both `VH` and `VL`, to the CIF's exact label chains.
+A single VHH cannot be declared as one half of a VH/VL pair. The CIF must retain
+its real identities, coordinates and polymer sequence; renaming a chain alone
+does not establish a compatible scaffold.
+
+The scaffold YAML declares `include`, exactly three comma-separated `design`
+windows per role, `structure_groups` visibility, any `exclude` windows and
+`design_insertions`, and `reset_res_index`. Its source selectors use
+`label_seq_id` with `..` ranges. These are operational edit windows, not an
+IMGT assignment. Task-level framework selectors use the `/` and `-` grammar
+shown above. See the complete
+[bindcraft2_vhh.yaml](../configs/resources/antibody/scaffolds/bindcraft2/bindcraft2_vhh.yaml)
+and its [data provenance and license](../configs/resources/antibody/scaffolds/bindcraft2/README.md).
+
+The built-in `bindcraft2_vhh` includes source label chain `B`, residues 1–127
+(author chain `A`). It replaces the complete windows at anchors 27, 52 and 100:
+
+| Window | Source label positions | Allowed final length with `official` |
+| --- | --- | --- |
+| CDR1 | 27–33 | 7 |
+| CDR2 | 52–57 | 5–7 |
+| CDR3 | 100–114 | 3–25 |
+
+All three windows and framework positions 35, 37, 45, 47, 50, 59, 97–99 and
+115–116 are hidden from the scaffold template. Other framework positions can
+provide soft guidance. Visibility does not grant identity mutation permission.
+
+### Intended paratope
+
+`antibody.paratope` declares the intended antigen-contacting residues by role.
+It is independent of `antibody.design` and scaffold template visibility:
+
+```yaml
+paratope:
+  VHH:
+    cdrs: [CDR1, CDR2, CDR3]
+    framework: '26/34/51/58-59/95-96/115-116'
+```
+
+Place this mapping within `antibody`. Framework selectors address source
+`label_seq_id` within the role, using the same selector grammar as mutable
+framework positions; `framework: true` includes the whole framework, and
+`false` includes none. Omitting the whole `paratope` mapping or an individual
+role includes all three CDRs and no framework for that role. Set `cdrs: []`
+explicitly to include no CDRs. A fixed-identity residue may belong to the paratope;
+a mutable residue need not belong to it. The explicit GLP1R example opens
+framework `35/37/45/47/50/59/97-99/115-116` for identity design while declaring
+the different paratope selector above. See [contact metrics](validate.md#antibody-contact-metrics)
+and [antibody pipelines](pipeline.md#antibody-pipelines).
+
+### Antibody partial diffusion
+
+Add native `partial: {reference: actual_candidate.cif, fraction: 0.625}` to an
+antibody task to restart from one complete current complex. `sample_num` then
+sets the number of new children. The reference must match the declared
+scaffold/roles and fixed identities. Actual CDR lengths are preserved, rather
+than resampled from `lengths`.
+
+When the actual layout cannot be uniquely recovered, provide
+`partial.cdr_lengths` as `{VH: {CDR1: N, CDR2: N, CDR3: N}, VL: {...}}`, or
+with the `VHH` role. Every supplied role needs all three positive counts.
+This does not change which positions may mutate, framework template behavior
+or the native length bounds. See [antibody references](partial.md#antibody-references)
+for the full restart contract. Directory optimization carries these same
+`format`, `antibody`, `antigen` and `partial` fields in annotation cells.

@@ -164,16 +164,16 @@ be refiltered by the CLI. Read
 `<repo>/docs/design.md`, `<repo>/docs/score.md`, `<repo>/docs/relax.md`, and
 `<repo>/docs/validate.md` before mutating an existing run.
 
-## 16. How should I interpret the published budget and Preview labels?
+## 16. How should I interpret the published budget?
 
 The budget in `<repo>/docs/performance.md` estimates computationally passing
 outputs per 24 hours on one RTX 4090-48G per case. Polymer budgets include the
 stated validation/redesign; ligand budgets count GPU generation while CPU
 chemical scoring/docking is separate. They exclude several workflow costs and
 do not measure binding rates or service throughput. Docking, antibody CDR
-design, and peptide design across topologies support inference as Preview
-features; quality can vary, and separate performance budgets are not reported
-there. Start with a bounded trial matched to the user's hardware and criteria.
+design, and peptide design across topologies support inference; quality can
+vary, and separate performance budgets are not reported there. Start with a
+bounded trial matched to the user's hardware and criteria.
 
 ## 17. Why did automatic execution select BioIR or native?
 

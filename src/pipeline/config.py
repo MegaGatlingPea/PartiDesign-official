@@ -20,16 +20,16 @@ from src.validate.config import validate_af3_settings, validate_mol1_settings, _
 
 METHODS = ("esmfold2-fast", "af2_ig", "af3", "mol1")
 FINAL_METHODS = ("esmfold2-standard", "af2_ig", "af3", "mol1")
-PROFILES = ("auto", "protein", "nuc", "ppi")
+PROFILES = ("auto", "protein", "nuc", "ppi", "antibody")
 _ROUTES = {"monomer", "protein", "nuc", "ligand", "peptide", "antibody", "ame", "joint"}
 _ROUTE_ALIASES = {"protein_context": "protein", "nucleic_context": "nuc",
                   "nuc_context": "nuc", "ligand_context": "ligand",
                   "protein_protein": "protein", "protein_na": "nuc",
                   "nucleic": "nuc", "na": "nuc"}
 _ROOT_FIELDS = {"preset", "recycle", "seed", "run_name", "output_dir", "from_run",
-                "resume", "generation", "iteration", "openmm",
+                "resume", "generation", "iteration", "initial", "openmm",
                 "final", "rounds", "tasks", "presets", "criteria_routes", "msa"}
-_TASK_FIELDS = {"preset", "recycle", "iteration", "openmm", "final",
+_TASK_FIELDS = {"preset", "recycle", "iteration", "initial", "openmm", "final",
                 "rounds", "presets", "criteria_routes", "msa"}
 _ITERATION_FIELDS = {"sequence", "refold", "filter", "selection", "transition"}
 _FINAL_FIELDS = {"method", "methods", "validation", "criteria", "criteria_route", "criteria_mode", "pool",
@@ -77,7 +77,9 @@ BUILTINS = {
     "openmm": {"force_field": "amber19sb", "charge_method": "gasteiger",
                "platform": "CUDA", "use_ray": False,
                "worker_gpus": 0.125, "worker_cpus": 1.0},
-    "final": {"method": "mol1", "validation": {"mol1": {"samples": 5}}, "criteria": None,
+    "final": {"methods": ["mol1", "af3", "esmfold2-standard"],
+              "validation": {"mol1": {"samples": 5}, "af3": {"samples": 5},
+                             "esmfold2": {"samples": 5}}, "criteria": None,
               "prediction_selection": "best_ranked",
               "criteria_route": "auto", "criteria_mode": "all",
               "pool": {"source": "history_best", "max_pass": 200}},
@@ -187,6 +189,10 @@ def _check_overlay(value: dict, label: str, *, task: bool = False) -> None:
                         ("openmm", _OPENMM_FIELDS), ("final", _FINAL_FIELDS)):
         if key in value:
             _mapping(value[key], f"{label}.{key}", fields)
+    if "initial" in value:
+        initial = _mapping(value["initial"], f"{label}.initial", {"partial"})
+        if "partial" in initial:
+            _partial(initial["partial"], f"{label}.initial.partial", overlay=True)
     if "rounds" in value:
         if not isinstance(value["rounds"], dict):
             raise ValueError(f"{label}.rounds must be a mapping keyed by round")
@@ -411,9 +417,28 @@ def _modalities(task: dict, name: str) -> set[str]:
     return result
 
 
-def _preset_name(value: Any, modalities: set[str], name: str) -> str:
+def _design_chain_count(authored: dict, name: str, base: Path) -> int:
+    if authored.get("format") != "antibody":
+        return len(authored["design_chains"])
+    roles = authored.get("antibody", {}).get("chains")
+    if isinstance(roles, dict):
+        return len(roles)
+    # Only an explicitly selected AF2 backend needs the scaffold-derived count.
+    from src.design.core.tasks import parse_task
+    payload = copy.deepcopy(authored)
+    payload.setdefault("sample_num", 1)
+    return len(parse_task(name, payload, invocation_dir=base).design_chains)
+
+
+def _preset_name(value: Any, modalities: set[str], name: str, *, antibody: bool = False) -> str:
     _choice(value, PROFILES, f"task {name}.preset")
     polymers = modalities & {"protein", "nuc"}
+    if value == "antibody":
+        if not antibody:
+            raise ValueError(f"task {name}: preset antibody requires format: antibody")
+        return value
+    if value == "auto" and antibody:
+        return "antibody"
     if value == "ppi":
         if modalities != {"protein"}:
             raise ValueError(f"task {name}: preset ppi requires protein/peptide design")
@@ -524,7 +549,11 @@ def criteria_for(task_config: dict, stage: dict | str, context_route: str,
             raise ValueError(f"Unknown criteria preset: {name}")
         if selected_method not in definitions[name]["methods"]:
             raise ValueError(f"Criterion {name} does not apply to {selected_method}")
-    return list(names), copy.deepcopy(definitions)
+    definitions = copy.deepcopy(definitions)
+    if task_config.get("antibody_contacts"):
+        from .criteria import with_antibody_contacts
+        names, definitions = with_antibody_contacts(names, definitions)
+    return list(names), definitions
 
 
 def _validation_defaults() -> dict:
@@ -664,7 +693,16 @@ def build_config(args: Any, repo_root: str | Path, *,
     task_arg = getattr(args, "task_file", None) or getattr(args, "tasks_file", None)
     task_file = Path(_path(task_arg, base, "task_file"))
     from .interface import unpack_document, workflow_overlay
-    task_payload, embedded = unpack_document(_load(task_file))
+    seed_input = None
+    if task_file.is_dir():
+        from .annotation import read_annotation
+        seed_input = read_annotation(task_file)
+        task_payload = {}
+        for row in seed_input["rows"]:
+            task_payload.setdefault(row["task"], copy.deepcopy(row["authored"]))
+        embedded = {}
+    else:
+        task_payload, embedded = unpack_document(_load(task_file))
     if not task_payload:
         raise ValueError("Task file must contain at least one authoring task")
     for name, task in task_payload.items():
@@ -673,6 +711,9 @@ def build_config(args: Any, repo_root: str | Path, *,
     external = workflow_overlay(_load(Path(_path(overlay_path, base, "config")))) if overlay_path else {}
     overlay = _merge(embedded, external)
     _check_overlay(overlay, "workflow")
+    if seed_input is None and ("initial" in overlay or
+            any("initial" in task for task in overlay.get("tasks", {}).values())):
+        raise ValueError("initial.partial applies to a structure directory input")
     configured_tasks = overlay.get("tasks", {})
     unknown = set(configured_tasks) - task_payload.keys()
     if unknown:
@@ -718,6 +759,8 @@ def build_config(args: Any, repo_root: str | Path, *,
                 if global_cfg["from_run"] is not None else None)
     if from_run is not None and not Path(from_run).is_dir():
         raise ValueError(f"from_run does not exist: {from_run}")
+    if seed_input is not None and from_run is not None:
+        raise ValueError("A structure directory and --from-run are separate input modes")
     model_arg = getattr(args, "model_dir", None)
     model_root = resolve_model_dir(model_arg, invocation_dir=base)
     generation = copy.deepcopy(global_cfg["generation"])
@@ -743,24 +786,53 @@ def build_config(args: Any, repo_root: str | Path, *,
         custom = _load(Path(_path(custom_presets_path, base, "--presets")))
         _mapping(custom, "--presets file", {"presets"})
         custom_presets = _presets(custom.get("presets"), "custom presets")
+    # Read only this run's saved settings. Older runs retain their resolved
+    # antibody profile and do not acquire new scientific gates on resume.
+    previous_tasks = {}
+    if global_cfg["resume"]:
+        for snapshot in (Path(output_dir) / ".work" / "resolved_config.yaml",
+                         Path(output_dir) / "resolved_config.yaml"):
+            if snapshot.is_file():
+                previous_tasks = _load(snapshot).get("tasks", {})
+                break
     tasks = {}
     profiles = {}
     validation_defaults = _validation_defaults()
     for name in task_names:
         task_override = configured_tasks.get(name, {})
-        modalities = _modalities(task_payload[name], name)
+        authored_tasks = ([row["authored"] for row in seed_input["rows"] if row["task"] == name]
+                          if seed_input is not None else [task_payload[name]])
+        modalities = set().union(*(_modalities(authored, name) for authored in authored_tasks))
         profile = getattr(args, "preset", None)
         if profile is None:
             profile = task_override.get("preset", overlay.get("preset", "auto"))
-        profile = _preset_name(profile, modalities, name)
-        if profile == "ppi" and len(task_payload[name]["design_chains"]) != 1:
-            raise ValueError(f"task {name}: preset ppi requires one protein/peptide design chain")
+        antibody = all(authored.get("format") == "antibody" for authored in authored_tasks)
+        if any(authored.get("format") == "antibody" for authored in authored_tasks) and not antibody:
+            raise ValueError(f"task {name}: antibody and ordinary seeds require separate task groups")
+        previous_task = previous_tasks.get(name)
+        contact_policy = antibody and (previous_task is None or previous_task.get("antibody_contacts", False))
+        if antibody and profile == "auto" and previous_task is not None:
+            profile = previous_task["preset"]
+        profile = _preset_name(profile, modalities, name, antibody=antibody)
+        if profile == "ppi" and any(authored.get("format") == "antibody" or
+                len(authored.get("design_chains", [])) != 1 for authored in authored_tasks):
+            raise ValueError(f"task {name}: preset ppi requires one ordinary protein/peptide "
+                             "design chain; use preset antibody for antibody tasks")
         if profile not in profiles:
             from .criteria import profile_presets
             preset = _load(inference_config_dir() / "pipeline" / f"{profile}.yaml")
             _check_overlay(preset, f"preset {profile}")
             profiles[profile] = _merge({"presets": profile_presets(profile)}, preset)
         task_cfg = _merge(BUILTINS, profiles[profile])
+        if (previous_task is not None and profile == "antibody"
+                and previous_task["preset"] == profile
+                and "validators" not in previous_task["final"]):
+            # Preset updates apply to new runs. Explicit overlays below still
+            # participate in the ordinary strict resume comparison.
+            task_cfg = _merge(task_cfg, {"final": {"method": previous_task["final"]["method"]}})
+        if contact_policy:
+            from .criteria import include_native_presets
+            include_native_presets(task_cfg["presets"], ["antibody_contacts"])
         task_cfg = _merge(task_cfg, {k: v for k, v in overlay.items() if k != "tasks"})
         # Each round is assembled in precedence order below, so global round
         # rows must remain separate from task-level values.
@@ -783,6 +855,8 @@ def build_config(args: Any, repo_root: str | Path, *,
         requested.extend(task_cfg["final"].get("criteria") or [])
         requested.extend(getattr(args, "criteria", None) or [])
         requested.extend(getattr(args, "final_criteria", None) or [])
+        if contact_policy:
+            requested.append("antibody_contacts")
         include_native_presets(definitions, requested)
         routes = _criteria_routes(task_cfg["criteria_routes"], definitions)
         rounds = []
@@ -790,6 +864,10 @@ def build_config(args: Any, repo_root: str | Path, *,
         task_iteration = task_override.get("iteration", {})
         for number in range(1, recycle + 1):
             row = copy.deepcopy(shared_iteration)
+            # The built-in family cap applies to middle rounds. Explicit round
+            # or task overrides can also constrain initial and final selection.
+            if number == 1 or number == recycle:
+                row["selection"].pop("per_family", None)
             row = _merge(row, global_rounds.get(number, {}))
             row = _merge(row, task_iteration)
             matching = next((value for key, value in task_rounds.items()
@@ -803,17 +881,22 @@ def build_config(args: Any, repo_root: str | Path, *,
             if getattr(args, "criteria", None) is not None:
                 row["filter"]["criteria"] = list(args.criteria)
             if number == 1 and getattr(args, "num_clusters", None) is not None:
-                row["selection"] = {"mode": "cluster", "num_clusters": args.num_clusters,
-                                    "per_parent": row["selection"].get("per_parent"),
-                                    "rank_by": row["selection"].get("rank_by", "design_plddt")}
+                selection = {"mode": "cluster", "num_clusters": args.num_clusters,
+                             "per_parent": row["selection"].get("per_parent"),
+                             "rank_by": row["selection"].get("rank_by", "design_plddt")}
+                if "per_family" in row["selection"]:
+                    selection["per_family"] = row["selection"]["per_family"]
+                row["selection"] = selection
             if number > 1 and any(getattr(args, key, None) is not None
                                   for key in ("max_pass", "max_pass_ratio")):
                 selection = row["selection"]
                 if selection.get("mode") != "top":
+                    previous_selection = selection
                     selection = {"mode": "top", "max_pass": 200, "max_pass_ratio": None,
                                  "per_parent": selection.get("per_parent", 1),
-                                 "per_family": selection.get("per_family", 2),
                                  "rank_by": selection.get("rank_by", "design_plddt")}
+                    if "per_family" in previous_selection:
+                        selection["per_family"] = previous_selection["per_family"]
                 for key in ("max_pass", "max_pass_ratio"):
                     if getattr(args, key, None) is not None:
                         selection[key] = getattr(args, key)
@@ -826,10 +909,16 @@ def build_config(args: Any, repo_root: str | Path, *,
                         enabled=True, fraction=args.partial_fraction)
                 if getattr(args, "partial_replicas", None) is not None:
                     row["transition"]["partial"]["replicas"] = args.partial_replicas
+            if number == 1:
+                initial_basis = copy.deepcopy(row["transition"]["partial"])
             _check_iteration(row, f"task {name}.rounds.{number}")
             refold, sequence = row["refold"], row["sequence"]
             if refold["method"] == "af2_ig" and "nuc" in modalities:
                 raise ValueError(f"task {name}: af2_ig does not support nucleic-acid design")
+            if refold["method"] == "af2_ig" and any(
+                    _design_chain_count(authored, name, base) != 1 for authored in authored_tasks):
+                raise ValueError(f"task {name}: af2_ig requires one design chain; "
+                                 "VH/VL antibody pairs require a multi-chain backend")
             partial = _partial(row["transition"]["partial"],
                                f"task {name}.rounds.{number}.transition.partial")
             if number == recycle:
@@ -846,7 +935,7 @@ def build_config(args: Any, repo_root: str | Path, *,
                 "relax_enabled": number < recycle and row["transition"]["relax"]["enabled"],
                 "partial": partial,
             }
-            if number == 1 or number == recycle:
+            if number in {1, recycle} and "per_family" not in row["selection"]:
                 normalized_round["selection"].pop("per_family", None)
             normalized_round["criteria_route"] = _route(normalized_round["criteria_route"], "criteria_route")
             normalized_round["validation"] = _native_validation(
@@ -863,6 +952,10 @@ def build_config(args: Any, repo_root: str | Path, *,
         methods = final.get("methods", [final.get("method", "mol1")])
         if "af2_ig" in methods and "nuc" in modalities:
             raise ValueError(f"task {name}: af2_ig does not support nucleic-acid design")
+        if "af2_ig" in methods and any(
+                _design_chain_count(authored, name, base) != 1 for authored in authored_tasks):
+            raise ValueError(f"task {name}: af2_ig final requires one design chain; "
+                             "VH/VL antibody pairs require a multi-chain backend")
         final["method"] = methods[0]
         final.pop("methods", None)
         final["pool"] = _pool(final["pool"], f"task {name}.final.pool")
@@ -898,6 +991,27 @@ def build_config(args: Any, repo_root: str | Path, *,
         normalized = {"msa": effective_msa, "preset": profile, "recycle": recycle, "rounds": rounds,
                       "openmm": openmm, "final": final,
                       "presets": definitions, "criteria_routes": routes}
+        if contact_policy:
+            normalized["antibody_contacts"] = True
+        if seed_input is not None:
+            initial = _merge(initial_basis, task_cfg.get("initial", {}).get("partial", {}))
+            def initial_cli(setting):
+                if getattr(args, "partial_fraction", None) is not None:
+                    setting.update(enabled=True, fraction=args.partial_fraction)
+                if getattr(args, "partial_replicas", None) is not None:
+                    setting["replicas"] = args.partial_replicas
+                return _partial(setting, f"task {name}.initial.partial")
+            normalized["initial"] = {"partial": initial_cli(copy.deepcopy(initial))}
+            for seed_row in seed_input["rows"]:
+                if seed_row["task"] != name:
+                    continue
+                setting = copy.deepcopy(initial)
+                authored = seed_row["authored"]
+                if "sample_num" in authored:
+                    setting["replicas"] = authored["sample_num"]
+                if isinstance(authored.get("partial"), dict) and "fraction" in authored["partial"]:
+                    setting["fraction"] = authored["partial"]["fraction"]
+                seed_row["initial_partial"] = initial_cli(setting)
         if len(modalities & {"protein", "nuc"}) > 1:
             for row in [*rounds, final]:
                 if row["criteria"] is None and row["criteria_route"] == "auto":
@@ -909,8 +1023,12 @@ def build_config(args: Any, repo_root: str | Path, *,
                 criteria_for(normalized, stage if stage in rounds else "final",
                              stage["criteria_route"], method=stage["method"])
         tasks[name] = normalized
-    return {"task_file": str(task_file), "task_payload": copy.deepcopy(task_payload),
+    result = {"task_file": str(task_file), "task_payload": copy.deepcopy(task_payload),
             "task_names": task_names, "run_name": run_name, "output_dir": output_dir,
             "seed": global_cfg["seed"], "model_dir": str(model_root),
             "from_run": from_run, "resume": global_cfg["resume"],
             "generation": generation, "tasks": tasks}
+    if seed_input is not None:
+        seed_input["rows"] = [row for row in seed_input["rows"] if row["task"] in task_names]
+        result["seed_input"] = seed_input
+    return result

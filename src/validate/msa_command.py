@@ -16,13 +16,33 @@ def task_queries(cfg):
     from .af3_msa import msa_query_enabled
 
     rows = []
-    for name in cfg['task_names']:
-        task = parse_task(name, cfg['task_payload'][name], invocation_dir=Path.cwd())
+    if cfg.get('seed_input'):
+        inputs = [(seed['task'], seed['sample_id'], seed) for seed in cfg['seed_input']['rows']]
+    else:
+        inputs = [(name, None, None) for name in cfg['task_names']]
+    for name, sample_id, seed in inputs:
+        authored = copy.deepcopy(cfg['task_payload'][name] if seed is None else seed['authored'])
+        if seed is not None:
+            # Searches consume only native source/crop, never sample layouts.
+            authored.pop('partial', None)
+            authored['sample_num'] = 1
+            if authored.get('format', 'normal') == 'antibody':
+                antigen = authored.setdefault('antigen', {})
+                if 'input' not in antigen:
+                    antigen['input'] = seed['path']
+                    preliminary = parse_task(name, authored, invocation_dir=Path.cwd())
+                    crop = antigen.setdefault('crop', {})
+                    excluded = list(crop.get('exclude', []))
+                    crop['exclude'] = excluded + [chain.chain_id for chain in preliminary.design_chains
+                                                 if chain.chain_id not in excluded]
+            else:
+                authored.setdefault('input', seed['path'])
+        task = parse_task(name, authored, invocation_dir=Path.cwd())
         prepared = prepare_task_source(task)
         if prepared.partial_reference is not None:
             record = prepared.partial_reference.record
             atoms = record.atoms
-            context = ~np.isin(atoms.chain_id, record.design_chains)
+            context = ~np.isin(getattr(atoms,'label_asym_id',atoms.chain_id), record.design_chains)
         elif prepared.source is not None:
             atoms = prepared.source
             context = ~np.asarray(atoms.is_design, dtype=bool)
@@ -48,6 +68,7 @@ def task_queries(cfg):
                 continue
             for settings in policies.values():
                 rows.append({'task': name, 'chain': chain['source_id'], 'modality': modality,
+                             **({'sample_id': sample_id} if sample_id is not None else {}),
                              'sequence': chain['sequence'], 'length': len(chain['sequence']),
                              'source': settings['source'],
                              'enabled': msa_query_enabled(settings, modality),
@@ -93,7 +114,8 @@ def run(args, repo_root):
             if not args.plan:
                 print(f"[msa] {row['task']}:{row['chain']} {row['source']} {row['modality']} L={row['length']} "
                       + ('refreshing' if settings['refresh'] else 'cache hit' if cached else
-                         'searching MSA + protein templates' if row['modality'] == 'protein' else 'searching RNA MSA'),
+                         'searching MSA + protein templates' if row['modality'] == 'protein' and settings['templates'] else
+                         'searching RNA MSA' if row['modality'] == 'rna' else 'searching MSA'),
                       file=sys.stderr, flush=True)
             reference = cached if args.plan else cache.ensure(row['modality'], row['sequence'])
             hit = cached is not None and not settings['refresh']

@@ -3,13 +3,13 @@
 [Design command](design.md) · [Task YAML](task_schema.md) · [Pipeline](pipeline.md)
 
 Partial diffusion generates new candidates around **one reference CIF**. Write
-a normal task YAML describing what to design and what to retain, then add
+a native task YAML describing what to design and what to retain, then add
 `partial` to choose the starting structure and how much sampling to run.
 
 The task defines design and context roles, fixed identities, motifs, bonds and
 offsets. The CIF supplies the complete current complex geometry. You do not need
 a task file from an earlier run or an input `result.csv`. This route supports
-normal tasks with a flex-context checkpoint; the reference must be one CIF file.
+normal and antibody tasks with a flex-context checkpoint; the reference must be one CIF file.
 
 ## Input task and command
 
@@ -48,8 +48,9 @@ for each generation run.
 | `reference` | Required path to one actual candidate `.cif` with complete current complex geometry. |
 | `result_csv` | Optional explicit native output CSV for saved locator and motif metadata. Omit it to use the CIF and task directly; no sibling CSV is loaded. |
 | `fraction` | Required finite number `f` in `(0, 1]`, with `round(f * 400) >= 1`. |
+| `cdr_lengths` | Antibody-only actual CDR counts by role, used when the reference layout is ambiguous; see below. |
 
-Only these fields are accepted inside `partial`. Booleans are rejected for the
+These are the fields accepted inside `partial`. Booleans are rejected for the
 fraction. Relative paths resolve from the invocation directory.
 
 With `result_csv` omitted, chain roles and permissions come from the task and
@@ -79,6 +80,51 @@ from its atoms, so `design_length` is not required when the reference determines
 every chain's size. Contigs use the task's exact source spans and gaps, or
 explicit saved mappings. The runtime does not draw new lengths or gap sizes.
 It batches different partial fractions and ordinary generation separately.
+
+## Antibody references
+
+VHH and paired VH/VL tasks use the same single-CIF `partial` entry through
+`partidesign design` and through directory-start pipeline optimization.
+Keep `format: antibody`, the native `antibody.scaffold`, role-to-chain mapping,
+CDR/framework design choices and any `antigen` conditions. The reference must
+contain the full current binder and retained context with matching chain roles.
+An antigen-only source or an unrelated antibody structure is not a partial
+reference for the chosen scaffold.
+
+Partial uses the reference's actual FR/CDR layout and checks it against the
+authored lengths. It does not draw new loop lengths. Saved native region
+metadata can restore that layout; otherwise it must be uniquely determined
+from the declared scaffold and lengths. When it is ambiguous, add the actual
+lengths under `partial.cdr_lengths`, alongside your real `reference` and
+`fraction`. For a VHH, the extra field has this form:
+
+```yaml
+cdr_lengths:
+  VHH: {CDR1: 9, CDR2: 8, CDR3: 21}
+```
+
+Use `VH` and `VL` for paired antibodies. Every supplied role contains all three
+positive CDR lengths; a role whose layout is already unambiguous may be omitted.
+The counts must describe the actual reference and lie within the task's allowed
+ranges. This field is specific to antibody partial and is not an antibody
+numbering or automatic IMGT assignment.
+
+The bundled [GLP1R seeds](../configs/examples/antibody_opt/annotation.csv) use
+`bindcraft2_vhh` and actual VHH CDR lengths `(7,5,25)`, `(7,7,10)`, `(7,6,8)`,
+`(7,5,21)` and `(7,7,6)`. Each row declares these counts in its native
+`partial` object, and derives the current full-complex reference from `filename`.
+Its antigen input is that same complete seed cropped to label chain `A`.
+Label residues 1–119 correspond to author residues 21–139 on the antigen;
+source scaffold positions and final binder positions use their own label axes.
+
+Framework and unselected CDR identities remain fixed unless the native task
+opens them for redesign. `template: true` retains soft framework geometry
+guidance; it does not freeze coordinates or expose CDR coordinates as a
+template. The complete current complex supplies the partial starting state,
+while scaffold template geometry and antigen conditions keep their own roles.
+VH and VL remain one paired binder throughout MPNN, refolding and final
+evaluation. Select a multi-chain predictor for paired antibodies; AF2-IG
+requires a single design chain.
 
 ## Conditions and reference geometry
 
@@ -126,8 +172,8 @@ to ordinary full generation after checking the reference inputs.
 
 ## Outputs and pipeline use
 
-Partial output uses the normal design directory and `result.csv`. Successful
-rows keep native identity, motif and bond metadata, plus:
+Partial output uses the native design directory and `result.csv`. Ordinary
+partial rows keep native identity, motif and bond metadata, plus:
 
 | Metadata | Meaning |
 | --- | --- |
@@ -138,7 +184,17 @@ rows keep native identity, motif and bond metadata, plus:
 | `partial_rng_seed`, `partial_rng_stream` | Native RNG seed and rank-local stream. |
 | `partial_checkpoint`, `partial_checkpoint_member`, `partial_context_mode` | Model actually used. |
 
-The [pipeline](pipeline.md) fills the same `task.partial` in memory for each
+Antibody output retains its native heavy/light sequences, FR/CDR ranges and
+mutable-position fields. Its partial provenance and resolved constraints remain
+in the run metadata under `.work/antibody/`; the public table keeps the antibody
+schema rather than adding ordinary-task JSON columns.
+
+The [pipeline](pipeline.md) also accepts an optimization directory with
+`annotation.csv`; it first applies partial to each listed complete complex,
+retaining each original by default. See [directory optimization](pipeline.md#optimize-existing-structures).
+The initial partial step is separate from the refold round count.
+
+Between rounds, the pipeline fills the same `task.partial` in memory for each
 selected refold and calls the same native design runtime. Its iteration
 `partial` operation controls `fraction`, `replicas` and parent retention; task
 `partial` supplies one reference CIF and optional explicit metadata to

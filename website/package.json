@@ -1,0 +1,18 @@
+{
+  "name": "partidesign-project-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Static PartiDesign project website for GitHub Pages.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.4",
+    "daisyui": "5.7.50",
+    "tailwindcss": "4.3.4"
+  }
+}

@@ -16,6 +16,7 @@ from .scaffolds import load_scaffold
 def compile_antibody_request(
     request: ExpandedRequest, *, compile_normal: Callable[..., CompiledSample],
     ccd_path: Path | None = None, trusted_ccd_components: Any = None, rng: Any = None,
+    resolved_cdr_lengths: dict[str, tuple[int, int, int]] | None = None,
 ) -> CompiledSample:
     spec = request.task.antibody
     if spec is None:
@@ -34,6 +35,8 @@ def compile_antibody_request(
         layout: list[tuple[int | None, int, bool]] = []
         selected = set(design.cdrs)
         chosen_fr = set(design.framework_positions)
+        paratope_cdrs = set(design.paratope_cdrs)
+        paratope_fr = set(design.paratope_framework_positions)
         i = 0
         while i < len(source.source_positions):
             n = source.source_positions[i]
@@ -41,7 +44,9 @@ def compile_antibody_request(
             if cdr in selected:
                 window = source.cdr_positions[cdr-1]
                 lo, hi = design.lengths[cdr-1]
-                if hasattr(rng, "integers"):
+                if resolved_cdr_lengths is not None:
+                    count = resolved_cdr_lengths[design.role][cdr-1]
+                elif hasattr(rng, "integers"):
                     count = int(rng.integers(lo, hi + 1))
                 else:
                     count = int(rng.randint(lo, hi + 1))
@@ -81,6 +86,7 @@ def compile_antibody_request(
             entries.append({
                 "chain_id": design.chain_id, "role": design.role,
                 "position": position, "region_id": region, "mutable": mutable,
+                "paratope": (region - 1 in paratope_cdrs if region > 1 else source_position in paratope_fr),
                 "source_chain": source.source_chain, "source_label_seq_id": source_position,
                 "source_auth_seq_id": source.author_numbers[source_index] if source_index is not None else None,
                 "source_ins_code": source.insertion_codes[source_index] if source_index is not None else None,
@@ -94,7 +100,8 @@ def compile_antibody_request(
         condition={"sequence": sequence_conditions})
     lowered = replace(request, task=lowered_task, plan=LengthPlan(request.plan.index, actual_lengths))
     compiled = compile_normal(lowered, ccd_path=ccd_path, trusted_ccd_components=trusted_ccd_components, rng=rng)
-    compiled.request = request
+    compiled.request = (request if resolved_cdr_lengths is None else
+                        replace(request, plan=LengthPlan(request.plan.index, actual_lengths)))
     compiled.antibody_metadata = {"scaffold": scaffold.name, "source_numbering": "label_seq_id", "entries": entries,
         "boundary_unresolved": {c.role: list(c.boundary_unresolved) for c in scaffold.chains}}
     attach_candidate_annotations(compiled, compiled.atoms)

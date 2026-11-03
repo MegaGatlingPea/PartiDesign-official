@@ -1,4 +1,10 @@
 preset: protein
+final:
+  methods: [mol1, af3, esmfold2-standard]
+  validation:
+    mol1: {samples: 5}
+    af3: {samples: 5}
+    esmfold2: {samples: 5}
 criteria_routes:
   monomer:
     screen:
@@ -27,15 +33,15 @@ criteria_routes:
   peptide:
     screen:
       esmfold2-fast:
-      - pipeline_protein_binder
+      - pipeline_peptide_binder
       af3:
-      - pipeline_protein_binder
+      - pipeline_peptide_binder
       af2_ig:
       - pipeline_af2_ig_peptide
       mol1:
-      - pipeline_protein_binder
+      - pipeline_peptide_binder
     final:
-    - af3_basic
+    - af3_peptide
   nuc:
     screen:
       esmfold2-fast:

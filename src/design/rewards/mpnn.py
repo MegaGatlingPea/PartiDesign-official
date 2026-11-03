@@ -994,7 +994,9 @@ def _canonical_sample(
                 )
     by_chain = {record.chain_id: record for record in chain_records}
     design = by_chain[plan.design_chain]
-    private_atoms = copy.deepcopy(atoms)
+    # Native copying isolates arrays and bonds without recursively copying the
+    # read-only source/provenance objects held by object annotations.
+    private_atoms = atoms.copy()
     base_asym = int(np.asarray(atoms.asym_uid, dtype=np.int64).max()) + 1
     private_asym = {
         record.chain_id: base_asym + index
@@ -1041,6 +1043,44 @@ def _canonical_sample(
         residues=residue_records,
         motif_residues=motif,
     )
+
+def _prepared_input(candidate, plan, candidate_root, model_types, prepare,
+                    *, ca_only, shared_preparation=None, design_chain_ids=None):
+    """Reuse preparation only for a validation batch explicitly sharing one input."""
+    if shared_preparation is not None and "prepared" in shared_preparation:
+        return shared_preparation["sample"], shared_preparation["prepared"]
+    kwargs = {} if design_chain_ids is None else {"design_chain_ids": design_chain_ids}
+    sample = _canonical_sample(candidate, plan, candidate_root, model_types, **kwargs)
+    prepared = prepare(sample, candidate_root / "native-input", ca_only=ca_only, materialize=True)
+    if shared_preparation is not None:
+        shared_preparation.update(sample=sample, prepared=prepared)
+    return sample, prepared
+
+
+def _protein_parser_aliases(sample, prepared):
+    aliases = {prepared.alias_by_chain[c.chain_id] for c in sample.chains if c.modality == "protein"}
+    # This is parse_PDB's native traversal order, including digit aliases last.
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    return [alias for alias in alphabet if alias in aliases]
+
+
+def _parsed_protein_input(sample, prepared, parse, *, ca_only, shared_preparation=None):
+    if shared_preparation is not None and "parsed" in shared_preparation:
+        return [dict(shared_preparation["parsed"])]
+    parsed = parse(str(prepared.pdb_path), ca_only=ca_only,
+                   input_chain_list=_protein_parser_aliases(sample, prepared))
+    if isinstance(parsed, list) and len(parsed) == 1 and shared_preparation is not None:
+        shared_preparation["parsed"] = dict(parsed[0])
+    return parsed
+
+
+def _prepared_pdb_bytes(prepared, shared_preparation):
+    if shared_preparation is None:
+        return prepared.pdb_path.read_bytes()
+    if "pdb_bytes" not in shared_preparation:
+        shared_preparation["pdb_bytes"] = prepared.pdb_path.read_bytes()
+    return shared_preparation["pdb_bytes"]
+
 
 def _runtime_paths(repo_root: Path, RuntimePaths: Any) -> Any:
     models = asset_root(repo_root) / "community_models"
@@ -1316,6 +1356,7 @@ def _batched_na_mpnn_sequences(
     reward_config: Mapping[str, Any],
     repo_root: Path,
     work_dir: Path,
+    shared_input: bool = False,
 ) -> tuple[dict[str, SequenceSourcePlan], dict[str, str]]:
     """Run one vendored NA-MPNN worker process for one owner batch."""
 
@@ -1353,17 +1394,20 @@ def _batched_na_mpnn_sequences(
     requests: list[dict[str, Any]] = []
     plan_by_id: dict[str, tuple[SequenceSourcePlan, str]] = {}
     failures: dict[str, str] = {}
+    shared_pdb = None
     for candidate_index, (candidate, plan) in enumerate(items):
         try:
             candidate_id = str(candidate.candidate_id)
             safe = f"candidate_{candidate_index}"
             candidate_root = work_dir / "prepared" / safe
             candidate_root.mkdir(parents=True)
-            _aliases, design_alias = _na_private_pdb(
-                candidate,
-                plan,
-                candidate_root / "candidate.pdb",
-            )
+            pdb_path = candidate_root / "candidate.pdb"
+            if shared_input and shared_pdb is not None:
+                pdb_path, design_alias = shared_pdb
+            else:
+                _aliases, design_alias = _na_private_pdb(candidate, plan, pdb_path)
+                if shared_input:
+                    shared_pdb = (pdb_path, design_alias)
             design_rows = np.flatnonzero(
                 np.asarray(candidate.atoms.chain_id).astype(str) == plan.design_chain
             )
@@ -1393,7 +1437,7 @@ def _batched_na_mpnn_sequences(
             requests.append(
                 {
                     "candidate_id": candidate_id,
-                    "pdb_path": str(candidate_root / "candidate.pdb"),
+                    "pdb_path": str(pdb_path),
                     "design_chain": design_alias,
                     "designable_positions": designable,
                     "fixed_positions": fixed,
@@ -2047,6 +2091,7 @@ def _batched_antibody_proteinmpnn_sequences(
     reward_config: Mapping[str, Any],
     repo_root: Path,
     work_dir: Path,
+    shared_input: bool = False,
 ) -> tuple[dict[str, SequenceSourcePlan], dict[str, str]]:
     """Run native ProteinMPNN with multiple physical antibody chains."""
 
@@ -2077,6 +2122,7 @@ def _batched_antibody_proteinmpnn_sequences(
     work_dir.mkdir(parents=True, exist_ok=False)
     api, _SequenceConfig, model_types, _RuntimePaths, _ = _load_pipetools(repo_root)
     prepare_mpnn_input = api[0]
+    shared_preparation = {} if shared_input else None
     records: list[dict[str, Any]] = []
     parser = community_source("proteinmpnn") / "protein_mpnn_utils.py"
     if str(parser.parent) not in sys.path:
@@ -2097,20 +2143,14 @@ def _batched_antibody_proteinmpnn_sequences(
             safe = f"candidate_{candidate_index}"
             candidate_root = work_dir / "prepared" / safe
             candidate_root.mkdir(parents=True)
-            sample = _canonical_sample(
-                candidate,
-                compatibility,
-                candidate_root,
-                model_types,
+            sample, prepared = _prepared_input(
+                candidate, compatibility, candidate_root, model_types, prepare_mpnn_input,
+                ca_only=ca_only, shared_preparation=shared_preparation,
                 design_chain_ids=selection.plan.design_chain_ids,
             )
-            prepared = prepare_mpnn_input(
-                sample,
-                candidate_root / "native-input",
-                ca_only=ca_only,
-                materialize=True,
-            )
-            parsed = parse_PDB(str(prepared.pdb_path), ca_only=ca_only)
+            parsed = _parsed_protein_input(
+                sample, prepared, parse_PDB, ca_only=ca_only,
+                shared_preparation=shared_preparation)
             if not isinstance(parsed, list) or len(parsed) != 1:
                 raise MPNNSystemError("ProteinMPNN parser did not return one structure")
             parsed_row = parsed[0]
@@ -2132,7 +2172,7 @@ def _batched_antibody_proteinmpnn_sequences(
                     "selection": selection,
                     "prepared": prepared,
                     "safe": safe,
-                    "pdb_bytes": prepared.pdb_path.read_bytes(),
+                    "pdb_bytes": _prepared_pdb_bytes(prepared, shared_preparation),
                     "parsed": parsed_row,
                     "chain_ids": (design_aliases, fixed_aliases),
                     "fixed": fixed,
@@ -2243,6 +2283,7 @@ def _batched_antibody_ligandmpnn_sequences(
     reward_config: Mapping[str, Any],
     repo_root: Path,
     work_dir: Path,
+    shared_input: bool = False,
 ) -> tuple[dict[str, SequenceSourcePlan], dict[str, str]]:
     """Run native LigandMPNN over H/L while retaining antigen atom context."""
 
@@ -2276,6 +2317,7 @@ def _batched_antibody_ligandmpnn_sequences(
     work_dir.mkdir(parents=True, exist_ok=False)
     api, _SequenceConfig, model_types, _RuntimePaths, _ = _load_pipetools(repo_root)
     prepare_mpnn_input = api[0]
+    shared_preparation = {} if shared_input else None
     input_dir = work_dir / "inputs"
     input_dir.mkdir()
     records: list[dict[str, Any]] = []
@@ -2293,18 +2335,10 @@ def _batched_antibody_ligandmpnn_sequences(
             safe = f"candidate_{candidate_index}"
             candidate_root = work_dir / "prepared" / safe
             candidate_root.mkdir(parents=True)
-            sample = _canonical_sample(
-                candidate,
-                compatibility,
-                candidate_root,
-                model_types,
+            sample, prepared = _prepared_input(
+                candidate, compatibility, candidate_root, model_types, prepare_mpnn_input,
+                ca_only=False, shared_preparation=shared_preparation,
                 design_chain_ids=selection.plan.design_chain_ids,
-            )
-            prepared = prepare_mpnn_input(
-                sample,
-                candidate_root / "native-input",
-                ca_only=False,
-                materialize=True,
             )
             protein_aliases = sorted(
                 prepared.alias_by_chain[record.chain_id]
@@ -2454,6 +2488,7 @@ def _batched_proteinmpnn_sequences(
     reward_config: Mapping[str, Any],
     repo_root: Path,
     work_dir: Path,
+    shared_input: bool = False,
 ) -> tuple[dict[str, SequenceSourcePlan], dict[str, str]]:
     """Run ProteinMPNN in native batches while preserving candidate mapping.
 
@@ -2471,6 +2506,7 @@ def _batched_proteinmpnn_sequences(
     work_dir.mkdir(parents=True, exist_ok=False)
     api, _SequenceConfig, model_types, _RuntimePaths, _ = _load_pipetools(repo_root)
     prepare_mpnn_input = api[0]
+    shared_preparation = {} if shared_input else None
     failures: dict[str, str] = {}
     records: list[dict[str, Any]] = []
     parser = community_source("proteinmpnn") / "protein_mpnn_utils.py"
@@ -2483,14 +2519,13 @@ def _batched_proteinmpnn_sequences(
             safe = f"candidate_{candidate_index}"
             candidate_root = work_dir / "prepared" / safe
             candidate_root.mkdir(parents=True)
-            sample = _canonical_sample(candidate, plan, candidate_root, model_types)
-            prepared = prepare_mpnn_input(
-                sample,
-                candidate_root / "native-input",
-                ca_only=ca_only,
-                materialize=True,
+            sample, prepared = _prepared_input(
+                candidate, plan, candidate_root, model_types, prepare_mpnn_input,
+                ca_only=ca_only, shared_preparation=shared_preparation,
             )
-            parsed = parse_PDB(str(prepared.pdb_path), ca_only=ca_only)
+            parsed = _parsed_protein_input(
+                sample, prepared, parse_PDB, ca_only=ca_only,
+                shared_preparation=shared_preparation)
             if not isinstance(parsed, list) or len(parsed) != 1:
                 raise MPNNSystemError("ProteinMPNN parser did not return one structure")
             parsed_row = parsed[0]
@@ -2520,7 +2555,7 @@ def _batched_proteinmpnn_sequences(
                     "candidate": candidate,
                     "plan": plan,
                     "safe": safe,
-                    "pdb_bytes": prepared.pdb_path.read_bytes(),
+                    "pdb_bytes": _prepared_pdb_bytes(prepared, shared_preparation),
                     "parsed": parsed_row,
                     "chain_ids": (
                         [design_alias],
@@ -2633,6 +2668,7 @@ def _batched_ligand_suite_sequences(
     reward_config: Mapping[str, Any],
     repo_root: Path,
     work_dir: Path,
+    shared_input: bool = False,
 ) -> tuple[dict[str, SequenceSourcePlan], dict[str, str]]:
     """Run one native batch per compatible LigandMPNN-suite target.
 
@@ -2654,11 +2690,13 @@ def _batched_ligand_suite_sequences(
             reward_config=reward_config,
             repo_root=repo_root,
             work_dir=work_dir,
+            **({"shared_input": True} if shared_input else {}),
         )
 
     work_dir.mkdir(parents=True, exist_ok=False)
     api, _SequenceConfig, model_types, _RuntimePaths, _ = _load_pipetools(repo_root)
     prepare_mpnn_input = api[0]
+    shared_preparation = {} if shared_input else None
     input_dir = work_dir / "inputs"
     input_dir.mkdir()
     raw_symmetry_residues = _list_option(
@@ -2689,12 +2727,9 @@ def _batched_ligand_suite_sequences(
             safe = f"candidate_{candidate_index}"
             candidate_root = work_dir / "prepared" / safe
             candidate_root.mkdir(parents=True)
-            sample = _canonical_sample(candidate, plan, candidate_root, model_types)
-            prepared = prepare_mpnn_input(
-                sample,
-                candidate_root / "native-input",
-                ca_only=False,
-                materialize=True,
+            sample, prepared = _prepared_input(
+                candidate, plan, candidate_root, model_types, prepare_mpnn_input,
+                ca_only=False, shared_preparation=shared_preparation,
             )
             current_symmetry = _resolved_ligand_symmetry(
                 raw_symmetry_residues,
@@ -2855,6 +2890,7 @@ def _batched_cyclicmpnn_sequences(
     repo_root: Path,
     work_dir: Path,
     timings: dict[str, float] | None = None,
+    shared_input: bool = False,
 ) -> tuple[dict[str, SequenceSourcePlan], dict[str, str]]:
     if not items:
         return {}, {}
@@ -2865,6 +2901,7 @@ def _batched_cyclicmpnn_sequences(
     work_dir.mkdir(parents=True, exist_ok=False)
     api, _SequenceConfig, model_types, _RuntimePaths, _ = _load_pipetools(repo_root)
     prepare_mpnn_input = api[0]
+    shared_preparation = {} if shared_input else None
     requests: list[dict[str, Any]] = []
     plan_by_id: dict[str, SequenceSourcePlan] = {}
     failures: dict[str, str] = {}
@@ -2878,12 +2915,9 @@ def _batched_cyclicmpnn_sequences(
             safe = f"candidate_{candidate_index}"
             candidate_root = work_dir / "prepared" / safe
             candidate_root.mkdir(parents=True)
-            sample = _canonical_sample(candidate, plan, candidate_root, model_types)
-            prepared = prepare_mpnn_input(
-                sample,
-                candidate_root / "native-input",
-                ca_only=False,
-                materialize=True,
+            sample, prepared = _prepared_input(
+                candidate, plan, candidate_root, model_types, prepare_mpnn_input,
+                ca_only=False, shared_preparation=shared_preparation,
             )
             if plan.design_chain is None:
                 raise MPNNSequenceError("CyclicMPNN plan lacks its design chain")
@@ -3058,6 +3092,7 @@ def generate_mpnn_sequences(
     seed: int | None = None,
     timings: dict[str, float] | None = None,
     antibody_plans: Mapping[str, AntibodyMPNNPlan] | None = None,
+    shared_input: bool = False,
 ) -> tuple[dict[str, SequenceSourcePlan], dict[str, str]]:
     """Generate one sequence per candidate, reusing resident backend models.
 
@@ -3117,6 +3152,7 @@ def generate_mpnn_sequences(
                 reward_config=effective_config,
                 repo_root=repo_root,
                 work_dir=work_dir / source,
+                **({"shared_input": True} if shared_input else {}),
             )
             result.update(generated)
             failures.update(rejected)
@@ -3140,6 +3176,7 @@ def generate_mpnn_sequences(
                         reward_config=effective_config,
                         repo_root=repo_root,
                         work_dir=work_dir / f"{source}_antibody",
+                        **({"shared_input": True} if shared_input else {}),
                     )
                 else:
                     generated, rejected = _batched_antibody_ligandmpnn_sequences(
@@ -3148,6 +3185,7 @@ def generate_mpnn_sequences(
                         reward_config=effective_config,
                         repo_root=repo_root,
                         work_dir=work_dir / f"{source}_antibody",
+                        **({"shared_input": True} if shared_input else {}),
                     )
                 result.update(generated)
                 failures.update(rejected)
@@ -3158,6 +3196,7 @@ def generate_mpnn_sequences(
                     reward_config=effective_config,
                     repo_root=repo_root,
                     work_dir=work_dir / source,
+                    **({"shared_input": True} if shared_input else {}),
                 )
                 result.update(generated)
                 failures.update(rejected)
@@ -3171,6 +3210,7 @@ def generate_mpnn_sequences(
             repo_root=repo_root,
             work_dir=work_dir / source,
             timings=timings,
+            **({"shared_input": True} if shared_input else {}),
         )
         if timings is not None:
             timings[f"{source}_total_seconds"] = time.perf_counter() - source_started

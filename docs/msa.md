@@ -1,7 +1,8 @@
 # Prepare shared MSA and templates
 
-`partidesign msa` searches the fixed context in selected tasks before a pipeline
-run. It uses the same task selection and crop rules as `design` and `pipeline`,
+`partidesign msa` searches the fixed context in selected YAML tasks or annotated
+optimization directories before a pipeline run. It uses the same task selection
+and crop rules as `design` and `pipeline`,
 without generating designs or loading prediction models.
 
 The pipeline also prepares these inputs automatically before GPU work starts.
@@ -19,8 +20,19 @@ partidesign msa configs/examples/pipeline_tasks.yaml \
 
 The first command previews queries and cache reuse. The second prepares missing
 results. Add `--config configs/pipeline/demo.yaml` to use that workflow's search
-settings. `--task` is repeatable; without it, all tasks in the file are selected.
-Task input paths resolve from the invocation directory, as they do for `design`.
+settings. `--task` is repeatable; without it, all tasks in the input are selected.
+YAML task paths resolve from the invocation directory, as they do for `design`.
+
+For an optimization directory, use the same annotation input and task groups:
+
+```bash
+partidesign msa configs/examples/optimization \
+  --task cyclic_peptides --config configs/pipeline/optimize.yaml --plan
+```
+
+Remove `--plan` to prepare missing inputs. Each listed seed supplies its own
+retained context and authoring conditions; identical queries with compatible
+settings share the cache. Annotation paths resolve relative to `annotation.csv`.
 
 ## Defaults and search scope
 
@@ -63,7 +75,7 @@ CLI options take precedence. Use `--show-config` to inspect the resolved values.
 
 ```bash
 partidesign pipeline configs/examples/pipeline_tasks.yaml \
-  --task protdbench_insulin_receptor --config configs/pipeline/demo.yaml \
+  --task protdbench_insulin_receptor --preset ppi --config configs/pipeline/demo.yaml \
   --msa-source colabfold
 
 partidesign validate inference/RUN --method mol1 --source gt:1 \
@@ -78,6 +90,20 @@ their context-search source.
 | `auto` (default) | Reuse a compatible ready entry; search when missing |
 | `cache-only` | Require a compatible ready entry; do not search |
 | `off` | Use query-only input and no structural templates |
+
+To keep protein MSA but omit structural templates, set `msa.templates: false`
+or pass:
+
+```bash
+partidesign pipeline configs/examples/optimization \
+  --preset ppi --config configs/pipeline/optimize.yaml --msa auto --msa-templates false
+```
+
+This requests alignments only: no HHsearch or structural-template preparation
+is performed. A compatible cached MSA+template result can supply an MSA-only
+view without another search; its templates are not passed to the predictor.
+The cached result remains unchanged. The reverse is not sufficient: an
+MSA-only entry does not satisfy a template-enabled request.
 
 ## Cache location and contents
 

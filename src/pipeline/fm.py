@@ -46,14 +46,21 @@ class PartialOwner:
         output = Path(output)
         payloads = {}
         for reference in references:
-            payload = copy.deepcopy(authored)
-            payload.update(sample_num=settings["replicas"], score=False, postprocess=False)
-            payload["partial"] = {
+            payload = copy.deepcopy(reference.get("authored", authored))
+            effective = reference.get("settings", settings)
+            payload.update(sample_num=effective["replicas"], score=False, postprocess=False)
+            partial = copy.deepcopy(payload.get("partial") or {})
+            partial.update({
                 "reference": reference["path"],
-                "result_csv": reference["result_csv"],
-                "fraction": settings["fraction"],
-            }
+                "fraction": effective["fraction"],
+            })
+            partial.pop("result_csv", None)
+            if reference.get("result_csv"):
+                partial["result_csv"] = reference["result_csv"]
+            payload["partial"] = partial
             payloads[reference["candidate_id"]] = payload
+        # Replicas are expanded by DesignRunner before native batching. Keep
+        # the configured batch size even when there is only one parent.
         native = copy.deepcopy(effective_generation)
         native.update(tasks=payloads, tasks_file=None, task_names=list(payloads),
                       output_dir=str(output), run_name="partial", seed=int(seed))
@@ -68,6 +75,13 @@ class PartialOwner:
                                  model_loader=self._load, model_compiler=self._compile,
                                  compact_task_snapshots=True)
             entries = list(discover_inputs(output, list(payloads)))
+            resolved_rows = {}
+            for entry in entries:
+                row = dict(entry.row)
+                if row.get("heavy_role") and not entry.error and not row.get("error"):
+                    from src.validate.inputs import load_input
+                    row = dict(load_input(entry.path,row,entry.task_dir).row)
+                resolved_rows[str(entry.path)] = row
             destinations = {}
             if public_output is not None:
                 public_output = Path(public_output)
@@ -100,19 +114,19 @@ class PartialOwner:
                 if entry.error:
                     raise RuntimeError(entry.error)
                 parent_id = entry.task_dir.name
-                path, row = str(entry.path), dict(entry.row)
+                path, row = str(entry.path), resolved_rows[str(entry.path)]
                 if parent_id in destinations:
                     source, destination = destinations[parent_id]
                     path = _relocated(path, source, destination)
                     row = _relocated(row, source, destination)
                 rows.append({"parent_id": parent_id, "path": path, "row": row})
-            expected = len(references) * settings["replicas"]
+            expected = sum(reference.get("settings", settings)["replicas"] for reference in references)
             if len(rows) != result.succeeded or result.succeeded + result.failed != expected:
                 raise RuntimeError(f"Partial diffusion accounting differs from {expected} replicas")
             return {"candidates": rows, "failed": result.failed, "model_loads": self.loads - before}
         finally:
-            # Refold workers retain their reservation. FM weights stay cached on
-            # CPU between phases; no second Ray reservation or checkpoint reload.
+            # Release CUDA weight storage before the pipeline closes the phase
+            # owner and releases its CUDA context.
             for model in self.models.values():
                 model.to(torch.device("cpu"))
             if torch.cuda.is_available():

@@ -26,8 +26,8 @@ multiple samples. `--batch-size` controls execution, not the total sample count.
 
 [Protein](#protein) · [Partial diffusion](#partial-diffusion) · [Pipeline demo](#pipeline-demo) ·
 [Nucleic acids](#nucleic-acids) · [Ligands](#ligands) ·
-[Motifs](#motifs) · [Peptide topologies](#peptide-topologies-preview) ·
-[Docking](#docking-preview) · [Antibodies](#antibodies-preview)
+[Motifs](#motifs) · [Peptide topologies](#peptide-topologies) ·
+[Docking](#docking) · [Antibodies](#antibodies)
 
 ## Protein
 
@@ -99,26 +99,29 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml \
   --task protdbench_insulin_receptor --preset ppi --run-name insulin_receptor
 ```
 
-Workflow presets live in `configs/pipeline/`: protein/nuc use AF3 final;
-ppi uses AF2-IG models 1 and 2, five matched pairs per model, requiring both
-winners to pass. The normal first/later selection caps are 200.
+Workflow presets live in `configs/pipeline/`. Protein/nuc final validation runs
+Mol-1, AF3 and ESMFold2-standard, with five samples each. PPI also runs AF2-IG
+models 1 and 2, five matched complex/monomer pairs per model, requiring both
+model winners to pass its filter. All presets use relaxed pipeline iteration
+screens. Multi-method final acceptance is a union. The selection caps are 200.
 
-For the previous small, strict demo behavior, select
-[configs/pipeline/demo.yaml](../pipeline/demo.yaml) instead:
+For a lighter final stage, select
+[configs/pipeline/demo.yaml](../pipeline/demo.yaml):
 
 ```bash
 partidesign pipeline configs/examples/pipeline_tasks.yaml \
-  --task protdbench_insulin_receptor --config configs/pipeline/demo.yaml \
+  --task protdbench_insulin_receptor --preset ppi --config configs/pipeline/demo.yaml \
   --run-name insulin_receptor_demo
 ```
 
 The demo workflow uses production sequence counts (GT1+MPNN1 first,
-GT1+MPNN4 later), three rounds, strict native `af3_basic` filtering,
+GT1+MPNN4 later), three rounds, ESMFold2-fast with relaxed pipeline screening,
 first-round K=200, later/final max-pass=200, partial fraction 0.625 with four replicas
-and parent retention, and no OpenMM. Middle rounds that continue retain at most
+and parent retention, and no relax step. Final validation uses only Mol-1 with
+five samples. Middle rounds that continue retain at most
 two candidates from each parent/partial family before the task-wide cap. Add `--plan` to preview without loading
 models or creating output. Repeat `--task` to select several; omitting it selects
-all six tasks. Strict criteria can end a task early or produce no final pass.
+all six tasks. Tasks can end early when no candidate passes the current filter.
 See the [pipeline guide](../../docs/pipeline.md).
 
 ## Nucleic acids
@@ -162,7 +165,7 @@ partidesign design configs/examples/nucleic_acids.yaml \
 ```
 
 Fixed-sequence RNA docking examples from this file are listed under
-[Docking](#docking-preview).
+[Docking](#docking).
 
 ## Ligands
 
@@ -177,7 +180,7 @@ Tasks in [ligand.yaml](ligand.yaml):
 | `ligand_decoration_two_sites` | Use the same sizes with simultaneous attachment sites at C12 and C10. |
 
 The fixed-identity ligand tasks from this file are listed under
-[Docking](#docking-preview). See
+[Docking](#docking). See
 [ligand identity modes](../../docs/task_schema.md#ligand-identity-modes) for the
 distinction between fixed chemistry, partial chemistry, and unconstrained design.
 
@@ -211,12 +214,11 @@ For RNA motifs, use the two `rna_motif_*` tasks listed above. The
 [backbone and contig reference](../../docs/task_schema.md#backbone-and-contig)
 explains how to combine retained segments with newly generated regions.
 
-## Peptide topologies (Preview)
+## Peptide topologies
 
-**Inference is available** for peptides with the topologies below. Peptide design
-remains under active development, and output quality may be inconsistent across
-targets and constraints. These examples demonstrate task authoring and inference
-support; they are not a performance comparison.
+**Inference is available** for peptides with the topologies below. Output quality
+may be inconsistent across targets and constraints. These examples demonstrate
+task authoring and inference support; they are not a performance comparison.
 
 Tasks in [peptide.yaml](peptide.yaml):
 
@@ -246,11 +248,11 @@ Remove `--show-config` to generate after checking the selected task and assets.
 Explicit bonds specify the requested chemistry; `cyclic_offset` alone does not
 create a covalent closure. See [explicit bonds](../../docs/task_schema.md#explicit-bonds).
 
-## Docking (Preview)
+## Docking
 
-**Inference is available** for fixed-identity docking. Docking remains under
-active development, and pose quality may be inconsistent. The examples below
-illustrate supported inputs without claiming benchmark performance.
+**Inference is available** for fixed-identity docking. Pose quality may be
+inconsistent. The examples below illustrate supported inputs without claiming
+benchmark performance.
 
 | Task | File | Request |
 | --- | --- | --- |
@@ -276,12 +278,12 @@ partidesign design configs/examples/ligand.yaml \
   --batch-size 1 --compile false --show-config
 ```
 
-## Antibodies (Preview)
+## Antibodies
 
 **Inference is available** for paired VH/VL variable-domain scaffolds and
 single-domain VHH scaffolds, including selected-CDR design with optional antigen
-context. Antibody design remains under active development; output quality may
-be inconsistent, and generated structures do not establish experimental binding.
+context. Output quality may be inconsistent, and generated structures do not
+establish experimental binding.
 
 Tasks in [antibody.yaml](antibody.yaml):
 
@@ -295,6 +297,7 @@ Tasks in [antibody.yaml](antibody.yaml):
 | `penguinpox_7eow_framework_optin` | VHH CDR3 design with one selected framework position also mutable. |
 | `pdl1_adalimumab_reference` | Paired VH/VL reference request with all sequence identities fixed. |
 | `penguinpox_7eow_reference` | VHH reference request with all sequence identities fixed. |
+| `glp1r_vhh_bindcraft2` | GLP1R VHH de novo design on `bindcraft2_vhh`, all three CDRs at official lengths, selected mutable framework positions and an independent intended paratope. |
 
 Submit antibody and normal tasks in **separate commands**. For example:
 
@@ -307,6 +310,28 @@ partidesign design configs/examples/antibody.yaml \
 Antibody-specific controls use the `antibody` schema; normal contig and bond
 fields do not apply. See [antibody tasks](../../docs/task_schema.md#antibody-tasks)
 for CDR selection, length ranges, framework mutability, and scaffold templates.
+
+The GLP1R task and [five fixed optimization seeds](antibody_opt/annotation.csv) use
+the native antibody pipeline:
+
+```bash
+partidesign pipeline configs/examples/antibody.yaml --task glp1r_vhh_bindcraft2 --preset antibody --run-name glp1r_vhh_denovo
+partidesign pipeline configs/examples/antibody_opt --preset antibody --run-name glp1r_vhh_optimization
+```
+
+Both keep the normal three-round workflow: ESMFold2-fast iteration, GT1+MPNN1
+first and GT1+MPNN4 later, partial fraction 0.625, four replicas, parent retention
+and no relaxation. The antibody preset predicts each selected sequence five
+times with ESMFold2-standard and applies final criteria to the best prediction
+ranked by 0.8 ipTM + 0.2 pTM. Contact
+rules require at least seven antigen-contacting binder residues and at most
+0.20 off-paratope contact fraction. Add `--plan` to preview either entry point.
+
+The scaffold's label chain `B` spans 1–127. Its operational CDR windows
+27–33, 52–57 and 100–114 allow final lengths 7, 5–7 and 3–25; these are not IMGT
+ranges. The seed antigen uses label chain `A`, label residues 1–119 and author
+residues 21–139. See the [scaffold definition and provenance](../resources/antibody/scaffolds/bindcraft2/README.md)
+and [antibody pipeline guide](../../docs/pipeline.md#antibody-pipelines).
 
 ## Customize an example
 

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://megagatlingpea.github.io/PartiDesign-official/sitemap.xml

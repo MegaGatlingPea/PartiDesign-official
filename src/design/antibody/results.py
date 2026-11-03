@@ -32,7 +32,8 @@ ANTIBODY_RESULT_FIELDS = (
     "light_cdr1", "light_cdr1_range", "light_fr2", "light_fr2_range",
     "light_cdr2", "light_cdr2_range", "light_fr3", "light_fr3_range",
     "light_cdr3", "light_cdr3_range", "light_fr4", "light_fr4_range",
-    "heavy_design_positions", "light_design_positions", "sequence_source",
+    "heavy_design_positions", "light_design_positions",
+    "heavy_paratope_positions", "light_paratope_positions", "sequence_source",
     "structure_source", "reward_method", "reward_score", "rank",
     "final_partiscore", "score_rank",
     "partiscore_antigen", "partiscore_antigen_pair_count", "partiscore_internal",
@@ -185,12 +186,28 @@ def antibody_result_context(candidate: Any) -> dict[str, Any]:
         # template masks are the only reliable fallback in that case.
         template = template_from_entries
     conditions = _value(candidate, "topology_conditions", ()) or ()
+    atoms = _value(candidate, "atoms")
+    output_labels = {}
+    if atoms is not None:
+        chains = np.asarray(atoms.chain_id).astype(str)
+        labels = np.asarray(getattr(atoms, "label_asym_id", atoms.chain_id)).astype(str)
+        for chain in np.unique(chains):
+            actual = np.unique(labels[chains == chain])
+            if len(actual) == 1:
+                output_labels[str(chain)] = str(actual[0])
+    output_entries = []
+    for entry in entries:
+        mapped = dict(entry)
+        output = output_labels.get(str(entry.get("chain_id", "")))
+        if output is not None:
+            mapped["output_chain_id"] = output
+        output_entries.append(mapped)
     return {
         "scaffold": _primitive(metadata.get("scaffold", "")),
         "source_numbering": _primitive(metadata.get("source_numbering", "label_seq_id")),
         "template": bool(template),
         "boundary_unresolved": _primitive(metadata.get("boundary_unresolved", {})),
-        "entries": _primitive(entries),
+        "entries": _primitive(output_entries),
         "topology_conditions": _primitive(conditions),
     }
 
@@ -250,11 +267,16 @@ def _entry_index(entries: Sequence[Mapping[str, Any]]) -> dict[tuple[str, int], 
         position = _int_or_none(entry.get("position", entry.get("res_id", entry.get("label_seq_id"))))
         if chain and position is not None:
             result.setdefault((chain, position), entry)
+            output = _text(entry.get("output_chain_id", ""))
+            if output:
+                result.setdefault((output, position), entry)
     return result
 
 
 def _residue_records(atoms: Any, context: Mapping[str, Any]) -> list[dict[str, Any]]:
-    chains = _annotation(atoms, "chain_id", "")
+    chains = _annotation(atoms, "label_asym_id", "")
+    if not np.any(chains != ""):
+        chains = _annotation(atoms, "chain_id", "")
     positions = _annotation(atoms, "res_id", 0)
     ins_codes = _annotation(atoms, "ins_code", "")
     labels = _annotation(atoms, "label_seq_id", "")
@@ -293,6 +315,7 @@ def _residue_records(atoms: Any, context: Mapping[str, Any]) -> list[dict[str, A
             "chain": chain, "position": position, "ins_code": ins_code, "label": label,
             "aa": _aa(res_names[row]), "role": role, "region": region,
             "mutable": mutable_value, "source_label": source_label,
+            "paratope": _bool(entry.get("paratope"), region in (2, 3, 4)),
             "source_aa": source_aa, "source_present": source_present,
         })
     records.sort(key=lambda item: (item["chain"], item["label"], item["position"], item["ins_code"]))
@@ -389,7 +412,8 @@ def _structure_fields(atoms: Any, context: Mapping[str, Any]) -> dict[str, Any]:
     # compiled binder entries explicit context before handing the structure
     # to the geometry analyzer.  This is especially important for antigen
     # chains whose literal name happens to be ``VHH``/``VH``/``VL``.
-    analysis_entries = list(_context_entries(context))
+    analysis_entries = [dict(entry, chain_id=entry.get("output_chain_id", entry.get("chain_id", "")))
+                        for entry in _context_entries(context)]
     known_positions = {
         (
             _text(entry.get("chain_id", entry.get("output_chain_id", ""))),
@@ -410,8 +434,13 @@ def _structure_fields(atoms: Any, context: Mapping[str, Any]) -> dict[str, Any]:
             })
             known_positions.add(key)
 
+    analysis_atoms = atoms
+    labels = np.asarray(getattr(atoms, "label_asym_id", atoms.chain_id)).astype(str)
+    if not np.array_equal(labels, np.asarray(atoms.chain_id).astype(str)):
+        analysis_atoms = atoms.copy()
+        analysis_atoms.chain_id = labels
     report_candidate = SimpleNamespace(
-        atoms=atoms,
+        atoms=analysis_atoms,
         antibody_metadata={"entries": analysis_entries, "scaffold": context.get("scaffold", "")},
         topology_conditions=tuple(context.get("topology_conditions", ()) or ()),
     )
@@ -424,6 +453,8 @@ def _structure_fields(atoms: Any, context: Mapping[str, Any]) -> dict[str, Any]:
         "heavy_sequence": heavy_sequence, "light_sequence": light_sequence,
         "heavy_design_positions": _compact_ranges([int(record["label"]) for record in heavy_records if record["mutable"]]),
         "light_design_positions": _compact_ranges([int(record["label"]) for record in light_records if record["mutable"]]),
+        "heavy_paratope_positions": _compact_ranges([int(record["label"]) for record in heavy_records if record["paratope"]]),
+        "light_paratope_positions": _compact_ranges([int(record["label"]) for record in light_records if record["paratope"]]),
         "fixed_sequence_ok": bool(fixed_ok),
         "framework_rmsd": _finite(metrics.get("fr_aligned_backbone_rmsd_angstrom")),
         "antigen_contacts": int(metrics.get("binder_antigen_contact_count", 0)) if has_antigen else "",
@@ -435,7 +466,7 @@ def _structure_fields(atoms: Any, context: Mapping[str, Any]) -> dict[str, Any]:
 
 def _apply_structure_fields(row: dict[str, Any], atoms: Any, context: Mapping[str, Any]) -> dict[str, Any]:
     derived = _structure_fields(atoms, context)
-    for field in ("heavy_role", "heavy_chain", "light_chain", "antigen_chains", "heavy_sequence", "light_sequence", "heavy_design_positions", "light_design_positions", "fixed_sequence_ok", "framework_rmsd", "antigen_contacts", "antigen_clashes"):
+    for field in ("heavy_role", "heavy_chain", "light_chain", "antigen_chains", "heavy_sequence", "light_sequence", "heavy_design_positions", "light_design_positions", "heavy_paratope_positions", "light_paratope_positions", "fixed_sequence_ok", "framework_rmsd", "antigen_contacts", "antigen_clashes"):
         row[field] = derived[field]
     for prefix, pieces in (("heavy", derived["_heavy_pieces"]), ("light", derived["_light_pieces"])):
         for name in _PIECES:

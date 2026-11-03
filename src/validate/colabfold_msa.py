@@ -376,8 +376,8 @@ def _templates(msa, candidates, client, directory, settings, binary):
 
 def search_colabfold(sequence, settings, directory):
     """Search one protein context; caller owns the shared server-serial lock."""
-    binary = hhsearch_binary(settings)
-    if not binary:
+    binary = hhsearch_binary(settings) if settings["templates"] else None
+    if settings["templates"] and not binary:
         raise ColabFoldSearchError("ColabFold templates require hhsearch; install colabfold-binaries")
     if not isinstance(sequence, str) or not re.fullmatch(r"[A-Z]+", sequence):
         raise ValueError("ColabFold requires one canonical protein query")
@@ -389,7 +389,7 @@ def search_colabfold(sequence, settings, directory):
         try:
             archive, ticket = client.search(sequence, work)
             msa, candidates = _msa_archive(archive, sequence)
-            templates, skipped = _templates(msa, candidates, client, work, settings, binary) if candidates else ([], [])
+            templates, skipped = _templates(msa, candidates, client, work, settings, binary) if settings["templates"] and candidates else ([], [])
             return {"modality": "protein", "sequence": sequence, "unpaired_msa": msa,
                     "paired_msa": f">query\n{sequence}\n", "templates": templates,
                     "no_hit": msa.count(">") == 1 and not templates,

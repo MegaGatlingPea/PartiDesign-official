@@ -1,4 +1,4 @@
-# Three-model final filtering; a candidate passes when any method passes.
+# PPI demo with relaxed iteration screening and Mol-1 final validation.
 preset: ppi
 recycle: 3
 iteration:
@@ -6,8 +6,6 @@ iteration:
   refold:
     method: esmfold2-fast
     worker_gpus: 1.0
-  filter:
-  - af3_basic
   selection:
     max_pass: 200
   partial:
@@ -23,24 +21,5 @@ rounds:
 final:
   max_pass: 200
   worker_gpus: 1.0
-  methods:
-  - af2_ig
-  - mol1
-  - af3
-criteria_routes:
-  protein:
-    final:
-      af2_ig:
-      - af2_ig_protdbench
-      mol1:
-      - af3_basic
-      af3:
-      - af3_basic
-  peptide:
-    final:
-      af2_ig:
-      - af2_ig_peptide
-      mol1:
-      - af3_basic
-      af3:
-      - af3_basic
+  method: mol1
+  mol1: {samples: 5}

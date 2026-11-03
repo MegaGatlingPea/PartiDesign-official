@@ -137,6 +137,9 @@ class PartialSpec:
     reference: Path
     result_csv: Path | None
     fraction: float
+    cdr_lengths: Mapping[str, Mapping[str, int]] = field(default_factory=dict)
+    # Explicit authoring lengths constrain a reference; they are not new draws.
+    length_constraints: tuple[Mapping[str, int], ...] = ()
 
 
 @dataclass(frozen=True)

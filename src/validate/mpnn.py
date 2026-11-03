@@ -68,7 +68,9 @@ def generate_protein_mpnn_sequences(
                 ca_only=ca_only,
                 materialize=True,
             )
-            parsed = parse_PDB(str(prepared.pdb_path), ca_only=ca_only)
+            parsed = parse_PDB(
+                str(prepared.pdb_path), ca_only=ca_only,
+                input_chain_list=native._protein_parser_aliases(sample, prepared))
             if not isinstance(parsed, list) or len(parsed) != 1:
                 raise native.MPNNSystemError("ProteinMPNN parser did not return one structure")
             parsed[0]["name"] = safe
@@ -181,6 +183,7 @@ def generate_native_mpnn_sequences(
     work_dir: Path,
     seed: int,
     antibody_plans: Mapping[str, Any] | None = None,
+    shared_input: bool = False,
 ) -> tuple[dict[str, Any], dict[str, str]]:
     """Call the shared native MPNN worker for one validation batch.
 
@@ -203,6 +206,7 @@ def generate_native_mpnn_sequences(
             repo_root=repo_root,
             work_dir=work_dir,
             seed=seed,
+            **({"shared_input": True} if shared_input else {}),
             **({"antibody_plans": antibody_plans} if antibody_plans else {}),
         )
     except TypeError as exc:

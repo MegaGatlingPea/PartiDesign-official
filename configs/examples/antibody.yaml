@@ -168,3 +168,38 @@ penguinpox_7eow_reference:
   score: false
   postprocess: false
   override: true
+
+glp1r_vhh_bindcraft2:
+  format: antibody
+  sample_num: 5
+  antibody:
+    scaffold: bindcraft2_vhh
+    chains:
+      VHH: B
+    template: true
+    design:
+      VHH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: official
+          CDR2: official
+          CDR3: official
+        framework: 35/37/45/47/50/59/97-99/115-116
+    paratope:
+      VHH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        framework: 26/34/51/58-59/95-96/115-116
+  antigen:
+    input: ./configs/examples/antibody_opt/glp1r_vhh_01.cif
+    crop:
+      include:
+      - A
+  score: false
+  postprocess: false
+  override: true

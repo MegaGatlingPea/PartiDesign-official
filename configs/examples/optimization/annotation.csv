@@ -1,0 +1,3 @@
+filename,task,sample_id,source_status,design_chains,cyclic_offset
+linear_complex.cif,linear_peptides,linear,passed,"[{""B"": ""peptide""}]",false
+cyclic_complex.cif,cyclic_peptides,cyclic,passed,"[{""B"": ""peptide""}]",true

@@ -752,7 +752,8 @@ class AF3MSACache:
             template_settings = payload.get("template_settings")
             if not isinstance(template_settings, Mapping):
                 return False
-            if template_settings.get("enabled") is not self.settings["templates"]:
+            enabled = template_settings.get("enabled")
+            if type(enabled) is not bool or (self.settings["templates"] and not enabled):
                 return False
             if (self.settings["templates"] and template_settings.get("max_template_date")
                     != self.settings["max_template_date"]):
@@ -1006,6 +1007,12 @@ class AF3MSACache:
                     continue
                 shutil.rmtree(child, ignore_errors=True)
 
+    def _effective_reference(self, reference: dict[str, Any]) -> dict[str, Any]:
+        """Apply this consumer's template policy without changing cached evidence."""
+        if self.settings["templates"] or reference["modality"] != "protein":
+            return reference
+        return {**reference, "templates": [], "template_count": 0, "max_templates": 0}
+
     def lookup(self, modality: str, sequence: str) -> dict[str, Any] | None:
         if modality not in _MODALITIES:
             raise MSAConfigError(f"unsupported modality: {modality}")
@@ -1015,7 +1022,7 @@ class AF3MSACache:
         for row in self._cached_candidates(modality, sequence):
             reference = self._reference(int(row["id"]), int(row["profile_id"]))
             if reference is not None:
-                return reference
+                return self._effective_reference(reference)
         return None
 
     def reference(self, entry_id: int, profile_id: int, generation_id: int) -> dict[str, Any] | None:
@@ -1029,7 +1036,7 @@ class AF3MSACache:
         reference = self._reference(entry_id, profile_id, generation_id)
         if reference is None or not self._compatible_profile(payload, reference["modality"]):
             return None
-        return reference
+        return self._effective_reference(reference)
 
     def _search(self, modality: str, sequence: str) -> dict[str, Any]:
         if self.settings["source"] == "af3":

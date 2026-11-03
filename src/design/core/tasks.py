@@ -433,7 +433,7 @@ def _parse_partial(value: Any, *, task_name: str, invocation_dir: Path) -> Parti
     where = f"task {task_name!r} partial"
     if not isinstance(value, Mapping):
         raise DesignConfigError(f"{where} must be a mapping")
-    _closed(value, {"reference", "result_csv", "fraction"}, where)
+    _closed(value, {"reference", "result_csv", "fraction", "cdr_lengths"}, where)
     if not {"reference", "fraction"} <= set(value):
         raise DesignConfigError(f"{where} requires reference and fraction")
     reference = _resolve_local_path(value["reference"], invocation_dir, f"{where}.reference")
@@ -456,7 +456,17 @@ def _parse_partial(value: Any, *, task_name: str, invocation_dir: Path) -> Parti
         raise DesignConfigError(f"{where}.fraction must be finite in (0, 1]")
     if round(fraction * 400) < 1:
         raise DesignConfigError(f"{where}.fraction must select at least one of 400 steps")
-    return PartialSpec(reference=reference, result_csv=result_csv, fraction=fraction)
+    cdr_lengths = value.get("cdr_lengths", {})
+    if not isinstance(cdr_lengths, Mapping) or set(cdr_lengths) - {"VH", "VL", "VHH"}:
+        raise DesignConfigError(f"{where}.cdr_lengths must map antibody roles to CDR lengths")
+    resolved = {}
+    for role, lengths in cdr_lengths.items():
+        if not isinstance(lengths, Mapping) or set(lengths) != {"CDR1", "CDR2", "CDR3"}:
+            raise DesignConfigError(f"{where}.cdr_lengths.{role} requires CDR1, CDR2 and CDR3")
+        resolved[role] = {key: _positive_int(count, f"{where}.cdr_lengths.{role}.{key}")
+                          for key, count in lengths.items()}
+    return PartialSpec(reference=reference, result_csv=result_csv, fraction=fraction,
+                       cdr_lengths=resolved)
 
 
 def parse_task(
@@ -480,6 +490,8 @@ def parse_task(
         _parse_partial(payload["partial"], task_name=name, invocation_dir=invocation_dir)
         if "partial" in payload else None
     )
+    if partial is not None and partial.cdr_lengths:
+        raise DesignConfigError("partial.cdr_lengths requires format: antibody")
     sample_num = _positive_int(payload.get("sample_num"), f"task {name!r} sample_num")
     chains = _parse_design_chains(payload.get("design_chains"), name)
     condition = payload.get("condition", {})
@@ -526,6 +538,8 @@ def parse_task(
                     if partial is not None and "design_length" not in payload else
                     _parse_length_plans(payload.get("design_length"), chains, name))
     if partial is not None:
+        if "design_length" in payload:
+            partial = replace(partial, length_constraints=tuple(plan.lengths for plan in length_plans))
         length_plans = (LengthPlan(0, {}),)
     return TaskSpec(
         name=name,

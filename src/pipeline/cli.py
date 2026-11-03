@@ -22,15 +22,17 @@ def _single(parser, *names, **kwargs):
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     from partidesign.cli import _msa_options
     _msa_options(parser)
-    parser.add_argument("task_file", type=Path, help="Native design task YAML; select task names with --task")
-    _single(parser, "--preset", choices=("auto", "protein", "nuc", "ppi"),
+    parser.add_argument("task_file", type=Path,
+                        help="Native task YAML or structure directory containing annotation.csv")
+    _single(parser, "--preset", choices=("auto", "protein", "nuc", "ppi", "antibody"),
             help="Workflow preset, resolved per task (default: auto)")
-    parser.add_argument("--task", action="append", help="Select a task name (repeatable)")
+    parser.add_argument("--task", action="append", help="Select a YAML task or annotation task group (repeatable)")
     _single(parser, "--config", type=Path, help="Pipeline workflow YAML (recycle, per-round operations and final validation)")
     _single(parser, "--recycle", type=int, help="Total rounds including first validation (default: 3)")
     _single(parser, "--first-mpnn-count", type=int, help="Auto MPNN proposals per first-round structure (default: 1)")
     _single(parser, "--mpnn-count", type=int, help="Auto MPNN proposals per later-round parent (default: 4)")
-    _single(parser, "--method", choices=("esmfold2-fast", "af2_ig", "af3"),
+    from .config import METHODS
+    _single(parser, "--method", choices=METHODS,
             help="Iteration refold backend (default: esmfold2-fast)")
     _single(parser, "--num-clusters", type=int, help="First-round number of sequence clusters (default: 200)")
     _single(parser, "--max-pass", type=int, help="Later-round task-wide upper limit (default: 200)")
@@ -38,9 +40,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     _single(parser, "--relax", choices=("true", "false"),
             help="Whole-complex OpenMM between rounds (default: false)")
     _single(parser, "--partial-fraction", type=float,
-            help="Partial diffusion fraction of the 400-step grid (default: 0.625, last 250 intervals from index 150)")
+            help="Partial fraction between rounds and for directory initialization (default: 0.625; last 250/400 steps)")
     _single(parser, "--partial-replicas", type=int,
-            help="Partial diffusion proposals per selected parent (default: 4)")
+            help="Partial proposals per parent, including directory initialization (default: 4)")
     parser.add_argument("--criteria", action="append", help="Iteration criteria preset (repeatable)")
     parser.add_argument("--final-criteria", action="append", help="Final validation criteria preset (repeatable)")
     _single(parser, "--presets", type=Path, help="Additional native criteria definitions YAML")

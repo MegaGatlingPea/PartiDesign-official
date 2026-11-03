@@ -61,10 +61,10 @@ def _repo_root(task: Path) -> Path:
 
 
 def _task_config(
-    task: Path, *, allow_missing: bool = False
+    task: Any, *, allow_missing: bool = False
 ) -> tuple[dict[str, Any], dict[str, Any], Path | None]:
-    task = Path(task).expanduser().resolve()
-    from .metadata import snapshot_path, task_config as saved_task
+    from .metadata import authoring_dir, snapshot_path, task_config as saved_task
+    task = authoring_dir(task).expanduser().resolve()
     snapshot = snapshot_path(task)
     if snapshot is None:
         if allow_missing:

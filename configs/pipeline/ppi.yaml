@@ -1,8 +1,8 @@
-# Protein/peptide binder workflow with final paired AF2-IG validation.
-# Each model selects its best complex; both matched pairs must pass.
+# Protein/peptide binders: paired AF2-IG, Mol-1, AF3 and ESMFold2-standard final validation.
+# A candidate passes any method; AF2-IG requires both selected model pairs.
 preset: ppi
 final:
-  method: af2_ig
+  methods: [af2_ig, mol1, af3, esmfold2-standard]
   validation:
     af2:
       models:
@@ -10,6 +10,9 @@ final:
       - 2
       samples: 5
       mode: both
+    mol1: {samples: 5}
+    af3: {samples: 5}
+    esmfold2: {samples: 5}
 criteria_routes:
   protein:
     screen:
@@ -17,17 +20,27 @@ criteria_routes:
       - pipeline_protein_binder
       af3:
       - pipeline_protein_binder
+      mol1:
+      - pipeline_protein_binder
       af2_ig:
       - pipeline_af2_ig_protein
     final:
-    - af2_ig_protdbench
+      af2_ig: [af2_ig_protdbench]
+      mol1: [af3_basic]
+      af3: [af3_basic]
+      esmfold2-standard: [af3_basic]
   peptide:
     screen:
       esmfold2-fast:
-      - pipeline_protein_binder
+      - pipeline_peptide_binder
       af3:
-      - pipeline_protein_binder
+      - pipeline_peptide_binder
+      mol1:
+      - pipeline_peptide_binder
       af2_ig:
       - pipeline_af2_ig_peptide
     final:
-    - af2_ig_peptide
+      af2_ig: [af2_ig_peptide]
+      mol1: [af3_peptide]
+      af3: [af3_peptide]
+      esmfold2-standard: [af3_peptide]

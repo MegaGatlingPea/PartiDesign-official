@@ -23,7 +23,7 @@ partidesign <command> --help
 | [`partidesign postfilter`](postfilter.md) | Relax and screen passing protein and peptide complexes |
 | [`partidesign cluster`](cluster.md) | Group passing designs by backbone similarity |
 
-For a first run, follow the [main README](../README.md#inference). After generation,
+For a first run, follow the [generation guide](design.md#a-first-run). After generation,
 use the [validation guide](validate.md) to choose the method, sequence budget, and
 passing criteria before running an evaluation. The [performance guide](performance.md)
 explains the paper's computational budgets and evaluation protocols.
@@ -32,9 +32,19 @@ explains the paper's computational budgets and evaluation protocols.
 
 `partidesign pipeline TASKS.yaml` runs design, refinement, and validation in one
 command. It generates once, then refines sequences and structures through MPNN,
-refolding, selection, and partial diffusion. OpenMM is optional. Final validation
-uses Mol-1 for protein/nuc presets or paired AF2-IG predictions for explicit `ppi`.
-See the [complete pipeline guide](pipeline.md) for
+refolding, selection, and partial diffusion. All presets use ESMFold2-fast with
+relaxed pipeline screening during iteration; OpenMM is optional.
+
+Final validation for `protein` and `nuc` uses Mol-1, AF3,
+and ESMFold2-standard with five samples each. Native antibody tasks automatically
+choose the `antibody` preset: five ESMFold2-standard predictions per selected
+candidate, ranked by 0.8 ipTM + 0.2 pTM before final criteria and mandatory antigen-contact
+checks. See [antibody pipelines](pipeline.md#antibody-pipelines) for de novo and
+annotated-complex commands. The explicit `ppi` preset adds
+AF2-IG models 1 and 2, each with five matched complex/monomer pairs; both
+selected model winners must pass the AF2 internal filter. Every final method
+runs, and any passing method accepts the candidate. The lighter demo uses only
+Mol-1 with five final samples. See the [complete pipeline guide](pipeline.md) for
 presets, round/task overrides, the insulin receptor demo, outputs, and resume.
 For single-reference sampling with `partidesign design`, see
 [partial diffusion](partial.md).

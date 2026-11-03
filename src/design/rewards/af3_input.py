@@ -14,6 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 import re
 import functools
+import json
 from pathlib import Path
 from typing import Any
 
@@ -135,6 +136,102 @@ def _record_atoms(record: Any) -> Any:
   if atoms is None:
     raise AF3InputError("AF3 input record must expose an atoms AtomArray")
   return atoms
+
+
+def _fixed_atom_inventories(record: Any, atoms: Any) -> dict[int, tuple[str, ...]]:
+  """Read only explicitly authored exact inventories, keyed by source residue UID."""
+  raw = record.get("fixed_restypes") if isinstance(record, Mapping) else getattr(record, "fixed_restypes", None)
+  if raw is None:
+    row = record.get("row", {}) if isinstance(record, Mapping) else getattr(record, "row", {})
+    raw = row.get("fixed_restypes", ()) if isinstance(row, Mapping) else ()
+  if isinstance(raw, str):
+    try:
+      raw = json.loads(raw) if raw.strip() else ()
+    except (ValueError, TypeError) as exc:
+      raise AF3InputError("fixed_restypes is not valid JSON") from exc
+  if isinstance(raw, Mapping):
+    raw = raw.get("residues", (raw,))
+  if not isinstance(raw, (list, tuple)):
+    return {}
+  declared = [item for item in raw if isinstance(item, Mapping) and "atom_names" in item]
+  if not declared:
+    return {}
+  from ..utils.source_mapping import canonical_chain_ids
+  chain_ids = canonical_chain_ids(atoms)
+  residue_uids = np.asarray(atoms.residue_uid, dtype=np.int64)
+  ins_codes = np.asarray(getattr(atoms, "ins_code", np.full(len(atoms), ""))).astype(str)
+  names = np.asarray(atoms.atom_name).astype(str)
+  heavy = ~np.isin(np.char.upper(np.asarray(atoms.element).astype(str)), ("H", "D", "T"))
+  result: dict[int, tuple[str, ...]] = {}
+  for item in declared:
+    inventory = item["atom_names"]
+    if (not isinstance(inventory, (list, tuple)) or not inventory
+        or any(not isinstance(name, str) or not name for name in inventory)
+        or len(set(inventory)) != len(inventory)):
+      raise AF3InputError("fixed_restypes.atom_names must be a non-empty unique atom-name list")
+    uid = item.get("residue_uid", item.get("res_uid", item.get("uid")))
+    if uid is not None:
+      mask = residue_uids == int(uid)
+    else:
+      chain = str(item.get("chain", item.get("label_asym_id", "")))
+      if not chain or item.get("res_id") is None:
+        raise AF3InputError("fixed atom inventory needs a residue UID or chain/res_id")
+      mask = (chain_ids == chain) & (np.asarray(atoms.res_id, dtype=np.int64) == int(item["res_id"]))
+      mask &= ins_codes == str(item.get("ins_code") or "")
+    resolved = set(residue_uids[mask].tolist())
+    if len(resolved) != 1:
+      raise AF3InputError("fixed atom inventory does not resolve to exactly one source residue")
+    uid = int(next(iter(resolved)))
+    actual = names[(residue_uids == uid) & heavy].tolist()
+    if len(actual) != len(set(actual)) or set(actual) != set(inventory):
+      raise AF3InputError(f"fixed atom inventory disagrees with source residue UID {uid}")
+    normalized = tuple(sorted(inventory))
+    if uid in result and result[uid] != normalized:
+      raise AF3InputError(f"conflicting fixed inventories for residue UID {uid}")
+    result[uid] = normalized
+  return result
+
+
+def _fixed_component_ccd(component_id: str, source_id: str, names: tuple[str, ...],
+                         entry: Mapping[str, Any]) -> str:
+  """Subset an authoritative CCD without replacing its bond orders or stereo."""
+  from biotite.structure.io import pdbx
+
+  atom_names = list(entry.get("_chem_comp_atom.atom_id", ()))
+  if not set(names).issubset(atom_names):
+    raise AF3InputError(f"fixed {source_id!r} inventory contains atoms absent from its authoritative CCD")
+  atom_keep = [index for index, name in enumerate(atom_names) if str(name) in names]
+  starts = list(entry.get("_chem_comp_bond.atom_id_1", ()))
+  ends = list(entry.get("_chem_comp_bond.atom_id_2", ()))
+  if len(starts) != len(ends):
+    raise AF3InputError(f"authoritative CCD {source_id!r} has inconsistent bonds")
+  bond_keep = [index for index, (left, right) in enumerate(zip(starts, ends, strict=True))
+               if str(left) in names and str(right) in names]
+  block = pdbx.CIFBlock()
+  block["chem_comp"] = pdbx.CIFCategory({
+      "id": [component_id], "name": [component_id],
+      "type": list(entry.get("_chem_comp.type", ("NON-POLYMER",))),
+      "mon_nstd_parent_comp_id": [source_id],
+      "formula": ["?"], "formula_weight": ["?"], "pdbx_synonyms": ["?"],
+  })
+  for category, keep, count in (("chem_comp_atom", atom_keep, len(atom_names)),
+                                 ("chem_comp_bond", bond_keep, len(starts))):
+    columns = {}
+    prefix = "_" + category + "."
+    for key, values in entry.items():
+      if not str(key).startswith(prefix):
+        continue
+      column = str(key)[len(prefix):]
+      values = list(values)
+      if len(values) != count:
+        raise AF3InputError(f"authoritative CCD {source_id!r} has inconsistent {category} columns")
+      columns[column] = ([component_id] * len(keep) if column == "comp_id"
+                         else [values[index] for index in keep])
+    if columns and keep:
+      block[category] = pdbx.CIFCategory(columns)
+  document = pdbx.CIFFile()
+  document[component_id] = block
+  return document.serialize()
 
 
 def _record_design_chains(record: Any, atoms: Any | None = None) -> dict[str, str]:
@@ -987,6 +1084,7 @@ def build_af3_input(
   if len(atoms) == 0:
     raise AF3InputError("AF3 input record has no atoms")
   design = _record_design_chains(input_record, atoms)
+  fixed_inventories = _fixed_atom_inventories(input_record, atoms)
   sequences = _variant_sequences(variant)
   record_ligand_entries = _record_ligand_entries(input_record)
 
@@ -1195,6 +1293,8 @@ def build_af3_input(
   )
   cyclic_candidate: set[str] = set()
   molecule_overrides: dict[str, Any] = {}
+  exact_component_ccds: dict[str, str] = {}
+  exact_component_rows: dict[str, tuple[int, ...]] = {}
   trusted_occurrences: dict[str, bool] = {}
   materialized_smiles_sources: set[str] = set()
   reserved_component_ids = set(custom_components) | set(custom_component_map.values()) | available_ccd_ids
@@ -1518,12 +1618,45 @@ def build_af3_input(
             raise AF3InputError(f"chain {source_id!r} has an ambiguous native residue occurrence")
           residue_native_position[residue_key] = (native_id, position)
           name = names[observed_index]
+        fixed_inventory = (
+            fixed_inventories.get(int(source_group["residue_uid"]))
+            if group is not None else None
+        )
+        exact_component = None
+        if fixed_inventory is not None:
+          if sequence[position - 1] != _one_letter(name, modality):
+            raise AF3InputError(
+                f"sequence changed fixed exact-inventory position {source_id}:{observed_index + 1}"
+            )
+          if native_ccd is None or name not in native_ccd:
+            raise AF3InputError(
+                f"fixed exact polymer inventory for {name!r} requires its authoritative native CCD"
+            )
+          native_entry = native_ccd[name]
+          native_names = list(native_entry.get("_chem_comp_atom.atom_id", ()))
+          native_elements = list(native_entry.get("_chem_comp_atom.type_symbol", ()))
+          if len(native_names) != len(native_elements):
+            raise AF3InputError(f"authoritative CCD {name!r} has inconsistent atoms")
+          native_heavy = {str(atom) for atom, element in zip(native_names, native_elements, strict=True)
+                          if str(element).strip().upper() not in {"H", "D", "T"}}
+          if set(fixed_inventory) != native_heavy:
+            exact_component = _allocate_custom_component_id()
+            exact_component_ccds[exact_component] = _fixed_component_ccd(
+                exact_component, name, fixed_inventory, native_entry
+            )
+            exact_component_rows[exact_component] = tuple(int(row) for row in group)
+            modifications.append((exact_component, position))
+          native_residues[-1] = {
+              **native_residues[-1],
+              "fixed_atom_names": fixed_inventory,
+              "native_component_id": exact_component or name,
+          }
         standard = (
             (modality == "protein" and name in _PROTEIN_3_TO_1)
             or (modality == "rna" and name in _RNA_CODES)
             or (modality == "dna" and name in _DNA_CODES)
         )
-        if not standard and name not in {"UNK", "N", "DN"}:
+        if exact_component is None and not standard and name not in {"UNK", "N", "DN"}:
           if name not in available_ccd_ids:
             raise AF3InputError(
                 f"polymer modification {name!r} on chain {source_id!r} "
@@ -1665,6 +1798,9 @@ def build_af3_input(
   generated_user_ccd = _render_user_ccd(
       atoms, custom_components, custom_component_map, molecule_overrides=molecule_overrides
   )
+  generated_user_ccd = _merge_user_ccd(
+      generated_user_ccd, "".join(exact_component_ccds.values()) or None
+  )
   user_ccd = _merge_user_ccd(provided_user_ccd, generated_user_ccd)
 
   sample_seed = int(seed) + int(sample)
@@ -1692,6 +1828,7 @@ def build_af3_input(
       component_id: tuple(int(row) for entry in entries for row in np.asarray(entry["rows"]).tolist())
       for component_id, entries in custom_components.items()
   }
+  component_rows.update(exact_component_rows)
   source_polymer_sequences: dict[str, tuple[str, ...]] = {}
   for source_id, plan in polymer_plans.items():
     if plan["role"] != "context":

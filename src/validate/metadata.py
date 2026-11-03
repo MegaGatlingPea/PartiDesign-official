@@ -1,5 +1,6 @@
 """Locate native chemistry/motif metadata in ordinary and pipeline task leaves."""
 from pathlib import Path
+from os import PathLike
 from collections.abc import Mapping
 
 
@@ -24,3 +25,20 @@ def task_config(config, task):
     if result is None and len(tasks) == 1:
         result = next(iter(tasks.values()))
     return result if isinstance(result, Mapping) else None
+
+
+def authoring_dir(input_record):
+    """Locate immutable task authoring without changing input/output ownership.
+
+    Pipeline rows may refer to a seed-specific snapshot while several seeds
+    share one structural task directory. Paths remain accepted by chemistry
+    readers that already received their metadata directory explicitly.
+    """
+    if isinstance(input_record, (str, PathLike)):
+        return Path(input_record)
+    if isinstance(input_record, Mapping):
+        row, task = input_record.get("row", {}), input_record.get("task_dir")
+    else:
+        row, task = getattr(input_record, "row", {}), getattr(input_record, "task_dir", None)
+    pointer = row.get("_pipeline_metadata") if isinstance(row, Mapping) else None
+    return Path(pointer or task) if pointer or task is not None else None

@@ -54,7 +54,10 @@ is requested. Sequence-redesign download targets are `proteinmpnn`,
 `solublempnn`, `ligandmpnn`, and `nampnn`; CyclicMPNN is Git-supplied. Downloads
 do not prepare full MSA search databases. Respect the selected model root and
 upstream model access terms. For structure directories lacking `result.csv`,
-use standalone `partidesign score` as described in [workflows.md](workflows.md).
+use standalone `partidesign score` for scoring as described in
+[workflows.md](workflows.md), or pipeline with annotation.csv for sequence/structure
+optimization as described in [partial-pipeline.md](partial-pipeline.md). Do not
+invent result.csv rows as an input workaround.
 
 ## Make the sequence budget explicit
 
@@ -106,6 +109,7 @@ Common starting presets, subject to input compatibility:
 | Request | Preset |
 | --- | --- |
 | Protein binder with ESMFold2/AF3/Mol-1 | `af3_basic` or `af3_strict` |
+| Linear/cyclic peptide binder with ESMFold2/AF3/Mol-1 | `af3_peptide` |
 | Protein binder or eligible peptide with AF2 | `af2_ig_protein` or `af2_ig_peptide` |
 | Protein or RNA/DNA monomer | `af3_protein_monomer` or `af3_na_monomer` |
 | Joint protein–nucleic-acid geometry | `af3_protein_na_complex` |
@@ -113,6 +117,10 @@ Common starting presets, subject to input compatibility:
 | Antibody with antigen context | `af3_antibody` |
 | Atomic motif scaffolding | `af3_ame` |
 | Refined ligand generation in a protein pocket | `odesign_denovo_ligand` |
+
+`af3_peptide` requires `binder_iptm > 0.8`, `complex_design_rmsd < 2.5 Å`
+and `rfd4_min_ipae_angstrom < 1.5 Å`,
+without a binder pTM threshold. It applies to both linear and cyclic peptides.
 
 Despite its name, `af3_basic` also supports both ESMFold2 variants and Mol-1. Read exact
 rules before selecting a preset; missing required metrics are `unavailable`,
@@ -164,6 +172,27 @@ representatives, are supported;
 ligand/ion pairs are not applicable. Missing required PAE leaves scores
 unavailable. AF2/PartiScore/Vina do not calculate ipSAE, and shipped filtering
 and ranking remain unchanged.
+
+## Antibody contact metrics
+
+Preserve the native role, source-to-output and intended paratope mappings.
+`antibody_interface_residues` counts unique antibody residues contacting antigen
+through heavy atoms at ≤4 Å. `antibody_off_paratope_contact_fraction` is the
+fraction outside `antibody.paratope`; omit VH–VL internal contacts. Omitted
+paratope defaults to all CDRs and no framework independently of identity design
+and soft template visibility. Missing mappings/context are unavailable evidence.
+
+Standalone `antibody_contacts` is an optional screen with ≥7 interface residues
+and ≤0.20 off-paratope fraction; `af3_antibody` and other existing standalone
+defaults are unchanged. Multiple standalone criteria are OR, so combine contact,
+confidence and geometry rules within one native preset when all are required.
+Every antibody pipeline adds the contact rules on the same prediction even with
+`criteria_mode: any`. The antibody pipeline profile uses ESMFold2-fast iteration,
+ESMFold2-standard-only final with five GT samples, 0.8 ipTM + 0.2 pTM best selection before filtering,
+RFD4 min iPAE and target-aligned binder RMSD each ≤3 Å during iteration and
+≤2 Å at final validation.
+Use native `presets.antibody_contacts` overrides for custom contact thresholds;
+see `<repo>/docs/validate.md#antibody-contact-metrics`.
 
 ## Mol-1 and shared MSA policy
 

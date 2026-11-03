@@ -254,90 +254,91 @@ def _bond_payload(
     raw = _decode_jsonish(raw, default=())
     if isinstance(raw, Mapping):
         raw = raw.get("bonds", raw.get("constraints", ()))
-    if not raw:
-        # ``read_structure`` retains the source CIF/PDB bond graph.  Result
-        # rows from older inference runs may not have a bond_constraints
-        # column, so recover only non-template edges here: standard adjacent
-        # peptide C-N links are inferred by ESMFold2, while cyclic,
-        # cross-chain, disulfide, and ligand edges remain explicit.
-        import numpy as np
-        source = getattr(atoms, "bonds", None)
-        if source is not None:
-            chains = _canonical_chain_values(atoms)
-            tokens = np.asarray(atoms.token_uid, dtype=np.int64)
-            atom_names = np.asarray(atoms.atom_name).astype(str)
-            modalities = np.asarray(atoms.mol_type).astype(str)
-            molecule_uids = getattr(atoms, "molecule_uid", None)
-            if molecule_uids is not None:
-                molecule_uids = np.asarray(molecule_uids, dtype=np.int64)
-            component_uids = getattr(atoms, "component_uid", None)
-            if component_uids is not None:
-                component_uids = np.asarray(component_uids, dtype=np.int64)
-            if ligand_entries is None:
-                ligand_entries = _field(input_record, "ligand_entries", {}) or {}
-            row_smiles = _row_field(input_record, "design_sequence", "")
-            values: list[dict[str, Any]] = []
-            for left, right, order in source.as_array().tolist():
-                i, j = int(left), int(right)
-                if int(tokens[i]) == int(tokens[j]):
-                    # Residue/CCD-internal chemistry is reconstructed by the
-                    # native input builder and cannot be represented as a
-                    # token-to-token ESMFold2 restraint.
-                    continue
-                if modalities[i] == modalities[j] == "ligand":
-                    same_molecule = (
-                        molecule_uids is not None
-                        and int(molecule_uids[i]) == int(molecule_uids[j])
-                    )
-                    if same_molecule:
-                        same_component = (
-                            component_uids is None
-                            or int(component_uids[i]) == int(component_uids[j])
-                        )
-                        # A private SMILES or one CCD component recreates the
-                        # internal graph.  A bond between CCD components is
-                        # retained for the native chemistry ledger.
-                        chain = str(chains[i])
-                        current_entry = (
-                            ligand_entries.get(chain)
-                            if isinstance(ligand_entries, Mapping)
-                            else None
-                        )
-                        has_smiles = bool(
-                            isinstance(current_entry, Mapping)
-                            and str(current_entry.get("smiles", "")).strip()
-                        )
-                        design_values = getattr(atoms, "is_design", None)
-                        has_smiles = has_smiles or bool(
-                            modalities[i] == "ligand"
-                            and design_values is not None
-                            and bool(np.asarray(design_values, dtype=bool)[i])
-                            and isinstance(row_smiles, str)
-                            and row_smiles.strip()
-                        )
-                        if same_component or has_smiles:
-                            continue
-                same_chain = chains[i] == chains[j]
-                adjacent_peptide = (
-                    same_chain and abs(int(tokens[i]) - int(tokens[j])) == 1
-                    and {atom_names[i], atom_names[j]} == {"C", "N"}
-                )
-                adjacent_nucleic = (
-                    same_chain and abs(int(tokens[i]) - int(tokens[j])) == 1
-                    and {atom_names[i], atom_names[j]} == {"O3'", "P"}
-                )
-                if adjacent_peptide or adjacent_nucleic:
-                    continue
-                values.append({
-                    "endpoint1": {"atom_uid": int(atoms.atom_uid[i])},
-                    "endpoint2": {"atom_uid": int(atoms.atom_uid[j])},
-                    "bond_order": {1: "single", 2: "double", 3: "triple", 4: "aromatic"}.get(int(order), "?"),
-                })
-            raw = values
     if not isinstance(raw, (list, tuple)):
         return []
+    raw = list(raw)
+    from .sequences import _bond_order_name
+    # ``read_structure`` retains the source CIF/PDB bond graph.  Result
+    # rows declare designed endpoints, while context links can exist only in
+    # the source graph. Merge non-template edges even with a nonempty ledger:
+    # standard adjacent peptide C-N links are inferred by ESMFold2, while cyclic,
+    # cross-chain, disulfide, and ligand edges remain explicit.
+    import numpy as np
+    source = getattr(atoms, "bonds", None)
+    if source is not None:
+        chains = _canonical_chain_values(atoms)
+        tokens = np.asarray(atoms.token_uid, dtype=np.int64)
+        atom_names = np.asarray(atoms.atom_name).astype(str)
+        modalities = np.asarray(atoms.mol_type).astype(str)
+        molecule_uids = getattr(atoms, "molecule_uid", None)
+        if molecule_uids is not None:
+            molecule_uids = np.asarray(molecule_uids, dtype=np.int64)
+        component_uids = getattr(atoms, "component_uid", None)
+        if component_uids is not None:
+            component_uids = np.asarray(component_uids, dtype=np.int64)
+        if ligand_entries is None:
+            ligand_entries = _field(input_record, "ligand_entries", {}) or {}
+        row_smiles = _row_field(input_record, "design_sequence", "")
+        values: list[dict[str, Any]] = []
+        for left, right, order in source.as_array().tolist():
+            i, j = int(left), int(right)
+            if int(tokens[i]) == int(tokens[j]):
+                # Residue/CCD-internal chemistry is reconstructed by the
+                # native input builder and cannot be represented as a
+                # token-to-token ESMFold2 restraint.
+                continue
+            if modalities[i] == modalities[j] == "ligand":
+                same_molecule = (
+                    molecule_uids is not None
+                    and int(molecule_uids[i]) == int(molecule_uids[j])
+                )
+                if same_molecule:
+                    same_component = (
+                        component_uids is None
+                        or int(component_uids[i]) == int(component_uids[j])
+                    )
+                    # A private SMILES or one CCD component recreates the
+                    # internal graph.  A bond between CCD components is
+                    # retained for the native chemistry ledger.
+                    chain = str(chains[i])
+                    current_entry = (
+                        ligand_entries.get(chain)
+                        if isinstance(ligand_entries, Mapping)
+                        else None
+                    )
+                    has_smiles = bool(
+                        isinstance(current_entry, Mapping)
+                        and str(current_entry.get("smiles", "")).strip()
+                    )
+                    design_values = getattr(atoms, "is_design", None)
+                    has_smiles = has_smiles or bool(
+                        modalities[i] == "ligand"
+                        and design_values is not None
+                        and bool(np.asarray(design_values, dtype=bool)[i])
+                        and isinstance(row_smiles, str)
+                        and row_smiles.strip()
+                    )
+                    if same_component or has_smiles:
+                        continue
+            same_chain = chains[i] == chains[j]
+            adjacent_peptide = (
+                same_chain and abs(int(tokens[i]) - int(tokens[j])) == 1
+                and {atom_names[i], atom_names[j]} == {"C", "N"}
+            )
+            adjacent_nucleic = (
+                same_chain and abs(int(tokens[i]) - int(tokens[j])) == 1
+                and {atom_names[i], atom_names[j]} == {"O3'", "P"}
+            )
+            if adjacent_peptide or adjacent_nucleic:
+                continue
+            values.append({
+                "endpoint1": {"atom_uid": int(atoms.atom_uid[i])},
+                "endpoint2": {"atom_uid": int(atoms.atom_uid[j])},
+                "bond_order": _bond_order_name(order),
+            })
+        raw.extend(values)
     positions = _token_positions(atoms)
-    result: list[dict[str, Any]] = []
+    by_pair: dict[tuple, dict[str, Any]] = {}
     for item in raw:
         if not isinstance(item, Mapping):
             continue
@@ -353,17 +354,22 @@ def _bond_payload(
         )
         if left is None or right is None:
             raise ESMFold2Error("covalent bond lacks both endpoints")
-        order = str(item.get("bond_order", item.get("order", item.get("type", "?")))).lower()
-        order = {"sing": "single", "doub": "double", "trip": "triple",
-                 "arom": "aromatic", "any": "?", "unknown": "?"}.get(order, order)
-        if order not in {"?", "single", "double", "triple", "aromatic"}:
-            order = "?"
-        result.append({
-            "endpoint1": _endpoint(atoms, left, positions, ligand_atom_names),
-            "endpoint2": _endpoint(atoms, right, positions, ligand_atom_names),
-            "bond_order": order,
-        })
-    return result
+        order = _bond_order_name(item.get("bond_order", item.get("order", item.get("type", "?"))))
+        endpoints = [_endpoint(atoms, value, positions, ligand_atom_names)
+                     for value in (left, right)]
+        endpoints.sort(key=lambda value: (value["chain_id"], value["residue_index"], value["atom_name"]))
+        pair = tuple((value["chain_id"], value["residue_index"], value["atom_name"])
+                     for value in endpoints)
+        previous = by_pair.get(pair)
+        if previous is not None:
+            known = previous["bond_order"]
+            if known != "?" and order != "?" and known != order:
+                raise ESMFold2Error(f"conflicting covalent bond orders for {pair}: {known!r} versus {order!r}")
+            if known != "?":
+                order = known
+        by_pair[pair] = {"endpoint1": endpoints[0], "endpoint2": endpoints[1],
+                         "bond_order": order}
+    return [by_pair[pair] for pair in sorted(by_pair)]
 
 
 def _private_segment_id(chain: str, index: int, used: set[str]) -> str:
@@ -442,6 +448,11 @@ def _generic_payload(
     from .sequences import _AA3_TO_1, _candidate_adapter, _fixed_modified_map
 
     modified_names, _ = _fixed_modified_map(input_record)
+    from src.design.rewards.af3_input import AF3InputError, _fixed_atom_inventories
+    try:
+        exact_inventories = _fixed_atom_inventories(input_record, atoms)
+    except AF3InputError as exc:
+        raise ESMFold2Error(str(exc)) from exc
     configured_ligands = _field(input_record, "ligand_entries", {}) or {}
     ligands = dict(configured_ligands) if isinstance(configured_ligands, Mapping) else {}
     ligand_atom_names: dict[int, str] = {}
@@ -454,7 +465,8 @@ def _generic_payload(
         ligands.update(resolved_context_ligands[0])
         ligand_atom_names.update(resolved_context_ligands[1])
     elif context_ligand_chains:
-        task_dir = _field(input_record, "task_dir", None)
+        from .metadata import authoring_dir
+        task_dir = authoring_dir(input_record)
         if task_dir is None:
             raise ESMFold2Error(
                 "context ligand validation requires the task resolved_config.yaml"
@@ -520,6 +532,10 @@ def _generic_payload(
                 and residue_uids is not None
                 and any(int(residue_uids[row]) in modified_names for row in rows)
             )
+            has_exact_inventory = bool(
+                exact_inventories and residue_uids is not None
+                and any(int(residue_uids[row]) in exact_inventories for row in rows)
+            )
             has_nonstandard_context_residue = (
                 chain not in design
                 and modality == "protein"
@@ -527,7 +543,7 @@ def _generic_payload(
                          .difference(_AA3_TO_1))
             )
             if modified_candidate is None and (
-                has_modified_residue or has_nonstandard_context_residue
+                has_modified_residue or has_nonstandard_context_residue or has_exact_inventory
             ):
                 modified_candidate = _candidate_adapter(
                     input_record, str(_field(input_record, "sample_id", "sample"))
@@ -539,7 +555,7 @@ def _generic_payload(
                     residue_uids is not None
                     and any(int(residue_uids[row]) in modified_names for row in rows)
                 )
-            if modified_candidate is not None and has_modified_residue:
+            if modified_candidate is not None and (has_modified_residue or has_exact_inventory):
                 if residue_uids is None:
                     raise ESMFold2Error(
                         f"modified chain {chain!r} has no residue UID ledger"
@@ -557,8 +573,16 @@ def _generic_payload(
                         f"sequence length changed for modified chain {chain!r}"
                     )
                 native_modifications: list[dict[str, Any]] = []
+                token_ids = sorted(set(np.asarray(atoms.token_uid)[rows].tolist()))
+                token_positions = {int(token): position for position, token in enumerate(token_ids)}
+                exact_positions = {
+                    token_positions[int(atoms.token_uid[row])] for row in rows
+                    if int(residue_uids[row]) in exact_inventories
+                }
                 for modification in modifications:
                     position = int(modification["position"])
+                    if not has_modified_residue and position not in exact_positions:
+                        continue
                     component = str(modification.get("ccd", "")).upper()
                     if chain not in design and component == "X":
                         # ``X`` is an unsupported source component, not a CCD
@@ -622,7 +646,8 @@ def _mixed_context_payload(input_record: Any, variant: Mapping[str, Any]) -> dic
     for chain in mixed:
         if len(set(kinds[chains == chain]).difference({"ligand"})) != 1:
             raise ESMFold2Error(f"chain {chain!r} contains multiple polymer modalities")
-    task = _field(input_record, "task_dir")
+    from .metadata import authoring_dir
+    task = authoring_dir(input_record)
     if task is None:
         raise ESMFold2Error("mixed context requires the task resolved_config.yaml")
     context_ligands = [chain for chain in _chain_order(atoms) if chain not in design

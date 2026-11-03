@@ -37,12 +37,18 @@ def generation_runner(cfg, repo):
     for flag in ("route",):
         if isinstance(opts.get(flag), bool):
             opts[flag] = str(opts[flag]).lower()
+    payload = cfg["task_payload"]
+    names = cfg["task_names"]
+    if cfg.get("seed_input"):
+        from .seeds import configuration_task
+        name, authored = configuration_task(cfg["seed_input"]["rows"][0])
+        payload, names = {name: authored}, [name]
     args = Namespace(**opts, task_file=Path(cfg["task_file"]) if cfg.get("task_file") else None,
-                     task=cfg["task_names"],
+                     task=names,
                      out=Path(cfg["output_dir"]) / "generation",
                      run_name="generation", seed=cfg["seed"])
     original = build_design_runner(args, Path(cfg["model_dir"]), invocation_dir=Path.cwd(),
-                                   task_payload=cfg["task_payload"])
+                                   task_payload=payload)
     native = OmegaConf.to_container(original.config, resolve=True)
     native["tasks_file"] = None
     native["tasks"] = copy.deepcopy(native["tasks"])
@@ -56,16 +62,19 @@ def generation_runner(cfg, repo):
     return DesignRunner(native, invocation_dir=Path.cwd())
 
 
-def context_route(record, task):
-    if record.row.get("heavy_role"):
+def context_route(record, task, *, prepared=None):
+    labels=getattr(record.atoms,"label_asym_id",record.atoms.chain_id)
+    if record.row.get("heavy_role") and any(str(kind) not in {"ion","water"}
+            for i,kind in enumerate(record.atoms.mol_type)
+            if str(labels[i]) not in record.design_chains):
         return "antibody"
-    modalities = {chain.modality for chain in chain_sequences(record)}
+    modalities = {chain.modality for chain in chain_sequences(record, prepared=prepared)}
     if len(modalities) > 1 and not modalities <= {"rna", "dna"}:
         return "joint"
     if record.tip_atoms and modalities=={"protein"} and "ligand" in set(record.atoms.mol_type):
         return "ame"
     kinds = {str(x) for i,x in enumerate(record.atoms.mol_type)
-             if str(record.atoms.chain_id[i]) not in record.design_chains}
+             if str(labels[i]) not in record.design_chains}
     kinds -= {"ion", "water"}
     if len(kinds) > 1:
         # A mixed receptor needs authored criteria/route, never a name guess.
@@ -74,8 +83,17 @@ def context_route(record, task):
         return "monomer"
     kind = next(iter(kinds))
     if kind == "protein":
-        if modalities == {"protein"} and max(len(residues(record.atoms,c)) for c in record.design_chains) <= 30:
-            return "peptide"
+        if modalities == {"protein"}:
+            roles={chain:kind=="peptide" for spec in task.get("design_chains",[])
+                   for chain,kind in spec.items()}
+            metadata=record.row.get("design_chains") or []
+            if isinstance(metadata,str):
+                metadata=json.loads(metadata)
+            roles.update({entry["chain"]:entry.get("sub_modality")=="peptide" or entry.get("modality")=="peptide"
+                          for entry in metadata if "chain" in entry})
+            if (all(roles.get(chain,False) for chain in record.design_chains)
+                    or max(len(residues(record.atoms,c)) for c in record.design_chains)<=30):
+                return "peptide"
         return "protein"
     if kind in {"rna","dna"}:
         return "nuc"
@@ -212,7 +230,29 @@ def import_candidates(source, target, names, *, layout=None):
                 bases[name]=_source_bases(entry.task_dir,snapshots[name])
             path=(folder if new_layout else folder/"inputs")/(entry.sample_id+entry.path.suffix)
             copies.append(pool.submit(_publish,entry.path,path))
-            row=_absolute_references(dict(entry.row),bases[name])
+            row=dict(entry.row)
+            if row.get("heavy_role"):
+                from src.validate.inputs import load_input
+                record=load_input(entry.path,row,entry.task_dir)
+                row=dict(record.row)
+                context=row.pop("_antibody_context",None)
+                if context is None:
+                    from src.design.core.tasks import parse_task,expand_requests
+                    from src.design.core.compiler import compile_request
+                    from src.design.core.runtime import reference_result_row
+                    authored=copy.deepcopy(snapshots[name]["tasks"][name])
+                    authored.update(sample_num=1,partial={"reference":str(entry.path),
+                        "result_csv":str(entry.task_dir/"result.csv"),"fraction":0.625})
+                    parsed=parse_task(name,authored,invocation_dir=entry.task_dir)
+                    restored=reference_result_row(compile_request(expand_requests((parsed,))[0]),filename=str(path))
+                    context=restored.pop("_antibody_context")
+                    row.update(restored)
+                if isinstance(context,str):
+                    context=json.loads(context)
+                context_path=folder/".work"/"antibody"/(entry.sample_id+".json")
+                atomic_json(context_path,context)
+                row["_antibody_context_path"]=str(context_path)
+            row=_absolute_references(row,bases[name])
             row["filename"]=str(path)
             result[name].append(Candidate(entry.sample_id,name,"",entry.sample_id,str(path),row,
                                           origin_path=str((entry.row.get("origin_path") or entry.path)
@@ -265,7 +305,7 @@ def _load_stage(path, *, folder=None, task=None):
 def _candidate_record(candidate, folder, **kwargs):
     """Parse within the stage, then attach the correctly named task metadata."""
     record=load_candidate(candidate,folder,**kwargs)
-    metadata=metadata_folder(folder,candidate.task)
+    metadata=Path(candidate.row["_pipeline_metadata"]) if candidate.row.get("_pipeline_metadata") else metadata_folder(folder,candidate.task)
     if metadata!=Path(folder):
         if is_dataclass(record):
             record=replace(record,task_dir=metadata)
@@ -275,12 +315,32 @@ def _candidate_record(candidate, folder, **kwargs):
     return record
 
 
+def _generate_parent(owner, parent, folder, stage, options, task, record=None):
+    """Prepare and redesign one parent in its MPNN worker."""
+    from .state import prepare_chain_sequences
+    if record is None:
+        record = _candidate_record(parent, folder)
+    else:
+        metadata = Path(parent.row.get("_pipeline_metadata") or metadata_folder(folder, parent.task))
+        if is_dataclass(record):
+            record = replace(record, path=Path(parent.path), row=parent.row, task_dir=metadata)
+        else:
+            record = copy.copy(record)
+            vars(record).update(path=Path(parent.path), row=parent.row, task_dir=metadata)
+    prepared = prepare_chain_sequences(record)
+    route = context_route(record, task, prepared=prepared)
+    if stage["method"] == "af2_ig":
+        from src.validate.af2 import validate_capability
+        validate_capability(record)
+    return record, route, prepared, owner.generate(record, stage, **options)
+
+
 def _relax(candidate, input_record, folder, config):
     from src.validate.sequences import _candidate_adapter
     from src.design.postproc.runner import build_parameterization_payload, PostprocessPreparationError
     from src.design.postproc.openmm.refine import refine_one, OpenMMPostprocessError
     import yaml
-    snapshot=yaml.safe_load((metadata_folder(folder,candidate.task)/"resolved_config.yaml").read_text())
+    snapshot=yaml.safe_load((input_record.task_dir/"resolved_config.yaml").read_text())
     authored=snapshot.get("tasks",{}).get(candidate.task,{})
     native=_candidate_adapter(input_record,candidate.candidate_id)
     from src.design.core.tasks import parse_task
@@ -317,12 +377,12 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
     state=stage_state(cfg,folder)
     method=stage["method"]
     requested_method=method
-    first_record=None
+    policy_records=None
     refold_override=None
-    policy_checked=bool(not final and method!="esmfold2-fast" and parents)
+    policy_checked=bool(not final and method in {"af2_ig","af3"} and parents)
     if policy_checked:
-        first_record=_candidate_record(parents[0],previous)
-        if method in {"af2_ig", "af3"} and has_special_polymer_bond(first_record):
+        policy_records=[_candidate_record(parent,previous) for parent in parents]
+        if method in {"af2_ig", "af3"} and any(has_special_polymer_bond(record) for record in policy_records):
             method="esmfold2-fast"
             validation=copy.deepcopy(stage["validation"])
             requested_group={"af2_ig":"af2","af3":"af3","mol1":"mol1"}[requested_method]
@@ -334,7 +394,7 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
             print(f"[{task_name}] round {number}: {requested_method} -> {method} "
                   "(special polymer-polymer bond)",flush=True)
     saved=None if force else _load_stage(state,folder=folder,task=task_name)
-    if saved is not None and (not policy_checked or saved[1].get("method")==method):
+    if saved is not None and saved[1].get("method")==method:
         print(f"[{task_name}] {'final' if final else f'round {number}'} resumed",flush=True)
         return saved[0],dict(saved[1],_resumed=True)
     # Only this invalidated phase's owned products are replaced. Upstream
@@ -351,35 +411,29 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
     folder.mkdir(parents=True,exist_ok=True)
     atomic_json(state,{"status":"running"})
     parents=_stage_inputs(parents,folder,previous,task=task_name,layout=cfg.get("_layout"))
-    if first_record is not None:
-        metadata={"path":Path(parents[0].path),"row":parents[0].row,
-                  "task_dir":metadata_folder(folder,task_name)}
-        if is_dataclass(first_record):
-            first_record=replace(first_record,**metadata)
-        else:
-            first_record=copy.copy(first_record)
-            vars(first_record).update(metadata)
-    if hasattr(owner, "activate"):
-        owner.activate(method,stage["validation"],task_cfg["openmm"])
     proposals=[]
     unique_sequences=set()
+    generation_jobs=[]
     for parent_index,parent in enumerate(parents):
-        record=first_record if parent_index==0 and first_record is not None else _candidate_record(parent,folder)
-        route=context_route(record,cfg["task_payload"][task_name])
-        names,presets=criteria_for(task_cfg,"final" if final else stage,route,method)
-        if method=="af2_ig":
-            from src.validate.af2 import validate_capability
-            validate_capability(record)
         effective=dict(stage,mpnn_count=0 if final else stage["mpnn_count"],
                        include_gt=True if final else stage.get("include_gt",True),
                        _task_index=list(cfg["task_payload"]).index(task_name),_parent_index=parent_index)
-        variants=owner.generate(record,effective,task_name=task_name,round_number=number,
+        generation_jobs.append((parent,effective,dict(task_name=task_name,round_number=number,
                                 parent_id=parent.candidate_id,seed=cfg["seed"],
-                                work_dir=folder/(".work/mpnn" if task_layout(cfg) else ".mpnn")/parent.candidate_id)
+                                work_dir=folder/(".work/mpnn" if task_layout(cfg) else ".mpnn")/parent.candidate_id),
+                                None if policy_records is None else policy_records[parent_index]))
+    authored=cfg["task_payload"][task_name]
+    if hasattr(owner,"generate_parents"):
+        generated=owner.generate_parents(generation_jobs,folder=folder,task=authored)
+    else:
+        generated=(_generate_parent(owner,parent,folder,effective,options,authored,record)
+                   for parent,effective,options,record in generation_jobs)
+    for parent,(record,route,prepared,variants) in _paired_outcomes(parents,generated):
+        names,presets=criteria_for(task_cfg,"final" if final else stage,route,method)
         for variant in variants:
             if variant.get("status") not in {"complete","ok"}:
                 raise RuntimeError(f"Sequence generation failed for {parent.candidate_id}: {variant.get('error')}")
-            chains=chain_sequences(record,variant)
+            chains=chain_sequences(record,variant,prepared=prepared)
             unique_sequences.add(sequence_key(chains))
             proposals.append((parent,record,variant,chains,names,presets))
     count={"task":task_name,"stage":"final" if final else (f"round_{number}" if task_layout(cfg) else f"recycle_{number:03d}"),
@@ -403,9 +457,12 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
     check_motif=not motif_policy or final or number==1
     metric_settings=(stage["validation"] if check_motif else
                      dict(stage["validation"], _pipeline_motif_geometry=False))
+    if hasattr(owner,"activate"):
+        owner.activate(method,stage["validation"],task_cfg["openmm"])
     jobs=[(p[1],p[2],method,stage["validation"],task_name) for p in proposals]
     outcomes=(owner.predict_many(jobs) if hasattr(owner,"predict_many") else
               (owner.predict(r,v,m,c,task_name=t) for r,v,m,c,t in jobs))
+    parent_invariants={}
     for ordinal,((parent,input_record,variant,chains,names,presets),(request_key,raw,hit)) in enumerate(_paired_outcomes(proposals,outcomes),1):
         actual_requests.add(request_key)
         count["cache_hits"]+=int(hit)
@@ -487,7 +544,9 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
                         published[identity]=str(target)
                     prediction[field]=published[identity]
         atomic_json(public/f"proposal{ordinal:06d}.json",record)
-        ipsae_metrics={name:record.get("metrics",{})[name] for name in IPSAE_METRIC_NAMES
+        report_metrics=(*IPSAE_METRIC_NAMES, "antibody_interface_residues",
+                        "antibody_off_paratope_contact_fraction")
+        ipsae_metrics={name:record.get("metrics",{})[name] for name in report_metrics
                        if name in record.get("metrics",{})}
         if not passing:
             result_rows.append({"candidate_id":f"proposal{ordinal:06d}","parent_id":parent.candidate_id,
@@ -497,7 +556,7 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
         raw_by_key={p["key"]:p for p in raw}
         for key in sorted(passing):
             prediction=record["predictions"][key]
-            ipsae_metrics={name:prediction.get("metrics",{})[name] for name in IPSAE_METRIC_NAMES
+            ipsae_metrics={name:prediction.get("metrics",{})[name] for name in report_metrics
                            if name in prediction.get("metrics",{})}
             candidate_id=f"{'final' if final else f'r{number:03d}'}_c{len(result_rows)+1:07d}"
             source=Path(prediction["structure_path"])
@@ -520,7 +579,10 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
                                     origin_path=parent.origin_path,
                                     lineage_id=parent.lineage_id or candidate_id)
                 child=_candidate_record(candidate,folder,atoms=atoms)
-                assert_invariants(input_record,child)
+                from .state import prepare_invariants
+                if parent.candidate_id not in parent_invariants:
+                    parent_invariants[parent.candidate_id]=prepare_invariants(input_record)
+                assert_invariants(input_record,child,prepared=parent_invariants[parent.candidate_id])
                 actual_chains=chain_sequences(child)
                 candidate=replace(candidate,score_profile=score_profile,
                                   sequence_identity=json.dumps(sequence_key(actual_chains)))
@@ -530,7 +592,8 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
                 result_rows.append({"candidate_id":candidate_id,"parent_id":parent.candidate_id,
                                     "origin_id":parent.origin_id,"source":variant["source"],
                                     "prediction_key":request_key+":"+key,
-                                    "status":"condition_failed","error":str(exc),"request_key":request_key})
+                                    "status":"condition_failed","error":str(exc),"request_key":request_key,
+                                    **ipsae_metrics})
                 print(f"[{task_name}] {candidate_id}: inherited-condition check failed: {exc}",flush=True)
                 continue
             if task_layout(cfg) and not final and Path(candidate.path).suffix.lower()!=".cif":
@@ -607,7 +670,9 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
             reference_csv=(folder/".work"/"partial_inputs.csv" if task_layout(cfg)
                            else folder/"partial"/"inputs.csv")
             write_csv(reference_csv,[dict(c.row,filename=c.path,candidate_id=c.candidate_id) for c in survivors])
-            references=[{"candidate_id":c.candidate_id,"path":c.path,"result_csv":str(reference_csv)} for c in survivors]
+            from .seeds import candidate_authoring
+            references=[{"candidate_id":c.candidate_id,"path":c.path,"result_csv":str(reference_csv),
+                         "authored":candidate_authoring(cfg,c)} for c in survivors]
             result=owner.partial_many(references,authored=cfg["task_payload"][task_name],
                 effective_generation=cfg["effective_generation"],settings=partial,
                 output=folder/"partial",seed=(cfg["seed"]+number*100003+cfg["task_names"].index(task_name)*10000019)%(2**32-1))
@@ -615,8 +680,14 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
             children=[]
             for index,item in enumerate(result["candidates"],1):
                 parent=parents_by_id[item["parent_id"]]
+                child_row=dict(item["row"],filename=item["path"],structure_stage="partial")
+                for field in ("_pipeline_metadata","_antibody_context_path","source_status"):
+                    if parent.row.get(field):
+                        child_row[field]=parent.row[field]
+                if child_row.get("_antibody_context_path"):
+                    child_row.pop("_antibody_context",None)
                 child=Candidate(f"r{number:03d}_p{index:07d}",task_name,parent.candidate_id,parent.origin_id,
-                    item["path"],dict(item["row"],filename=item["path"],structure_stage="partial"),"partial",origin_path=parent.origin_path,
+                    item["path"],child_row,"partial",origin_path=parent.origin_path,
                     lineage_id=parent.lineage_id)
                 children.append(child)
             count["partial_success_count"]=len(children)
@@ -713,11 +784,11 @@ def run(args):
             final_samples, final_structures = {}, {}
             for final_stage in final_stages:
                 method = final_stage["method"]
-                group = {"af2_ig": "af2", "mol1": "mol1"}.get(method, "af3")
+                group = {"af2_ig": "af2", "mol1": "mol1", "esmfold2-standard":"esmfold2"}.get(method, "af3")
                 settings = final_stage["validation"][group]
                 final_samples[method] = settings["samples"]
                 final_structures[method] = settings["samples"] * (2 * len(settings["models"]) if method == "af2_ig" else 1)
-            budget.append({"task":name,"initial_mode":"from_run" if cfg["from_run"] else ("partial" if authored.get("partial") else "de_novo"),
+            budget.append({"task":name,"initial_mode":"directory" if cfg.get("seed_input") else "from_run" if cfg["from_run"] else ("partial" if authored.get("partial") else "de_novo"),
                            "sample_num":authored.get("sample_num",1),
                            "design_length":authored.get("design_length"),
                            "recycle":task["recycle"],"methods":[r["method"] for r in task["rounds"]],
@@ -734,9 +805,9 @@ def run(args):
                            "final":" + ".join(final_samples)+" / GT-only"})
         print(yaml.safe_dump({"effective_config":cfg,"budget":budget,
                               "generation_expansion":"sample_num follows native per-length-plan expansion",
-                              "capabilities":{"design":"protein, peptide, RNA, DNA",
+                              "capabilities":{"design":"protein, peptide, RNA, DNA, VHH and VH/VL antibody",
                                               "af2_ig":"one standard protein design chain with protein context; paired protocols",
-                                              "cyclic_offset":"native AF2/AF3/Mol-1; ESM uses explicit covalent bonds",
+                                              "cyclic_offset":"AF2/AF3 relative encoding; ESMFold2/Mol-1 use explicit covalent bonds",
                                               "context_motion":True,"pure_ligand_design":False,
                                               "polymer_bond_iteration":"special polymer-polymer bonds force esmfold2-fast; final AF3 is unchanged"}},
                              sort_keys=False),end="")
@@ -760,7 +831,10 @@ def run(args):
         snapshot.parent.mkdir(parents=True,exist_ok=True)
         snapshot.write_text(yaml.safe_dump(jsonable(cfg),sort_keys=False))
         (root/"config.yaml").write_text(yaml.safe_dump(public_config(cfg),sort_keys=False))
-        (root/"tasks.yaml").write_text(yaml.safe_dump(public_tasks(cfg),sort_keys=False))
+        if cfg.get("seed_input"):
+            shutil.copy2(cfg["seed_input"]["annotation"],root/"annotation.csv")
+        else:
+            (root/"tasks.yaml").write_text(yaml.safe_dump(public_tasks(cfg),sort_keys=False))
     # Layout is runtime state, deliberately absent from strict effective-config
     # comparison so existing runs keep their saved computation and paths.
     if not legacy:
@@ -776,14 +850,18 @@ def run(args):
     lock=work/"run.lock" if task_layout(cfg) else root/".run.lock"
     with locked(lock), using_model_dir(cfg["model_dir"]):
         from .msa import prepare_run
-        cfg['_msa_references'], msa_rows = prepare_run(cfg, repo, work)
+        if not cfg.get("seed_input"):
+            cfg['_msa_references'], msa_rows = prepare_run(cfg, repo, work)
         initial_state=work/"generation.json" if task_layout(cfg) else root/".generation.json"
         if initial_state.is_file():
             initial={name:[Candidate(**c) for c in rows] for name,rows in json.loads(initial_state.read_text()).items()}
             if any(not Path(c.path).is_file() for rows in initial.values() for c in rows):
                 raise ValueError("Saved generation inputs are missing; restore them before resuming")
         else:
-            if cfg["from_run"]:
+            if cfg.get("seed_input"):
+                from .seeds import prepare_seeds
+                initial=prepare_seeds(cfg)
+            elif cfg["from_run"]:
                 source=Path(cfg["from_run"])
             else:
                 with generation_launch(native.config, Path.cwd(), work):
@@ -793,22 +871,34 @@ def run(args):
                 gc.collect()
                 torch.cuda.empty_cache()
                 source=work/"generation"
-            initial=import_candidates(source,root if task_layout(cfg) else root/"generation",
-                                      cfg["task_names"],layout=cfg.get("_layout"))
+            if not cfg.get("seed_input"):
+                initial=import_candidates(source,root if task_layout(cfg) else root/"generation",
+                                          cfg["task_names"],layout=cfg.get("_layout"))
             atomic_json(initial_state,{name:[c.saved() for c in rows] for name,rows in initial.items()})
+        if cfg.get("seed_input"):
+            cfg['_msa_references'], msa_rows = prepare_run(cfg, repo, work)
         owner=_OwnerPool(repo,root,cfg)
         summaries=[]
         live=initial
         history={name:[] for name in cfg["task_names"]}
         invalidated={name:False for name in cfg["task_names"]}
-        previous_dirs={name:design_folder(cfg,name) for name in cfg["task_names"]}
+        previous_dirs={name:(root/name/"start" if cfg.get("seed_input") else design_folder(cfg,name))
+                       for name in cfg["task_names"]}
         try:
+            if cfg.get("seed_input"):
+                from .seeds import initialize_seeds
+                initial=initialize_seeds(owner,cfg,initial)
+                live=initial
+                summaries.extend(cfg.get("_initial_summaries",[]))
+                write_csv(root/"summary.csv",summaries)
+                for name in cfg.get("_initial_recomputed",()):
+                    invalidated[name]=True
             groups={}
             for name in cfg["task_names"]:
                 methods=[r["method"] for r in cfg["tasks"][name]["rounds"]]
                 if initial[name] and any(method in {"af2_ig", "af3"} for method in methods):
-                    record=_candidate_record(initial[name][0],previous_dirs[name])
-                    if has_special_polymer_bond(record):
+                    if any(has_special_polymer_bond(_candidate_record(candidate,previous_dirs[name]))
+                           for candidate in initial[name]):
                         methods=["esmfold2-fast" if method in {"af2_ig", "af3"} else method
                                  for method in methods]
                 signature=tuple(methods)
@@ -869,13 +959,15 @@ def run(args):
 
 
 class _ResourceOwner:
-    """One Ray reservation owns MPNN, refold and direct OpenMM."""
+    """One phase reservation owns its lazy native backend."""
     def __init__(self, repo, cache, msa_references=()):
         from .backends import NativeOwner
         self.owner=NativeOwner(Path(repo),Path(cache),device="cuda:0", msa_references=msa_references)
         self.fm=None
     def generate(self,*args,**kwargs):
         return self.owner.generate(*args,**kwargs)
+    def generate_parent(self,parent,folder,stage,options,task,record=None):
+        return _generate_parent(self.owner,parent,Path(folder),stage,options,task,record)
     def predict(self,*args,**kwargs):
         return self.owner.predict(*args,**kwargs)
     def relax(self,*args,**kwargs):
@@ -891,6 +983,9 @@ class _ResourceOwner:
             self.fm.close()
 
 class _OwnerPool:
+    MPNN_GPUS=0.0625
+    MPNN_CPUS=1.0
+
     def __init__(self,repo,root,cfg):
         from .backends import NativeOwner
         self.repo,self.root,self.cfg=repo,root,cfg
@@ -900,69 +995,138 @@ class _OwnerPool:
         self.identity=None
         self.started=False
 
-    def activate(self,method,validation,openmm):
+    @staticmethod
+    def _partial_cpus(generation):
+        return max(1,int(generation.get("num_workers",0))+1)
+
+    def _start_runtime(self):
         import math
-        import os
         import ray
         import torch
-        gpu=validation.get("worker_gpus")
-        gpu=float(gpu if gpu is not None else {"af2_ig":0.25,"af3":0.5}.get(method,1.0))
-        gpu=max(gpu,float(openmm.get("worker_gpus",0)) if openmm["platform"]!="CPU" else 0)
-        cpu=max(float(validation.get("worker_cpus",1)),float(openmm.get("worker_cpus",1)))
-        if not 0<gpu<=1:
-            raise ValueError("pipeline workers require a GPU budget in (0,1]")
-        identity=(method,gpu,cpu)
+        if self.started:
+            return
+        if ray.is_initialized():
+            raise RuntimeError("pipeline owns one Ray runtime; another runtime is already active")
+        gpus=torch.cuda.device_count()
+        if not gpus:
+            raise RuntimeError("No CUDA GPUs are visible for pipeline")
+        budgets=[math.floor(1/self.MPNN_GPUS)*gpus*self.MPNN_CPUS,
+                 gpus*self._partial_cpus(self.cfg.get("effective_generation",{}))]
+        for task in self.cfg["tasks"].values():
+            for stage in [*task["rounds"],*task["final"].get("validators",[task["final"]])]:
+                settings=stage["validation"]
+                fraction=settings.get("worker_gpus")
+                fraction=float(fraction if fraction is not None else
+                               {"af2_ig":0.25,"af3":0.5}.get(stage["method"],1.0))
+                budgets.append(math.floor(1/fraction)*gpus*float(settings.get("worker_cpus",1)))
+            if any(stage.get("relax_enabled",False) for stage in task["rounds"]):
+                settings=task["openmm"]
+                fraction=float(settings["worker_gpus"])
+                budgets.append((math.floor(1/fraction)*gpus if settings["platform"]!="CPU" else 1)
+                               *float(settings["worker_cpus"]))
+        ray.init(address="local",num_gpus=gpus,
+                 num_cpus=min(os.cpu_count() or 1,math.ceil(max(budgets))),
+                 include_dashboard=False,log_to_driver=True)
+        self.started=True
+
+    def _activate(self,phase,gpu,cpu,*,limit=None):
+        import math
+        import ray
+        gpu,cpu=float(gpu),float(cpu)
+        identity=(phase,gpu,cpu)
         if identity==self.identity:
             return
         self._close_actors()
-        if not self.started:
-            if ray.is_initialized():
-                raise RuntimeError("pipeline owns one Ray runtime; another runtime is already active")
-            gpus=torch.cuda.device_count()
-            if not gpus:
-                raise RuntimeError("No CUDA GPUs are visible for pipeline")
-            budgets=[]
-            for task in self.cfg["tasks"].values():
-                for stage in [*task["rounds"], *task["final"].get("validators", [task["final"]])]:
-                    settings=stage["validation"]
-                    fraction=settings.get("worker_gpus")
-                    fraction=float(fraction if fraction is not None else
-                                   {"af2_ig":0.25,"af3":0.5}.get(stage["method"],1.0))
-                    fraction=max(fraction,float(task["openmm"]["worker_gpus"])
-                                 if task["openmm"]["platform"]!="CPU" else 0)
-                    per_cpu=max(float(settings.get("worker_cpus",1)),float(task["openmm"]["worker_cpus"]))
-                    budgets.append(math.ceil(math.floor(1/fraction)*gpus*per_cpu))
-            ray.init(address="local",num_gpus=gpus,num_cpus=min(os.cpu_count() or 1,max(budgets)),
-                     include_dashboard=False,log_to_driver=True)
-            self.started=True
-        capacity=math.floor(1/gpu)*int(ray.cluster_resources().get("GPU",0))
-        capacity=min(capacity,int(ray.cluster_resources().get("CPU",0)//cpu))
+        self._start_runtime()
+        resources=ray.cluster_resources()
+        capacity=int(resources.get("CPU",0)//cpu)
+        if gpu:
+            capacity=min(capacity,math.floor(1/gpu)*int(resources.get("GPU",0)))
+        if limit is not None:
+            capacity=min(capacity,limit)
         if capacity<1:
-            raise RuntimeError(f"Insufficient resources for a worker requesting {gpu:g} GPU and {cpu:g} CPU")
+            raise RuntimeError(f"Insufficient resources for {phase}: {gpu:g} GPU / {cpu:g} CPU per worker")
         remote=ray.remote(num_gpus=gpu,num_cpus=cpu,max_restarts=0,
                           runtime_env={"env_vars":{"XLA_PYTHON_CLIENT_PREALLOCATE":"false"}})(_ResourceOwner)
-        cache=getattr(self,"cache",self.root/".prediction_cache")
-        self.actors=[remote.remote(str(self.repo),str(cache),self.cfg.get("_msa_references", ())) for _ in range(capacity)]
+        self.actors=[remote.remote(str(self.repo),str(self.cache),self.cfg.get("_msa_references",()))
+                     for _ in range(capacity)]
         self.identity=identity
-        print(f"Resident {method} pool: {capacity} workers, {gpu:g} GPU / {cpu:g} CPU each",flush=True)
+        print(f"Resident {phase} pool: {capacity} workers, {gpu:g} GPU / {cpu:g} CPU each",flush=True)
+
+    def activate(self,method,validation,openmm):
+        gpu=validation.get("worker_gpus")
+        gpu=float(gpu if gpu is not None else {"af2_ig":0.25,"af3":0.5}.get(method,1.0))
+        self._activate(method,gpu,validation.get("worker_cpus",1))
+
+    def activate_partial(self,effective_generation,*,parent_count):
+        if parent_count:
+            self._activate("partial",1,self._partial_cpus(effective_generation),limit=parent_count)
 
 
     def generate(self,*args,**kwargs):
         import ray
         return ray.get(self.actors[0].generate.remote(*args,**kwargs))
 
+    def _ordered(self,method,jobs,*,label=None):
+        """One in-flight request per owner; restore native parent order."""
+        import ray
+        indexed=iter(enumerate(jobs))
+        results=[None]*len(jobs)
+        pending={}
+        completed=0
+        def dispatch(actor):
+            item=next(indexed,None)
+            if item is not None:
+                index,(args,kwargs)=item
+                pending[getattr(actor,method).remote(*args,**kwargs)]=(index,actor)
+        for actor in self.actors:
+            dispatch(actor)
+        while pending:
+            ready,_=ray.wait(list(pending),num_returns=1)
+            for reference in ready:
+                index,actor=pending.pop(reference)
+                results[index]=ray.get(reference)
+                completed+=1
+                dispatch(actor)
+            if label and (completed==len(jobs) or completed%32==0):
+                print(f"{label}: {completed}/{len(jobs)} parents",flush=True)
+        yield from results
+
+    def generate_many(self,jobs):
+        yield from self._ordered("generate",[((record,stage),options) for record,stage,options in jobs])
+
+    def generate_parents(self,jobs,*,folder,task):
+        if not jobs:
+            return
+        if not any(stage.get("mpnn_count",0) for _,stage,_,_ in jobs):
+            for parent,stage,options,record in jobs:
+                yield _generate_parent(self.evaluator,parent,folder,stage,options,task,record)
+            return
+        self._activate("mpnn",self.MPNN_GPUS,self.MPNN_CPUS,limit=len(jobs))
+        calls=[((parent,str(folder),stage,options,task,record),{}) for parent,stage,options,record in jobs]
+        options=jobs[0][2]
+        try:
+            results=list(self._ordered("generate_parent",calls,
+                         label=f"[{options['task_name']}] round {options['round_number']} MPNN"))
+        finally:
+            self._release_phase()
+        yield from results
+
     def predict_many(self,jobs):
         import ray
         from collections import deque
         pending=deque()
-        for index,job in enumerate(jobs):
-            record,variant,method,validation,task=job
-            pending.append(self.actors[index%len(self.actors)].predict.remote(
-                record,variant,method,validation,task_name=task))
-            if len(pending)>=2*len(self.actors):
+        try:
+            for index,job in enumerate(jobs):
+                record,variant,method,validation,task=job
+                pending.append(self.actors[index%len(self.actors)].predict.remote(
+                    record,variant,method,validation,task_name=task))
+                if len(pending)>=2*len(self.actors):
+                    yield ray.get(pending.popleft())
+            while pending:
                 yield ray.get(pending.popleft())
-        while pending:
-            yield ray.get(pending.popleft())
+        finally:
+            self._release_phase()
 
     def evaluate(self,*args,**kwargs):
         return self.evaluator.evaluate(*args,**kwargs)
@@ -972,31 +1136,60 @@ class _OwnerPool:
         return ray.get(self.actors[0].relax.remote(*args,**kwargs))
 
     def relax_many(self,jobs):
-        import ray
-        pending=[]
-        for index,job in enumerate(jobs):
-            pending.append(self.actors[index%len(self.actors)].relax.remote(*job))
-        for item in pending:
-            yield ray.get(item)
+        if not jobs:
+            return
+        settings=jobs[0][3]
+        self._activate("relax",settings["worker_gpus"] if settings["platform"]!="CPU" else 0,
+                       settings["worker_cpus"],limit=len(jobs))
+        try:
+            yield from self._ordered("relax",[(job,{}) for job in jobs])
+        finally:
+            self._release_phase()
 
     def partial_many(self,references,**kwargs):
+        if not references:
+            return {"candidates":[],"failed":0,"model_loads":0}
+        self.activate_partial(kwargs["effective_generation"],parent_count=len(references))
+        try:
+            return self._partial_many(references,**kwargs)
+        finally:
+            self._release_phase()
+
+    def _partial_many(self,references,**kwargs):
         import ray
-        count=min(len(references),len(self.actors))
-        jobs=[]
-        for index in range(count):
-            options=dict(kwargs,output=Path(kwargs["output"])/f"worker_{index+1:03d}",
-                         seed=(kwargs["seed"]+index*1009)%(2**32-1))
-            if task_layout(getattr(self,"cfg",{})):
-                public=Path(kwargs["output"])
-                options.update(output=public.parent/".work"/"partial"/f"worker_{index+1:03d}",
-                               public_output=public)
-            jobs.append(self.actors[index].partial.remote(references[index::count],**options))
         result={"candidates":[],"failed":0,"model_loads":0}
-        for outcome in ray.get(jobs):
-            result["candidates"].extend(outcome["candidates"])
-            result["failed"]+=outcome.get("failed",0)
-            result["model_loads"]+=outcome.get("model_loads",0)
+        compatible={}
+        for reference in references:
+            authored=reference.get("authored",kwargs.get("authored",{}))
+            compatible.setdefault(authored.get("format","normal"),[]).append(reference)
+        for batch_index,batch in enumerate(compatible.values()):
+            count=min(len(batch),len(self.actors))
+            jobs=[]
+            for index in range(count):
+                worker=f"worker_{index+1:03d}" if len(compatible)==1 else f"batch_{batch_index+1:03d}_worker_{index+1:03d}"
+                options=dict(kwargs,output=Path(kwargs["output"])/worker,
+                             seed=(kwargs["seed"]+batch_index*100003+index*1009)%(2**32-1))
+                if task_layout(getattr(self,"cfg",{})):
+                    public=Path(kwargs["output"])
+                    options.update(output=public.parent/".work"/"partial"/worker,
+                                   public_output=public)
+                jobs.append(self.actors[index].partial.remote(batch[index::count],**options))
+            for outcome in ray.get(jobs):
+                result["candidates"].extend(outcome["candidates"])
+                result["failed"]+=outcome.get("failed",0)
+                result["model_loads"]+=outcome.get("model_loads",0)
+        order={reference["candidate_id"]:index for index,reference in enumerate(references)}
+        result["candidates"].sort(key=lambda item:order[item["parent_id"]])
         return result
+
+    def _release_phase(self):
+        primary=sys.exc_info()[1]
+        try:
+            self._close_actors(abort=primary is not None)
+        except BaseException as cleanup:
+            if primary is None:
+                raise
+            primary.add_note(f"Phase cleanup also failed: {cleanup!r}")
 
     def _close_actors(self, *, abort=False):
         actors,self.actors=self.actors,[]

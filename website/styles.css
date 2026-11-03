@@ -1,0 +1,75 @@
+@import "tailwindcss" source(none);
+@source "./index.html";
+@source "./script.js";
+
+@plugin "daisyui" {
+  themes: false;
+  logs: false;
+}
+
+@plugin "daisyui/theme" {
+  name: "partidesign";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f7f7fa;
+  --color-base-300: #e7e5ed;
+  --color-base-content: #282630;
+  --color-primary: #4c3f91;
+  --color-primary-content: #ffffff;
+  --color-secondary: #4c3f91;
+  --color-secondary-content: #ffffff;
+  --color-accent: #567f82;
+  --color-accent-content: #ffffff;
+  --color-neutral: #292634;
+  --color-neutral-content: #f4f2fa;
+  --color-info: #375d94;
+  --color-info-content: #ffffff;
+  --color-success: #35674d;
+  --color-success-content: #ffffff;
+  --color-warning: #e5be6a;
+  --color-warning-content: #302712;
+  --color-error: #a44151;
+  --color-error-content: #ffffff;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    min-width: 320px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-secondary);
+    outline-offset: 4px;
+  }
+  a { text-underline-offset: 0.2em; }
+  summary { list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  pre, code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

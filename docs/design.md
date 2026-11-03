@@ -8,6 +8,9 @@ select tasks and execution settings. See the [task reference](task_schema.md)
 and [example index](../configs/examples/README.md). To run design, refinement,
 and validation in one command, use [pipeline](pipeline.md).
 
+See [capabilities](../README.md#capabilities) for the four molecular modalities
+and [task examples](../configs/examples/README.md) for starting configurations.
+
 ## A first run
 
 After [installation](../README.md#installation) and generation-weight setup, run

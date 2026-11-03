@@ -7,6 +7,10 @@ handling. Read [task-recipes.md](task-recipes.md) for molecular task authoring,
 complex refolds. Repository paths below refer to the dynamically located
 active checkout, not this skill folder.
 
+For a first generation command, read [A first run](../../../../docs/design.md#a-first-run).
+See [Capabilities](../../../../README.md#capabilities) for illustrated protein, DNA,
+RNA, and ligand design.
+
 ## Locate the runtime and check prerequisites
 
 First establish the user's working directory, active Python environment, and
@@ -52,6 +56,12 @@ checkout. An external root contains `ckpts/` and `community_models/`; copy neede
 Git-supplied PartiScore/CyclicMPNN weights into their matching locations there.
 Code and static chemistry resources stay with the installed package. Selecting
 a model root does not change where task inputs and outputs resolve.
+
+For the default antibody pipeline final, download the standard ESMFold2 model:
+
+```bash
+partidesign download esmfold2-standard
+```
 
 For Mol-1 validation or protein/nuc pipeline final, use:
 

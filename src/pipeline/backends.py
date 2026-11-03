@@ -498,6 +498,17 @@ def design_score(input_record, method, raw_prediction):
     return total / weight
 
 
+class _SequenceInput:
+    """Reuse one parent adapter while retaining native input properties."""
+
+    def __init__(self, record, candidate):
+        self.record = record
+        self.candidate = candidate
+
+    def __getattr__(self, name):
+        return getattr(self.record, name)
+
+
 class NativeOwner:
     """One resource owner; native workers stay resident across tasks/rounds."""
 
@@ -699,6 +710,7 @@ class NativeOwner:
         include_gt = round_config.get("include_gt", True)
         sources = [{"source": "gt", "count": 1}] if include_gt else []
         passthrough = None
+        candidate = None
         task_index = round_config.get("_task_index", 0)
         parent_index = round_config.get("_parent_index", 0)
         stable_seed = (seed + task_index * 10000019 + int(round_number) * 100003
@@ -751,7 +763,9 @@ class NativeOwner:
             raise ValueError("The selected sequence backend cannot redesign this candidate and GT is disabled")
         with self._execution:
             self._check_open()
-            variants = list(self._generator(config).generate(input_record, sources, Path(work_dir)))
+            sequence_input = (_SequenceInput(input_record, candidate)
+                              if candidate is not None else input_record)
+            variants = list(self._generator(config).generate(sequence_input, sources, Path(work_dir)))
         for variant in variants:
             if variant.get("status") not in {"complete", "ok"}:
                 raise NativeBackendError(variant.get("error") or "Native MPNN did not produce a sequence")
@@ -841,6 +855,7 @@ class NativeOwner:
             cached = self._memory_prediction(request_key)
             if cached is not None:
                 return request_key, cached, True
+            expected = expected_keys(method, config)
             if state_path.is_file():
                 state = json.loads(state_path.read_text())
                 if state.get("request_key") != request_key:
@@ -850,29 +865,32 @@ class NativeOwner:
                                 for value in state["predictions"])
                 else:
                     valid = all(Path(path).is_file() for path in state.get("artifacts", ()))
+                valid = valid and (
+                    len(state["predictions"]) == len(expected)
+                    and {p.get("key") for p in state["predictions"]} == set(expected)
+                    and all(p.get("status") == "complete" and prediction_metadata_valid(p.get("key"), p, method)
+                            for p in state["predictions"]))
                 if valid:
+                    slots = root / "prediction_slots"
+                    if slots.is_dir():
+                        for key in expected:
+                            (slots / (key + ".json")).unlink(missing_ok=True)
+                        slots.rmdir()
                     return request_key, self._remember_prediction(
                         request_key, _decode(state["predictions"])), True
-            output = ensure_directory(root / "native")
-            with self._execution:
-                self._check_open()
-                worker = self._worker(method, config, assets)
-                worker.log_dir = ensure_directory(self.cache.parent / "logs")
-                backend = worker._models()
-                extra = {} if prepared is None else {"prepared_inputs": prepared}
-                predictions = list(backend.predict(canonical_input, canonical_variant, output,
-                                                   completed_keys=set(), **extra))
-            expected = expected_keys(method, config)
-            received = [value.get("key") for value in predictions]
-            if len(received) != len(set(received)) or set(received) != set(expected):
-                raise NativeBackendError("native backend returned incomplete or duplicate prediction slots")
-            for prediction in predictions:
+            expected_set = set(expected)
+            slots = root / "prediction_slots"
+            committed, ordinals = {}, {}
+
+            def artifacts_for(prediction):
+                key = prediction.get("key")
+                if key not in expected_set or not prediction_metadata_valid(key, prediction, method):
+                    raise NativeBackendError("native backend returned incompatible prediction metadata")
                 if prediction.get("status") != "complete":
                     raise NativeBackendError(prediction.get("error") or "native prediction failed")
-                if not prediction_metadata_valid(prediction["key"], prediction, method):
-                    raise NativeBackendError("native backend returned incompatible prediction metadata")
-            artifacts = set()
-            for prediction in predictions:
+                if not prediction.get("structure_path"):
+                    raise NativeBackendError("native prediction has no restored structure")
+                artifacts = set()
                 for field in _ARTIFACT_FIELDS:
                     value = prediction.get(field)
                     if value:
@@ -880,14 +898,68 @@ class NativeOwner:
                         if not path.is_file():
                             raise NativeBackendError(f"native prediction artifact is missing: {path}")
                         artifacts.add(str(path))
-                if not prediction.get("structure_path"):
-                    raise NativeBackendError("native prediction has no restored structure")
-            saved = _atomic_json(state_path, {"request_key": request_key, "predictions": predictions,
-                                              "artifacts": sorted(artifacts)})
-            # Decode the exact committed representation once, without another
-            # compression or a large ndarray.tolist() allocation.
+                return sorted(artifacts)
+
+            for key in expected:
+                path = slots / (key + ".json")
+                if not path.is_file():
+                    continue
+                slot = json.loads(path.read_text())
+                if slot.get("request_key") != request_key:
+                    raise NativeBackendError("prediction slot request identity is corrupt")
+                ordinal = slot.get("ordinal")
+                if (type(ordinal) is int and 0 <= ordinal < len(expected)
+                        and ordinal not in ordinals.values()):
+                    ordinals[key] = ordinal
+                else:
+                    ordinal = None
+                prediction = slot.get("prediction", {})
+                if (type(ordinal) is int and 0 <= ordinal < len(expected)
+                        and prediction_metadata_valid(key, prediction, method)
+                        and prediction.get("status") == "complete"):
+                    try:
+                        artifacts = artifacts_for(prediction)
+                    except NativeBackendError:
+                        continue
+                    if set(artifacts) == set(slot.get("artifacts", ())):
+                        committed[key] = slot
+            completed = set(committed)
+            output = ensure_directory(root / "native")
+            if completed != expected_set:
+                with self._execution:
+                    self._check_open()
+                    worker = self._worker(method, config, assets)
+                    worker.log_dir = ensure_directory(self.cache.parent / "logs")
+                    backend = worker._models()
+                    extra = {} if prepared is None else {"prepared_inputs": prepared}
+                    for prediction in backend.predict(canonical_input, canonical_variant, output,
+                                                      completed_keys=completed, **extra):
+                        key = prediction.get("key")
+                        if key in committed:
+                            raise NativeBackendError("native backend returned duplicate prediction slots")
+                        artifacts = artifacts_for(prediction)
+                        if key not in ordinals:
+                            ordinals[key] = next(i for i in range(len(expected)) if i not in ordinals.values())
+                        ordinal = ordinals[key]
+                        slot = _atomic_json(slots / (key + ".json"), {
+                            "request_key": request_key, "ordinal": ordinal,
+                            "prediction": prediction, "artifacts": artifacts})
+                        committed[key] = slot
+            if set(committed) != expected_set:
+                raise NativeBackendError("native backend returned incomplete or duplicate prediction slots")
+            ordered = sorted(committed.values(), key=lambda value: value["ordinal"])
+            # Slots already contain compact arrays; final publication copies
+            # their encoded values rather than recompressing accumulated data.
+            saved = _atomic_json(state_path, {
+                "request_key": request_key,
+                "predictions": [value["prediction"] for value in ordered],
+                "artifacts": sorted({p for value in ordered for p in value["artifacts"]})})
+            for key in committed:
+                (slots / (key + ".json")).unlink()
+            if slots.exists():
+                slots.rmdir()
             return request_key, self._remember_prediction(
-                request_key, _decode(saved["predictions"])), False
+                request_key, _decode(saved["predictions"])), completed == expected_set
 
     def evaluate(self, input_record, variant, method, validation_config, raw_predictions):
         from src.validate.planning import expected_keys

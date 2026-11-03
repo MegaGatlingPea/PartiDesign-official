@@ -1782,7 +1782,10 @@ def _restore_authoritative_cif(
       # component.  Design residues keep the native component/inventory because
       # the requested sequence may have changed their identity or atom set.
       is_design = any(bool(row.get("is_design", False)) for row in source_residue_rows)
-      restored_res_name = native_res_name if is_design else source_component
+      restored_res_name = (
+          source_component if residue.get("fixed_atom_names")
+          else native_res_name if is_design else source_component
+      )
     restored_atom_name = (
         str(source_atom.get("atom_name", native_atom_name))
         if source_atom is not None else native_atom_name
@@ -1918,6 +1921,20 @@ def _restore_authoritative_cif(
     # inventory for the requested variant.  Every ligand and every all-context
     # residue remains source-identity strict; standard parent completion is
     # handled only in that strict branch.
+    fixed_inventory = residue.get("fixed_atom_names")
+    if fixed_inventory is not None:
+      if native_component != str(residue.get("native_component_id", source_component)):
+        raise AF3InputError(
+            f"fixed native residue {(native_chain, native_res_id)!r} changed its requested component"
+        )
+      if set(native_heavy) != set(fixed_inventory):
+        raise AF3InputError(
+            f"fixed native residue {(native_chain, native_res_id)!r} changed its exact atom inventory"
+        )
+      if any(native_heavy[name] != source_heavy.get(name) for name in native_heavy):
+        raise AF3InputError(
+            f"fixed native residue {(native_chain, native_res_id)!r} changed its source elements"
+        )
     strict_identity = modality == "ligand" or not is_design
     if strict_identity:
       parent = _parent_name(

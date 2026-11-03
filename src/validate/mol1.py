@@ -72,12 +72,53 @@ def _conditioning_input(input_record):
     return private, added
 
 
+def _fixed_inventory_ccd(input_record, repo_root):
+    """Use Mol-1's own cached CCD for explicitly fixed exceptional inventories."""
+    from .sequences import _field, _row_field
+    declared = _field(input_record, "fixed_restypes")
+    if declared is None:
+        declared = _row_field(input_record, "fixed_restypes", ())
+    if isinstance(declared, str):
+        declared = json.loads(declared) if declared.strip() else ()
+    if isinstance(declared, Mapping):
+        declared = declared.get("residues", declared)
+        if isinstance(declared, Mapping):
+            declared = (declared,)
+    if not isinstance(declared, (list, tuple)) or not any(
+            isinstance(item, Mapping) and "atom_names" in item for item in declared):
+        return None
+    from src.design.rewards.af3_input import _fixed_atom_inventories, _record_atoms
+    atoms = _record_atoms(input_record)
+    inventories = _fixed_atom_inventories(input_record, atoms)
+    if not inventories:
+        return None
+    import sys
+    os.environ["MOL_ROOT_DIR"] = str(community_asset("mol1", repo_root))
+    source = str(community_source("mol1", repo_root))
+    if source not in sys.path:
+        sys.path.insert(0, source)
+    from mol.data.core import ccd
+    native = ccd.biotite_load_ccd_cif()
+    names = set(str(atoms.res_name[row]) for row in range(len(atoms))
+                if int(atoms.residue_uid[row]) in inventories)
+    result = {}
+    for name in names:
+        if name not in native:
+            raise ValueError(f"Mol-1 has no authoritative CCD for fixed inventory {name!r}")
+        result[name] = {
+            f"_{category}.{column}": values.as_array(str).tolist()
+            for category, table in native[name].items() for column, values in table.items()
+        }
+    return result
+
+
 def prepare_mol1_inputs(input_record, variant, config, repo_root, *, cache=None):
     """Prepare chemistry and context searches without loading a prediction model."""
     variant = _variant_with_ligand_smiles(input_record, variant)
     conditioned, added = _conditioning_input(input_record)
+    fixed_ccd = _fixed_inventory_ccd(conditioned, repo_root)
     payloads = {protocol: build_af3_input(
-        conditioned, variant, seed=config["seed"], protocol=protocol,
+        conditioned, variant, seed=config["seed"], protocol=protocol, ccd=fixed_ccd,
     ).payload() for protocol in _protocols(config)}
     for payload in payloads.values():
         if added:
@@ -103,6 +144,15 @@ def mol1_job(payload, directory):
     """Convert canonical chain/chemistry ledgers; never run native online searches."""
     directory = Path(directory)
     sequences, entities = [], {}
+    template_files = {}
+    text_files = {}
+
+    def text_file(path):
+        path = str(path)
+        if path not in text_files:
+            text_files[path] = Path(path).read_text()
+        return text_files[path]
+
     for number, chain in enumerate(payload["chains"], 1):
         entity = {"count": 1, "id": [chain["id"]]}
         modality = chain["modality"]
@@ -119,21 +169,28 @@ def mol1_job(payload, directory):
             entity["unpairedMsa"] = f">query\n{chain['sequence']}\n"
             reference = chain.get("msa_reference")
             if reference:
-                entity["unpairedMsa"] = Path(reference["unpaired_msa_path"]).read_text()
+                entity["unpairedMsa"] = text_file(reference["unpaired_msa_path"])
                 if reference.get("paired_msa_path"):
-                    entity["pairedMsa"] = Path(reference["paired_msa_path"]).read_text()
+                    entity["pairedMsa"] = text_file(reference["paired_msa_path"])
                 if reference.get("templates"):
-                    templates = []
-                    for template in reference["templates"]:
-                        mapping = sorted((int(a), int(b)) for a, b in template["query_to_template_map"].items())
-                        item = {"mmcif": Path(template["mmcif_path"]).read_text(),
-                                "queryIndices": [a for a, _ in mapping],
-                                "templateIndices": [b for _, b in mapping]}
-                        if template.get("release_date") is not None:
-                            item["release_date"] = template["release_date"]
-                        templates.append(item)
-                    path = directory / f"templates_{chain['id']}.json"
-                    path.write_text(json.dumps(templates))
+                    template_key = tuple(
+                        (str(t["mmcif_path"]),
+                         tuple(sorted((int(a), int(b)) for a, b in t["query_to_template_map"].items())),
+                         t.get("release_date")) for t in reference["templates"])
+                    path = template_files.get(template_key)
+                    if path is None:
+                        templates = []
+                        for template in reference["templates"]:
+                            mapping = sorted((int(a), int(b)) for a, b in template["query_to_template_map"].items())
+                            item = {"mmcif": text_file(template["mmcif_path"]),
+                                    "queryIndices": [a for a, _ in mapping],
+                                    "templateIndices": [b for _, b in mapping]}
+                            if template.get("release_date") is not None:
+                                item["release_date"] = template["release_date"]
+                            templates.append(item)
+                        path = directory / f"templates_{chain['id']}.json"
+                        path.write_text(json.dumps(templates))
+                        template_files[template_key] = path
                     entity["templatesPath"] = str(path)
         else:
             key = "ligand"
@@ -319,7 +376,15 @@ class Mol1Backend:
             seed_everything(self.config["seed"], deterministic=False)
             job = mol1_job(payload, folder)
             _register_user_ccd(payload.get("user_ccd"))
-            data, atoms, _ = self.dataset.process_one(job)
+            try:
+                data, atoms, _ = self.dataset.process_one(job)
+            finally:
+                from mol.utils.file_io import _JSON_FILE_CACHE
+                for entity in job["sequences"]:
+                    for chain in entity.values():
+                        path = chain.get("templatesPath")
+                        if path is not None:
+                            _JSON_FILE_CACHE.pop(str(Path(path)), None)
             predicted = self.runner.predict(data)
             for sample, (summary, full) in enumerate(zip(predicted["summary_confidence"], predicted["full_data"], strict=True)):
                 if f"{protocol}_sample{sample}" in completed_keys:

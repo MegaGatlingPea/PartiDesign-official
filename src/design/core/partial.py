@@ -8,6 +8,7 @@ from __future__ import annotations
 import csv
 import json
 from dataclasses import dataclass, field, replace
+from types import MappingProxyType
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -126,7 +127,8 @@ def load_partial_reference(spec: PartialSpec, *, task=None) -> PartialReference:
             f"partial reference requires exactly one matching result row; found {len(matches)}"
         )
     row = matches[0]
-    required = {"design_chains", "fixed_restypes", "bond_constraints",
+    antibody_row = "heavy_role" in row
+    required = set() if antibody_row else {"design_chains", "fixed_restypes", "bond_constraints",
                 "contig_string", "tip_atoms"}
     if required.difference(row):
         raise DesignSampleError(
@@ -134,13 +136,13 @@ def load_partial_reference(spec: PartialSpec, *, task=None) -> PartialReference:
         )
     if str(row.get("error") or "").strip():
         raise DesignSampleError("partial reference result row reports a generation error")
-    if not str(row.get("fixed_restypes") or "").strip() or not str(
+    if not antibody_row and (not str(row.get("fixed_restypes") or "").strip() or not str(
         row.get("bond_constraints") or ""
-    ).strip():
+    ).strip()):
         raise DesignSampleError("partial reference requires resolved constraint metadata")
     try:
-        metadata = _parse_design_chains(row["design_chains"], row_context="partial reference")
         record = load_input(spec.reference, row, spec.reference.parent)
+        metadata = _parse_design_chains(record.row["design_chains"], row_context="partial reference")
     except (OSError, ValueError, TypeError) as exc:
         raise DesignSampleError(f"invalid partial reference: {exc}") from exc
     if not metadata:
@@ -232,6 +234,23 @@ def _context_key(atoms, row: int) -> tuple[str, int, str]:
     # shared axis between the original source and its emitted/refolded output.
     labels = getattr(atoms, "label_asym_id", atoms.chain_id)
     return str(labels[row]), int(atoms.res_id[row]), str(atoms.ins_code[row])
+
+
+def crop_partial_reference(reference: PartialReference, source) -> PartialReference:
+    """Apply the authored context crop to the reference without moving geometry."""
+    if source is None:
+        return reference
+    allowed = {_context_key(source, int(row)) for row in np.flatnonzero(~source.is_design)}
+    current = reference.record.atoms
+    designed = {str(item["chain"]) for item in reference.design_metadata}
+    labels = _labels(current)
+    keep = np.asarray([str(labels[row]) in designed
+                       or _context_key(current, row) in allowed for row in range(len(current))])
+    if bool(keep.all()):
+        return reference
+    return PartialReference(record=replace(reference.record, atoms=current[keep]),
+                            design_metadata=reference.design_metadata,
+                            result_csv=reference.result_csv)
 
 
 def _residues(atoms, chain: str) -> list[np.ndarray]:
@@ -362,6 +381,10 @@ def _resolved_layouts(request, prepared, reference, chain_map):
             raise DesignSampleError("partial backbone conditions require the original input")
         if len(_chain_residue_uids(prepared.source, chain.chain_id)) != lengths[chain.chain_id]:
             raise DesignSampleError("partial backbone length disagrees with original source")
+    constraints = request.task.partial.length_constraints
+    if constraints and not any(all(lengths.get(chain) == count for chain, count in plan.items())
+                               for plan in constraints):
+        raise DesignSampleError("partial reference actual lengths disagree with design_length")
     return lengths, layouts
 
 
@@ -372,7 +395,7 @@ def _augment_standard_context(prepared, reference, chain_map):
     from ..utils.atoms import concatenate_atom_arrays
 
     source = prepared.source
-    if source is None:
+    if source is None or not len(source):
         return prepared
     current = reference.record.atoms
     actual_design = set(chain_map.values())
@@ -745,6 +768,133 @@ def _group_rows(atoms, rows):
     return [np.asarray(group, dtype=np.int64) for group in groups.values()]
 
 
+def _antibody_reference_lengths(task, reference, chain_map):
+    """Resolve actual CDR lengths from saved regions or an unambiguous layout."""
+    from ..antibody.scaffolds import load_scaffold
+
+    scaffold = load_scaffold(task.antibody.scaffold_path, task.antibody.source_roles)
+    sources = {chain.role: chain for chain in scaffold.chains}
+    row = reference.record.row
+    resolved = {}
+    for design in task.antibody.chains:
+        source = sources[design.role]
+        count = len(_residues(reference.record.atoms, chain_map[design.chain_id]))
+        native = tuple(len(window) for window in source.cdr_positions)
+        bounds = tuple(design.lengths[i] if i + 1 in design.cdrs else (native[i], native[i])
+                       for i in range(3))
+        explicit = task.partial.cdr_lengths.get(design.role)
+        if explicit is not None:
+            lengths = tuple(int(explicit[f"CDR{i}"]) for i in (1, 2, 3))
+        else:
+            prefix = next((prefix for prefix in ("heavy", "light")
+                           if row.get(f"{prefix}_chain") == chain_map[design.chain_id]), None)
+            if prefix is not None:
+                lengths = tuple(len(str(row.get(f"{prefix}_cdr{i}", ""))) for i in (1, 2, 3))
+            else:
+                total = count - (len(source.source_positions) - sum(native))
+                lower, upper = [sum(interval[k] for interval in bounds) for k in (0, 1)]
+                if not lower <= total <= upper:
+                    raise DesignSampleError(f"partial antibody {design.role} reference length violates CDR bounds")
+                variable = [i for i, (lo, hi) in enumerate(bounds) if lo != hi]
+                if total == lower:
+                    lengths = tuple(lo for lo, _ in bounds)
+                elif total == upper:
+                    lengths = tuple(hi for _, hi in bounds)
+                elif len(variable) == 1:
+                    lengths = [lo for lo, _ in bounds]
+                    lengths[variable[0]] += total - lower
+                    lengths = tuple(lengths)
+                else:
+                    raise DesignSampleError(
+                        f"partial antibody {design.role} CDR layout is ambiguous; "
+                        "provide partial.cdr_lengths or a native antibody result row"
+                    )
+        if any(not lo <= actual <= hi for actual, (lo, hi) in zip(lengths, bounds)):
+            raise DesignSampleError(f"partial antibody {design.role} CDR lengths violate task permissions")
+        expected = len(source.source_positions) - sum(native) + sum(lengths)
+        if count != expected:
+            raise DesignSampleError(f"partial antibody {design.role} CDR layout does not match reference length")
+        resolved[design.role] = lengths
+    return resolved
+
+
+def _antibody_reference_bonds(task, reference, chain_map, condition):
+    """Carry real design-touching non-template bonds through normal lowering."""
+    from copy import deepcopy
+    from src.validate.sequences import _graph_topology_conditions, _AA3_TO_1
+    from .records import TopologyCondition
+
+    result = deepcopy(dict(condition))
+    atoms = reference.record.atoms
+    labels = _labels(atoms)
+    rows_by_uid = {int(uid): i for i, uid in enumerate(atoms.atom_uid)}
+    reverse = {output: original for original, output in chain_map.items()}
+    positions = {}
+    for output in reverse:
+        for position, rows in enumerate(_residues(atoms, output), 1):
+            positions[int(atoms.residue_uid[rows[0]])] = position
+    locked = set()
+    bonds = []
+    fixed = result.setdefault("sequence", {})
+    for edge in _graph_topology_conditions(reference.record, TopologyCondition):
+        rows = [rows_by_uid[int(uid)] for uid in (edge.atom_uid_a, edge.atom_uid_b)]
+        if not any(str(labels[row]) in reverse for row in rows):
+            continue
+        endpoints = []
+        for row in rows:
+            output = str(labels[row])
+            chain = reverse.get(output, output)
+            position = (positions[int(atoms.residue_uid[row])] if output in reverse
+                        else int(atoms.res_id[row]))
+            atom = str(atoms.atom_name[row])
+            endpoints.append({"chain": chain, "resid": position, "atom": atom})
+            if output in reverse and atom not in {"N", "CA", "C", "O", "OXT"}:
+                amino_acid = _AA3_TO_1.get(str(atoms.res_name[row]))
+                if amino_acid is None:
+                    raise DesignSampleError("partial antibody bond endpoint requires a standard amino acid")
+                entries = fixed.setdefault(chain, [])
+                existing = next((entry for entry in entries if entry["resid"] == position), None)
+                if existing is not None and existing["residue"] != amino_acid:
+                    raise DesignSampleError("partial antibody topology conflicts with fixed sequence")
+                if existing is None:
+                    entries.append({"resid": position, "residue": amino_acid})
+                locked.add((chain, position))
+        bonds.append({"atom1": endpoints[0], "atom2": endpoints[1],
+                      "order": "any" if edge.order == "?" else edge.order})
+    if bonds:
+        result["bond"] = bonds
+    return result, locked
+
+
+def _compile_antibody_partial(request, prepared, reference, chain_map, ccd_path,
+                              trusted_ccd_components):
+    from ..antibody.compiler import compile_antibody_request, attach_candidate_annotations
+
+    lengths = _antibody_reference_lengths(request.task, reference, chain_map)
+    locked = set()
+
+    def compile_lowered(lowered, **kwargs):
+        nonlocal locked
+        condition, locked = _antibody_reference_bonds(
+            lowered.task, reference, chain_map, lowered.task.condition)
+        task = replace(lowered.task, condition=condition)
+        lowered = replace(lowered, task=task)
+        source = replace(prepared, task=task, condition=MappingProxyType(condition),
+                         partial_reference=reference)
+        return compile_partial_request(lowered, ccd_path=ccd_path, prepared_source=source,
+                                       trusted_ccd_components=trusted_ccd_components)
+
+    compiled = compile_antibody_request(request, compile_normal=compile_lowered,
+        ccd_path=ccd_path, trusted_ccd_components=trusted_ccd_components,
+        resolved_cdr_lengths=lengths)
+    for entry in compiled.antibody_metadata["entries"]:
+        if (entry["chain_id"], entry["position"]) in locked:
+            entry["mutable"] = False
+    attach_candidate_annotations(compiled, compiled.atoms)
+    attach_candidate_annotations(compiled, compiled.reference_atoms)
+    return compiled
+
+
 def compile_partial_request(
     request: ExpandedRequest, *, ccd_path: Path | None = None,
     prepared_source=None, trusted_ccd_components: Mapping[str, Any] | None = None,
@@ -755,14 +905,15 @@ def compile_partial_request(
     task = request.task
     if task.partial is None:
         raise DesignSampleError("partial compilation requires task.partial")
-    if task.format != "normal":
-        raise DesignSampleError("partial references require the normal task format")
     prepared = prepared_source
     if prepared is None:
         prepared = prepare_task_source(task, ccd_path=ccd_path)
     effective_ccd = _validate_prepared_task_source(prepared, task, ccd_path)
     reference = prepared.partial_reference or load_partial_reference(task.partial, task=task)
     chain_map = _design_mapping(task, reference)
+    if task.format == "antibody":
+        return _compile_antibody_partial(request, prepared, reference, chain_map,
+                                         effective_ccd, trusted_ccd_components)
     lengths, layouts = _resolved_layouts(request, prepared, reference, chain_map)
     plan = LengthPlan(0, lengths)
     native_task = replace(task, partial=None, length_plans=(plan,), length_distribution_chain=None)

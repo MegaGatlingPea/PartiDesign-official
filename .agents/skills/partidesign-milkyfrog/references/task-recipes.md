@@ -34,6 +34,7 @@ All paths in this table are beneath `<repo>/configs/examples/`.
 
 | User goal | File and named starting task | Resolve before adapting |
 | --- | --- | --- |
+| Improve existing protein/peptide/nucleic-acid or antibody complexes | `optimization/annotation.csv` with `pipeline` | Full real complexes, per-sample native conditions and shared task groups; see [partial-pipeline.md](partial-pipeline.md). |
 | Protein binder for a protein | `protein.yaml`: `protein_fixture` | Receptor chains, intended interface if supplied, binder lengths, sample budget. The fixture is five length-40 samples with scoring/refinement off. |
 | Protein without a receptor | `protein.yaml`: `protein_monomer` | Length plan and count; retain `input: null` for a de novo monomer. |
 | Protein with α/β guidance | `protein.yaml`: `protein_bind_protein_alpha_guided`, `protein_bind_protein_beta_guided` | Whether coarse guidance or specific final residue blocks are intended; guidance is not a structural guarantee. |
@@ -73,7 +74,7 @@ For several generated chains, consult the length-plan section of
 polymer-chain combinations, not a Cartesian product; ligand counts come from
 their chemistry conditions. Do not create a new schema to express a joint task.
 
-## Docking — Preview
+## Docking
 
 Complete fixed ligand chemistry plus receptor context specifies pose docking.
 Free or partial ligand chemistry specifies design. A full fixed polymer
@@ -91,7 +92,7 @@ refolding pass gate.
 | Fixed ssRNA in a protein receptor | `benchmarks/ssrna_docking/tasks.yaml`: `ssrna_dock_7tuv_b0_1_4` | Requests 40 samples as shipped. Copy/edit the selected task for a smaller trial. |
 | Known ligand in an RNA receptor | `benchmarks/nuc_ligand/tasks.yaml`: `nuc_ligand_3gx5` | Requests 40 samples as shipped, with scoring/refinement enabled. |
 
-## Peptide topologies — Preview
+## Peptide topologies
 
 Use explicit `peptide` design intent; length alone does not turn `protein` into
 `peptide`. All named peptide examples below are in
@@ -117,7 +118,7 @@ stereochemistry. Some examples enable OpenMM processing. Read the current
 explicit-bond schema and `<repo>/docs/validate.md` before choosing an evaluator:
 backend support differs for modifications and crosslinks.
 
-## Antibody CDR design — Preview
+## Antibody CDR design
 
 Use `<repo>/configs/examples/antibody.yaml` with `format: antibody`; submit it
 separately from normal tasks. Every shipped antibody task requests five samples.
@@ -129,11 +130,31 @@ separately from normal tasks. Every shipped antibody task requests five samples.
 | Sample the scaffold's allowed CDR3 range | `pdl1_adalimumab_selective_cdr3_official`; the example index also lists the VHH counterpart. |
 | Open selected framework positions | `pdl1_adalimumab_framework_optin`; obtain exact source framework positions instead of guessing antibody numbering. |
 | Keep all identities fixed | `pdl1_adalimumab_reference`; `antibody.design: {}` fixes sequences, while coordinates are still generated. |
+| GLP1R VHH de novo or optimization | `glp1r_vhh_bindcraft2`, or `configs/examples/antibody_opt`; use `--preset antibody`. |
 
 Choose a built-in scaffold and its exact roles (`VH`/`VL` or `VHH`), unique
 output chain IDs, mutable CDRs/lengths, template setting, and antigen chains if
 present. The schema does not accept normal contigs, bonds, or cyclic fields.
-Framework templates are soft geometry guidance. See the antibody section of
+A custom scaffold requires native YAML plus a real local CIF, not a CIF path
+alone: use `scaffold: {path: ./my_scaffold.yaml, roles: {VHH: B}, numbering:
+label_seq_id}`. Use exactly VHH for a single domain, or both VH/VL for a pair.
+Its YAML supplies the real CIF, three operational edit windows, visibility,
+exclusions/insertions and residue-index reset; the windows are not IMGT labels.
+The built-in `bindcraft2_vhh` uses source label chain B (author A), residues
+1–127, windows 27–33 / 52–57 / 100–114 and official final lengths 7 / 5–7 / 3–25.
+CDRs and framework 35/37/45/47/50/59/97-99/115-116 are hidden from its template.
+
+Identity design, template visibility and intended paratope are independent.
+Omitted `antibody.paratope` means all three CDRs and no framework per role,
+regardless of mutable positions. The GLP1R tasks explicitly use mutable
+framework `35/37/45/47/50/59/97-99/115-116` and paratope
+`{VHH: {cdrs: [CDR1, CDR2, CDR3], framework: '26/34/51/58-59/95-96/115-116'}}`.
+Both selectors refer to source label_seq_id, not final shifted loop positions.
+
+Framework templates are soft geometry guidance. Existing antibody complexes can
+start partial through native task.partial or annotated pipeline input. Preserve
+the actual scaffold/role/FR-CDR layout and use partial.cdr_lengths when actual
+loop lengths are ambiguous; do not guess antibody numbering. See the antibody section of
 `<repo>/docs/task_schema.md` and the scaffold definitions under
 `<repo>/configs/resources/antibody/scaffolds/`.
 
@@ -167,6 +188,6 @@ After inputs, assets and requested work are settled, remove `--show-config` to
 generate into a fresh run/task directory. Inspect `result.csv` and
 `logs/design.log`; later scoring, refinement and validation are separate choices
 described in `<repo>/docs/score.md`, `<repo>/docs/relax.md`, and
-`<repo>/docs/validate.md`. Docking, antibody and peptide topology workflows are
-Preview features; their availability and images do not establish binding or
-benchmark performance.
+`<repo>/docs/validate.md`. The availability and example images of docking,
+antibody and peptide topology workflows do not establish binding or benchmark
+performance.

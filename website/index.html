@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en" data-theme="partidesign">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#4C3F91">
+  <title>PartiDesign — Joint molecular structure and identity generation</title>
+  <meta name="description" content="An all-atom generative framework for proteins, peptides, antibodies, DNA, RNA and small molecules. Design molecular identities and 3D structures together, with composable constraints and an iterative design pipeline.">
+  <link rel="canonical" href="https://megagatlingpea.github.io/PartiDesign-official/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="PartiDesign">
+  <meta property="og:description" content="Joint molecular structure and identity generation. All-atom design across proteins, peptides, antibodies, nucleic acids and small molecules.">
+  <meta property="og:url" content="https://megagatlingpea.github.io/PartiDesign-official/">
+  <meta property="og:image" content="https://megagatlingpea.github.io/PartiDesign-official/assets/model-overview.png">
+  <meta property="og:image:alt" content="PartiDesign model overview: molecular inputs and constraints, encoder, flow matcher, and joint identity and structure outputs.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PartiDesign">
+  <meta name="twitter:description" content="Joint molecular structure and identity generation.">
+  <meta name="twitter:image" content="https://megagatlingpea.github.io/PartiDesign-official/assets/model-overview.png">
+  <link rel="icon" type="image/png" href="./assets/milkfrog.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./script.js" defer></script>
+</head>
+<body>
+  <a href="#main" class="sr-only fixed top-3 left-3 z-50 rounded-lg bg-neutral px-5 py-3 text-neutral-content focus:not-sr-only">Skip to content</a>
+
+  <header class="sticky top-0 z-30 border-b border-base-300/70 bg-base-100/95 backdrop-blur-md">
+    <div class="navbar mx-auto min-h-18 max-w-7xl justify-between gap-4 px-5 sm:px-8">
+      <a href="#top" aria-label="PartiDesign home" class="flex shrink-0 items-center gap-2.5 rounded-sm text-lg font-semibold tracking-tight">
+        <img src="./assets/milkfrog.png" alt="" width="176" height="191" class="h-9 w-auto">
+        PartiDesign
+      </a>
+      <nav aria-label="Main navigation" class="hidden items-center gap-7 text-sm font-medium lg:flex">
+        <a href="#capabilities" class="rounded-sm hover:text-secondary">Capabilities</a>
+        <a href="#pipeline" class="rounded-sm hover:text-secondary">Pipeline</a>
+        <a href="#get-started" class="rounded-sm hover:text-secondary">Get started</a>
+        <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/README.md" class="rounded-sm hover:text-secondary">Docs</a>
+        <a href="https://github.com/MegaGatlingPea/PartiDesign-official" class="btn btn-sm gap-2 px-4">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+      <details class="dropdown dropdown-end lg:hidden" data-mobile-nav>
+        <summary aria-label="Open navigation menu" class="btn btn-square">
+          <svg aria-hidden="true" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </summary>
+        <nav aria-label="Mobile navigation" class="dropdown-content z-40 mt-3 flex w-60 flex-col gap-1 rounded-xl border border-base-300 bg-base-100 p-3 shadow-lg">
+          <a href="#capabilities" class="rounded-lg px-4 py-3 text-sm hover:bg-base-200">Capabilities</a>
+          <a href="#pipeline" class="rounded-lg px-4 py-3 text-sm hover:bg-base-200">Pipeline</a>
+          <a href="#get-started" class="rounded-lg px-4 py-3 text-sm hover:bg-base-200">Get started</a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/README.md" class="rounded-lg px-4 py-3 text-sm hover:bg-base-200">Docs</a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official" class="rounded-lg px-4 py-3 text-sm hover:bg-base-200">GitHub <span aria-hidden="true">↗</span></a>
+        </nav>
+      </details>
+    </div>
+  </header>
+
+  <main id="main">
+    <section id="top" class="hero">
+      <div class="hero-content max-w-5xl flex-col gap-0 px-5 pt-14 pb-16 text-center sm:px-8 sm:pt-20 sm:pb-20">
+        <img src="./assets/milkfrog.png" alt="PartiDesign's MilkyFrog mascot" width="176" height="191" fetchpriority="high" class="mb-6 h-28 w-auto sm:h-32">
+        <p class="mb-4 text-xs font-semibold tracking-[0.2em] text-secondary uppercase">All-atom molecular design</p>
+        <h1 class="text-[clamp(3.6rem,11vw,6.6rem)] leading-none font-semibold tracking-[-0.065em]">PartiDesign</h1>
+        <p class="mt-6 max-w-3xl text-2xl leading-snug font-medium tracking-tight text-balance sm:text-3xl">Joint molecular structure<br class="hidden sm:block"> and identity generation</p>
+        <p class="mt-5 max-w-2xl text-base leading-7 text-pretty text-base-content/70 sm:text-lg sm:leading-8">Design proteins, peptides, antibodies, DNA, RNA and small molecules — with sequences or chemical identities and three-dimensional atomic structures generated together.</p>
+        <div class="mt-8 flex flex-wrap justify-center gap-3">
+          <a href="#pipeline" class="btn btn-primary h-12 px-6 text-sm">Start with pipeline <span aria-hidden="true">↓</span></a>
+          <a href="#skill-title" class="btn h-12 px-5 text-sm">Agent Skill <span aria-hidden="true">↓</span></a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official" class="btn h-12 px-5 text-sm">GitHub <span aria-hidden="true">↗</span></a>
+          <a href="https://cadd.zju.edu.cn/partidesign/" class="btn h-12 px-5 text-sm">Web server <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="overview-title" class="mx-auto max-w-7xl px-5 pb-20 sm:px-8 sm:pb-28">
+      <div class="border-y border-base-300 py-5">
+        <p class="text-center text-sm leading-7 text-base-content/65"><span class="mr-3 font-medium text-base-content">Compose your conditions</span><span class="inline-block">Fixed sequences</span><span aria-hidden="true" class="mx-3 text-base-content/30">·</span><span class="inline-block">Motifs</span><span aria-hidden="true" class="mx-3 text-base-content/30">·</span><span class="inline-block">Secondary structure</span><span aria-hidden="true" class="mx-3 text-base-content/30">·</span><span class="inline-block">Hotspots</span><span aria-hidden="true" class="mx-3 text-base-content/30">·</span><span class="inline-block">Explicit bonds</span></p>
+      </div>
+      <div class="mx-auto mt-16 max-w-3xl text-center sm:mt-20">
+        <h2 id="overview-title" class="text-3xl leading-tight font-semibold tracking-tight text-balance sm:text-4xl">Identity and geometry, designed together.</h2>
+        <p class="mt-5 text-base leading-7 text-pretty text-base-content/70 sm:text-lg sm:leading-8">Generate molecules on their own or in protein, nucleic-acid and small-molecule environments. Combine molecular context with the conditions that define your task.</p>
+      </div>
+      <figure class="mt-8">
+        <img src="./assets/model-overview.png" alt="Model overview: molecular inputs and sequence, motif, secondary-structure and bond constraints pass through an encoder and flow matcher to a decoder that jointly produces identities and atomic coordinates." width="2600" height="1463" loading="lazy" decoding="async" class="h-auto w-full">
+        <figcaption class="mt-3 flex flex-col items-start justify-between gap-4 border-t border-base-300 pt-4 sm:flex-row sm:items-center">
+          <p class="max-w-3xl text-sm leading-6 text-base-content/65">The PartiDesign framework connects molecular context, composable conditions and joint structure–identity generation.</p>
+          <a href="./assets/model-overview.png" class="btn btn-sm shrink-0" data-figure data-title="PartiDesign model overview" data-width="2600" data-height="1463" aria-haspopup="dialog" aria-controls="figure-dialog">View full figure <span aria-hidden="true">↗</span></a>
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="capabilities" aria-labelledby="capabilities-title" class="mx-auto max-w-7xl px-5 pb-24 sm:px-8 sm:pb-32">
+      <div class="mb-12 max-w-3xl">
+        <p class="mb-4 text-xs font-semibold tracking-[0.18em] text-secondary uppercase">Capabilities</p>
+        <h2 id="capabilities-title" class="text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">Design across<br class="hidden sm:block"> molecular modalities.</h2>
+        <p class="mt-5 text-base leading-7 text-base-content/70 sm:text-lg sm:leading-8">From new molecular identities to fixed-identity docking, use one framework with the context and constraints your design needs.</p>
+      </div>
+
+      <article aria-labelledby="protein-title" class="border-t border-base-300 pt-8">
+        <div class="mb-7 grid gap-5 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+          <div>
+            <p class="mb-2 text-xs font-medium tracking-widest text-base-content/65">01 / PROTEIN</p>
+            <h3 id="protein-title" class="text-2xl font-semibold tracking-tight sm:text-3xl">Proteins, peptides &amp; antibodies</h3>
+          </div>
+          <div>
+            <p class="text-base leading-7 text-base-content/70">Generate monomers and binders, scaffold residue or atomic motifs, and guide secondary structure. Design linear, cyclic and crosslinked peptides, or selected CDRs in paired VH/VL and VHH scaffolds. Fixed-identity peptides support docking.</p>
+            <div class="mt-4 flex flex-wrap gap-x-5 gap-y-3 text-sm font-medium">
+              <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/configs/examples/README.md#protein" class="text-secondary underline decoration-secondary/30 hover:decoration-secondary">Protein examples <span aria-hidden="true">↗</span></a>
+              <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/configs/examples/README.md#peptide-topologies" class="text-secondary underline decoration-secondary/30 hover:decoration-secondary">Peptide topologies <span aria-hidden="true">↗</span></a>
+              <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/configs/examples/README.md#antibodies" class="text-secondary underline decoration-secondary/30 hover:decoration-secondary">Antibody examples <span aria-hidden="true">↗</span></a>
+            </div>
+          </div>
+        </div>
+        <figure>
+          <img src="./assets/capabilities/protein.png" alt="Protein capability examples: protein binders with secondary-structure guidance, protein design in RNA, DNA and ligand contexts, motif scaffolding, peptide topologies, Fv and VHH antibody design, and peptide docking." width="3400" height="1510" loading="lazy" decoding="async" class="h-auto w-full">
+          <figcaption class="mt-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <p class="text-sm leading-6 text-base-content/65">Protein generation, peptide chemistry, antibody CDR design and docking.</p>
+            <a href="./assets/capabilities/protein.png" class="btn btn-sm shrink-0" data-figure data-title="Protein, peptide and antibody capabilities" data-width="3400" data-height="1510" aria-haspopup="dialog" aria-controls="figure-dialog">View full figure <span aria-hidden="true">↗</span></a>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article aria-labelledby="nucleic-title" class="mt-16 border-t border-base-300 pt-8 sm:mt-20">
+        <div class="mb-7 grid gap-5 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+          <div>
+            <p class="mb-2 text-xs font-medium tracking-widest text-base-content/65">02 / NUCLEIC ACIDS</p>
+            <h3 id="nucleic-title" class="text-2xl font-semibold tracking-tight sm:text-3xl">DNA &amp; RNA</h3>
+          </div>
+          <div>
+            <p class="text-base leading-7 text-base-content/70">Design aptamers around proteins or small molecules, or generate structures for fixed sequences. Combine paired/unpaired, specified-pair and stem-loop guidance with sequence and motif conditions. Fixed-identity ssRNA supports docking.</p>
+            <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/configs/examples/README.md#nucleic-acids" class="mt-4 inline-block text-sm font-medium text-secondary underline decoration-secondary/30 hover:decoration-secondary">Nucleic-acid examples <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+        <figure>
+          <img src="./assets/capabilities/nucleic-acid.png" alt="Nucleic-acid capability examples: RNA and DNA design around proteins and ligands, ssRNA docking, paired and unpaired preferences, specified base pairs, stem-loop guidance, and fixed-sequence structure prediction." width="3400" height="1510" loading="lazy" decoding="async" class="h-auto w-full">
+          <figcaption class="mt-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <p class="text-sm leading-6 text-base-content/65">Aptamer design, pairing guidance and fixed-sequence structure generation.</p>
+            <a href="./assets/capabilities/nucleic-acid.png" class="btn btn-sm shrink-0" data-figure data-title="DNA and RNA capabilities" data-width="3400" data-height="1510" aria-haspopup="dialog" aria-controls="figure-dialog">View full figure <span aria-hidden="true">↗</span></a>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article aria-labelledby="ligand-title" class="mt-16 border-t border-base-300 pt-8 sm:mt-20">
+        <div class="mb-7 grid gap-5 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+          <div>
+            <p class="mb-2 text-xs font-medium tracking-widest text-base-content/65">03 / SMALL MOLECULES</p>
+            <h3 id="ligand-title" class="text-2xl font-semibold tracking-tight sm:text-3xl">Ligands &amp; molecular fragments</h3>
+          </div>
+          <div>
+            <p class="text-base leading-7 text-base-content/70">Generate pocket-conditioned ligands, grow or link retained fragments, and explore scaffold changes. Fixed-identity ligands support docking in protein or nucleic-acid context.</p>
+            <div class="mt-4 flex flex-wrap gap-x-5 gap-y-3 text-sm font-medium">
+              <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/configs/examples/README.md#ligands" class="text-secondary underline decoration-secondary/30 hover:decoration-secondary">Ligand examples <span aria-hidden="true">↗</span></a>
+              <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/configs/examples/README.md#docking" class="text-secondary underline decoration-secondary/30 hover:decoration-secondary">Docking examples <span aria-hidden="true">↗</span></a>
+            </div>
+          </div>
+        </div>
+        <figure>
+          <img src="./assets/capabilities/ligand.png" alt="Small-molecule capability examples: de novo ligands in protein, RNA and DNA pockets, docking, pose-conditioned and atomic-motif redesign, fragment growing and linking, connector replacement, and scaffold hopping. Colors distinguish retained, editable and generated atoms." width="3400" height="2140" loading="lazy" decoding="async" class="h-auto w-full">
+          <figcaption class="mt-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <p class="text-sm leading-6 text-base-content/65">Pocket-conditioned generation, molecular editing and docking.</p>
+            <a href="./assets/capabilities/ligand.png" class="btn btn-sm shrink-0" data-figure data-title="Small-molecule capabilities" data-width="3400" data-height="2140" aria-haspopup="dialog" aria-controls="figure-dialog">View full figure <span aria-hidden="true">↗</span></a>
+          </figcaption>
+        </figure>
+      </article>
+    </section>
+
+    <section id="pipeline" aria-labelledby="pipeline-title" class="border-y border-base-300 bg-base-200/70 py-20 sm:py-28">
+      <div class="mx-auto max-w-7xl px-5 sm:px-8">
+        <div class="max-w-4xl">
+          <p class="mb-4 text-xs font-semibold tracking-[0.18em] text-secondary uppercase">The iterative pipeline</p>
+          <h2 id="pipeline-title" class="text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">One command for de novo design and structure-guided redesign.</h2>
+          <p class="mt-6 max-w-3xl text-base leading-7 text-base-content/70 sm:text-lg sm:leading-8">Connect generation, partial diffusion, MPNN sequence redesign, refolding and final validation in one runner. Start from a task YAML or an existing complex.</p>
+        </div>
+        <figure class="mt-10 rounded-2xl border border-base-300 bg-base-100 p-4 sm:p-6">
+          <img src="./assets/capabilities/pipeline.png" alt="Pipeline progression: a de novo or existing binder complex passes through three rounds of MPNN redesign, refolding and filtering, with partial diffusion between rounds, followed by final validation and accepted candidates." width="3400" height="820" loading="lazy" decoding="async" class="h-auto w-full">
+          <figcaption class="mt-4 flex flex-col items-start justify-between gap-3 border-t border-base-300 pt-4 sm:flex-row sm:items-center">
+            <p class="max-w-3xl text-sm leading-6 text-base-content/65">Three rounds of sequence–structure refinement, followed by final structure validation.</p>
+            <a href="./assets/capabilities/pipeline.png" class="btn btn-sm shrink-0" data-figure data-title="Iterative design pipeline" data-width="3400" data-height="820" aria-haspopup="dialog" aria-controls="figure-dialog">View full figure <span aria-hidden="true">↗</span></a>
+          </figcaption>
+        </figure>
+
+        <div class="mt-9 grid gap-6 text-sm leading-6 md:grid-cols-3 md:gap-10">
+          <div><h3 class="mb-2 font-semibold">Start from your task</h3><p class="text-base-content/65">Use a design YAML, or describe starting complexes and design chains in <code class="text-[0.9em] text-base-content">annotation.csv</code>.</p></div>
+          <div><h3 class="mb-2 font-semibold">Keep native constraints</h3><p class="text-base-content/65">Fixed identities, motifs and chemical connections remain part of the task through refinement.</p></div>
+          <div><h3 class="mb-2 font-semibold">Collect accepted candidates</h3><p class="text-base-content/65">Refold and filter between rounds, then apply the selected preset’s final validation.</p></div>
+        </div>
+
+        <div class="mt-10 min-w-0 rounded-2xl border border-base-300 bg-base-100" data-tabs>
+          <div role="tablist" aria-label="Pipeline examples" class="tabs tabs-border flex border-b border-base-300 px-2 pt-2 sm:px-5">
+            <button id="tab-insulin" type="button" role="tab" aria-selected="true" aria-controls="panel-insulin" tabindex="0" class="tab tab-active h-auto min-h-14 flex-1 px-2 pb-3 text-xs leading-5 font-medium whitespace-normal sm:flex-none sm:px-5 sm:text-sm">De novo insulin</button>
+            <button id="tab-existing" type="button" role="tab" aria-selected="false" aria-controls="panel-existing" tabindex="-1" class="tab h-auto min-h-14 flex-1 px-2 pb-3 text-xs leading-5 font-medium whitespace-normal sm:flex-none sm:px-5 sm:text-sm">Existing structures</button>
+            <button id="tab-antibody" type="button" role="tab" aria-selected="false" aria-controls="panel-antibody" tabindex="-1" class="tab h-auto min-h-14 flex-1 px-2 pb-3 text-xs leading-5 font-medium whitespace-normal sm:flex-none sm:px-5 sm:text-sm">Antibody</button>
+          </div>
+          <section id="panel-insulin" role="tabpanel" aria-labelledby="tab-insulin" tabindex="0" class="min-w-0 p-5 sm:p-8">
+            <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <h3 class="text-xl font-semibold tracking-tight">Your first insulin receptor binder</h3>
+              <button type="button" class="btn btn-sm shrink-0" data-copy="command-insulin" data-copy-name="Insulin receptor pipeline command" aria-label="Copy insulin receptor pipeline command"><span data-copy-label>Copy command</span></button>
+            </div>
+            <pre tabindex="0" aria-label="Insulin receptor pipeline command" class="max-w-full overflow-x-auto rounded-xl bg-neutral p-5 text-[0.8rem] leading-7 text-neutral-content sm:p-6 sm:text-sm"><code id="command-insulin">partidesign pipeline configs/examples/pipeline_tasks.yaml \
+  --task protdbench_insulin_receptor --preset ppi \
+  --config configs/pipeline/demo.yaml --run-name insulin_receptor_demo</code></pre>
+            <p class="mt-5 max-w-4xl text-sm leading-7 text-base-content/70">The lighter demo runs three rounds with ESMFold2-fast, relaxed pipeline screening and partial diffusion, followed by five Mol-1 samples for final validation. <a href="#get-started" class="font-medium text-secondary underline decoration-secondary/30 hover:decoration-secondary">Prepare the environment and demo models below.</a></p>
+          </section>
+          <section id="panel-existing" role="tabpanel" aria-labelledby="tab-existing" tabindex="0" hidden class="min-w-0 p-5 sm:p-8">
+            <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <h3 class="text-xl font-semibold tracking-tight">Refine an existing peptide complex</h3>
+              <button type="button" class="btn btn-sm shrink-0" data-copy="command-existing" data-copy-name="Existing-structure pipeline command" aria-label="Copy existing-structure pipeline command"><span data-copy-label>Copy command</span></button>
+            </div>
+            <pre tabindex="0" aria-label="Existing-structure pipeline command" class="max-w-full overflow-x-auto rounded-xl bg-neutral p-5 text-[0.8rem] leading-7 text-neutral-content sm:p-6 sm:text-sm"><code id="command-existing">partidesign pipeline configs/examples/optimization \
+  --config configs/pipeline/optimize.yaml --preset ppi \
+  --run-name peptide_optimization</code></pre>
+            <p class="mt-5 max-w-4xl text-sm leading-7 text-base-content/70">Optimize the bundled linear and cyclic peptide complexes. The directory’s <code class="text-[0.9em] text-base-content">annotation.csv</code> describes each starting complex. This workflow begins with partial diffusion and uses the full selected preset for final validation; prepare its <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/download.md#optional-evaluation-models" class="font-medium text-secondary underline decoration-secondary/30 hover:decoration-secondary">evaluation models</a>.</p>
+          </section>
+          <section id="panel-antibody" role="tabpanel" aria-labelledby="tab-antibody" tabindex="0" hidden class="min-w-0 p-5 sm:p-8">
+            <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <h3 class="text-xl font-semibold tracking-tight">Optimize a GLP1R VHH</h3>
+              <button type="button" class="btn btn-sm shrink-0" data-copy="command-antibody" data-copy-name="Antibody optimization command" aria-label="Copy antibody optimization command"><span data-copy-label>Copy command</span></button>
+            </div>
+            <pre tabindex="0" aria-label="Antibody optimization command" class="max-w-full overflow-x-auto rounded-xl bg-neutral p-5 text-[0.8rem] leading-7 text-neutral-content sm:p-6 sm:text-sm"><code id="command-antibody">partidesign pipeline configs/examples/antibody_opt \
+  --preset antibody --run-name glp1r_vhh_optimization</code></pre>
+            <p class="mt-5 max-w-4xl text-sm leading-7 text-base-content/70">Use the antibody preset with the bundled annotated starting complexes. Native CDR/framework permissions and the paratope declaration guide optimization. See the <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/pipeline.md#antibody-pipelines" class="font-medium text-secondary underline decoration-secondary/30 hover:decoration-secondary">antibody pipeline guide</a> for model requirements and final validation.</p>
+          </section>
+        </div>
+        <noscript><p class="mt-4 text-sm leading-6">For all command examples, open the <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/pipeline.md" class="underline">pipeline guide</a>. JavaScript enables example tabs and copy controls.</p></noscript>
+        <div class="mt-5 flex flex-col justify-between gap-3 text-sm leading-6 text-base-content/65 lg:flex-row lg:gap-8">
+          <p>Add <code class="rounded bg-base-300/50 px-1.5 py-1 text-xs text-base-content">--plan</code> to preview a command without starting model jobs.</p>
+          <p class="min-w-0">Accepted candidates: <code class="break-all text-xs text-base-content">inference/&lt;run&gt;/&lt;task&gt;/final/success/</code></p>
+        </div>
+        <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/pipeline.md" class="mt-7 inline-block text-sm font-medium text-secondary underline decoration-secondary/30 hover:decoration-secondary">Explore presets, annotation fields and resume <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+
+    <section id="get-started" aria-labelledby="get-started-title" class="mx-auto max-w-7xl px-5 py-20 sm:px-8 sm:py-28">
+      <p class="mb-4 text-xs font-semibold tracking-[0.18em] text-secondary uppercase">Get started</p>
+      <h2 id="get-started-title" class="max-w-3xl text-4xl leading-tight font-semibold tracking-tight text-balance sm:text-5xl">From your first run<br class="hidden sm:block"> to your own target.</h2>
+
+      <section aria-labelledby="skill-title" class="mt-10 grid gap-7 rounded-2xl border border-secondary/20 bg-secondary/5 p-6 sm:p-9 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12">
+        <div>
+          <p class="mb-3 text-xs font-semibold tracking-widest text-secondary uppercase">Recommended · Agent Skill</p>
+          <h3 id="skill-title" class="text-2xl leading-tight font-semibold tracking-tight">Bring MilkyFrog to your coding agent.</h3>
+          <p class="mt-4 text-sm leading-7 text-base-content/70">The PartiDesign MilkyFrog skill helps set up the environment, prepare model downloads, adapt task YAML to your molecules and constraints, and run or troubleshoot design workflows.</p>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/.agents/skills/partidesign-milkyfrog/SKILL.md" class="btn mt-6">Open Agent Skill <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="min-w-0 self-center rounded-xl border border-base-300 bg-base-100 p-5 sm:p-6">
+          <div class="mb-4 flex items-center justify-between gap-3">
+            <p class="text-xs font-semibold tracking-widest text-base-content/65 uppercase">Give your agent this prompt</p>
+            <button type="button" class="btn btn-sm shrink-0" data-copy="agent-prompt" data-copy-name="MilkyFrog agent prompt" aria-label="Copy MilkyFrog agent prompt"><span data-copy-label>Copy prompt</span></button>
+          </div>
+          <p id="agent-prompt" class="font-mono text-sm leading-7 text-base-content/80">Use $partidesign-milkyfrog to set up PartiDesign, download the models needed for the insulin receptor pipeline demo, and help me adapt a task to my target.</p>
+        </div>
+      </section>
+
+      <div class="mt-14 sm:mt-16">
+        <h3 class="text-2xl font-semibold tracking-tight">Set up the environment</h3>
+        <p class="mt-3 max-w-3xl text-base leading-7 text-base-content/70">Use Linux with an NVIDIA GPU and Conda or a compatible environment manager. Follow the commands below from your working directory.</p>
+        <div class="mt-7 grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-10">
+          <section aria-labelledby="install-title" class="min-w-0">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h4 id="install-title" class="text-sm font-semibold"><span class="mr-2 text-base-content/65">01</span> Clone and install</h4>
+              <button type="button" class="btn btn-sm" data-copy="command-install" data-copy-name="Environment setup commands" aria-label="Copy environment setup commands"><span data-copy-label>Copy commands</span></button>
+            </div>
+            <pre tabindex="0" aria-label="Environment setup commands" class="max-w-full overflow-x-auto rounded-xl bg-neutral p-5 text-xs leading-7 text-neutral-content sm:p-6 sm:text-[0.8rem]"><code id="command-install">git clone https://github.com/MegaGatlingPea/PartiDesign-official.git
+cd PartiDesign-official
+conda env create -f partidesign_cu12.yaml
+conda activate partidesign</code></pre>
+            <p class="mt-4 text-sm leading-7 text-base-content/65">For CUDA 13 and alternative setups, see the <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/environments.md" class="font-medium text-secondary underline decoration-secondary/30 hover:decoration-secondary">environment guide</a>.</p>
+          </section>
+          <section aria-labelledby="models-title" class="min-w-0">
+            <div class="mb-4 flex min-h-8 items-center">
+              <h4 id="models-title" class="text-sm font-semibold"><span class="mr-2 text-base-content/65">02</span> Download the models</h4>
+            </div>
+            <p class="text-sm leading-7 text-base-content/70">Download the <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/download.md" class="font-medium text-secondary underline decoration-secondary/30 hover:decoration-secondary">PartiDesign generation bundle</a> and save it as <code class="text-[0.9em] text-base-content">ckpts/partidesign.ckpt</code>. This checkpoint is a separate download from the environment installation.</p>
+            <p class="mt-4 text-sm leading-7 text-base-content/70">Then prepare the additional models for the lighter insulin receptor pipeline demo:</p>
+            <div class="mt-4 flex items-center justify-between gap-3">
+              <p class="text-xs font-medium text-base-content/65">Additional demo models</p>
+              <button type="button" class="btn btn-sm" data-copy="command-models" data-copy-name="Demo model download command" aria-label="Copy demo model download command"><span data-copy-label>Copy command</span></button>
+            </div>
+            <pre tabindex="0" aria-label="Demo model download command" class="mt-3 max-w-full overflow-x-auto rounded-xl bg-neutral p-5 text-xs leading-7 text-neutral-content sm:p-6 sm:text-[0.8rem]"><code id="command-models">partidesign download esmfold2-fast mol1 solublempnn</code></pre>
+            <p class="mt-4 text-sm leading-7 text-base-content/65">The <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/download.md" class="font-medium text-secondary underline decoration-secondary/30 hover:decoration-secondary">download guide</a> covers terminal downloads, model locations and predictors required by full presets.</p>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="documentation" aria-labelledby="docs-title" class="border-t border-base-300 bg-base-200/50 py-20 sm:py-24">
+      <div class="mx-auto max-w-7xl px-5 sm:px-8">
+        <div class="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+          <div><p class="mb-4 text-xs font-semibold tracking-[0.18em] text-secondary uppercase">Documentation</p><h2 id="docs-title" class="text-3xl font-semibold tracking-tight sm:text-4xl">Make the next step yours.</h2></div>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/README.md" class="self-start text-sm font-medium text-secondary underline decoration-secondary/30 hover:decoration-secondary sm:self-auto">Open the user guide <span aria-hidden="true">↗</span></a>
+        </div>
+        <nav aria-label="Documentation guides" class="mt-9 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-12">
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/README.md" class="group border-t border-base-300 py-6"><span class="flex items-center justify-between gap-4 font-semibold">User guide <span aria-hidden="true" class="text-base-content/35 group-hover:text-secondary">↗</span></span><span class="mt-2 block text-sm leading-6 text-base-content/65">Reading order and the documentation map.</span></a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/design.md" class="group border-t border-base-300 py-6"><span class="flex items-center justify-between gap-4 font-semibold">Generation <span aria-hidden="true" class="text-base-content/35 group-hover:text-secondary">↗</span></span><span class="mt-2 block text-sm leading-6 text-base-content/65">Your first run, task selection and outputs.</span></a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/pipeline.md" class="group border-t border-base-300 py-6"><span class="flex items-center justify-between gap-4 font-semibold">Pipeline <span aria-hidden="true" class="text-base-content/35 group-hover:text-secondary">↗</span></span><span class="mt-2 block text-sm leading-6 text-base-content/65">Presets, redesign and final validation.</span></a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/task_schema.md" class="group border-t border-base-300 py-6"><span class="flex items-center justify-between gap-4 font-semibold">Task YAML <span aria-hidden="true" class="text-base-content/35 group-hover:text-secondary">↗</span></span><span class="mt-2 block text-sm leading-6 text-base-content/65">Molecules, constraints and chemical connections.</span></a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/commands.md" class="group border-t border-base-300 py-6"><span class="flex items-center justify-between gap-4 font-semibold">Commands <span aria-hidden="true" class="text-base-content/35 group-hover:text-secondary">↗</span></span><span class="mt-2 block text-sm leading-6 text-base-content/65">Generation, scoring, relax and result analysis.</span></a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/partial.md" class="group border-t border-base-300 py-6"><span class="flex items-center justify-between gap-4 font-semibold">Partial diffusion <span aria-hidden="true" class="text-base-content/35 group-hover:text-secondary">↗</span></span><span class="mt-2 block text-sm leading-6 text-base-content/65">Explore the neighborhood of a reference structure.</span></a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/performance.md" class="group border-t border-base-300 py-6"><span class="flex items-center justify-between gap-4 font-semibold">Performance <span aria-hidden="true" class="text-base-content/35 group-hover:text-secondary">↗</span></span><span class="mt-2 block text-sm leading-6 text-base-content/65">Budgets, protocols and task-level results.</span></a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/download.md" class="group border-t border-base-300 py-6"><span class="flex items-center justify-between gap-4 font-semibold">Model downloads <span aria-hidden="true" class="text-base-content/35 group-hover:text-secondary">↗</span></span><span class="mt-2 block text-sm leading-6 text-base-content/65">Generation weights and evaluation models.</span></a>
+          <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/environments.md" class="group border-t border-base-300 py-6"><span class="flex items-center justify-between gap-4 font-semibold">Environments <span aria-hidden="true" class="text-base-content/35 group-hover:text-secondary">↗</span></span><span class="mt-2 block text-sm leading-6 text-base-content/65">CUDA setup and environment alternatives.</span></a>
+        </nav>
+        <div class="mt-7 flex flex-col items-start justify-between gap-5 border-t border-base-300 pt-8 sm:flex-row sm:items-center">
+          <div><h3 class="text-lg font-semibold tracking-tight">Prefer visual task setup?</h3><p class="mt-1 text-sm leading-6 text-base-content/65">Explore PartiDesign through the web server.</p></div>
+          <a href="https://cadd.zju.edu.cn/partidesign/" class="btn shrink-0">Open web server <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-base-300">
+    <div class="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-14">
+      <div class="grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:gap-16">
+        <div>
+          <a href="#top" class="text-xl font-semibold tracking-tight">PartiDesign</a>
+          <p class="mt-3 max-w-sm text-sm leading-7 text-base-content/65">Joint molecular structure<br>and identity generation.</p>
+          <div class="mt-5 flex flex-wrap gap-x-5 gap-y-3 text-sm">
+            <a href="https://github.com/MegaGatlingPea/PartiDesign-official" class="underline decoration-base-content/25 hover:decoration-base-content">Source code</a>
+            <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/LICENSE" class="underline decoration-base-content/25 hover:decoration-base-content">Apache 2.0</a>
+            <a href="https://github.com/MegaGatlingPea/PartiDesign-official/blob/main/docs/download.md" class="underline decoration-base-content/25 hover:decoration-base-content">Model terms &amp; downloads</a>
+          </div>
+        </div>
+        <div>
+          <p class="text-xs font-semibold tracking-widest text-base-content/65 uppercase">Acknowledgements</p>
+          <p class="mt-3 text-sm leading-7 text-base-content/65">With thanks to the developers of <a href="https://github.com/NVIDIA-BioNeMo/la-proteina" class="underline decoration-base-content/25 hover:decoration-base-content">La-Proteina</a>, <a href="https://github.com/OTeam-AI4S/ODesign" class="underline decoration-base-content/25 hover:decoration-base-content">ODesign</a>, <a href="https://github.com/bytedance/Protenix" class="underline decoration-base-content/25 hover:decoration-base-content">Protenix</a> and <a href="https://github.com/sokrypton/ColabFold" class="underline decoration-base-content/25 hover:decoration-base-content">ColabFold</a> for sharing their code and tools, and <a href="https://github.com/MinchaoFang/HalluDesign" class="underline decoration-base-content/25 hover:decoration-base-content">HalluDesign</a> for inspiring the iterative sequence–structure pipeline.</p>
+          <p class="mt-3 text-xs leading-6 text-base-content/65">Source code is released under Apache 2.0. Model weights follow their upstream terms.</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <dialog id="figure-dialog" class="modal" aria-labelledby="figure-title" aria-describedby="figure-help">
+    <div class="modal-box flex max-h-[94dvh] w-[96vw] max-w-[1600px] flex-col overflow-hidden p-0">
+      <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-base-300 p-4 sm:px-6">
+        <h2 id="figure-title" class="min-w-0 text-base font-semibold sm:text-lg">PartiDesign figure</h2>
+        <div class="flex items-center gap-2">
+          <button id="figure-fit" type="button" class="btn btn-sm" aria-pressed="false">Fit to screen</button>
+          <form method="dialog"><button type="submit" class="btn btn-square btn-sm" aria-label="Close figure"><svg aria-hidden="true" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 6 12 12M6 18 18 6"/></svg></button></form>
+        </div>
+      </div>
+      <p id="figure-help" class="shrink-0 border-b border-base-300 bg-base-200 px-4 py-3 text-xs leading-6 text-base-content/65 sm:px-6">Scroll across and down to read the labels. Use “Fit to screen” for an overview, or <a id="figure-original" href="./assets/model-overview.png" target="_blank" rel="noopener" class="font-medium text-secondary underline">open the original image in a new tab</a>.</p>
+      <div id="figure-viewport" role="region" aria-label="Enlarged scientific figure; scroll to explore" tabindex="0" class="min-h-0 overflow-auto overscroll-contain bg-base-100 p-3 sm:p-5">
+        <img id="figure-image" src="./assets/model-overview.png" alt="" width="2600" height="1463" class="h-auto w-full max-w-none">
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button type="submit" tabindex="-1" aria-label="Close figure viewer">Close</button></form>
+  </dialog>
+  <p id="copy-status" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></p>
+</body>
+</html>

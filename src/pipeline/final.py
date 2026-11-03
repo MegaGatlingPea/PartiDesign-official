@@ -1,6 +1,7 @@
 """Multi-method final filtering: union selection and method-labelled best CIFs."""
 from __future__ import annotations
 
+import copy
 import json
 import math
 from dataclasses import replace
@@ -179,7 +180,16 @@ def run_final(owner, cfg, task_name, stage, parents, previous, *, force=False, p
             record = json.loads(record_path.read_text())
             method_passed = method in passed
             row[method + "_passed"] = method_passed
-            filters.extend(threshold_rows(parent, record, cfg["tasks"][task_name]["presets"],
+            definitions = cfg["tasks"][task_name]["presets"]
+            if cfg["tasks"][task_name].get("antibody_contacts"):
+                from .criteria import with_antibody_contacts
+                # Report the same composed rules as run_stage; the separate
+                # original-motif gate retains its own unmodified definition.
+                definitions = {name: copy.deepcopy(definitions[name])
+                               for name in (*record["decisions"], "antibody_contacts")}
+                names = [name for name in record["decisions"] if name != "pipeline_motif"]
+                _, definitions = with_antibody_contacts(names, definitions)
+            filters.extend(threshold_rows(parent, record, definitions,
                                           method_passed=method_passed, union_passed=bool(passed)))
             best_metrics = {}
             for key in _selected_keys(record):

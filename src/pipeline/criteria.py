@@ -10,6 +10,7 @@ _NATIVE_PRESETS = (
     "af2_ig_protein",
     "af2_ig_peptide",
     "af3_basic",
+    "af3_peptide",
     "af3_alphaproteo",
     "af3_protein_monomer",
     "af3_na_monomer",
@@ -75,19 +76,29 @@ def _protein_binder(preset: dict) -> dict:
     return result
 
 
+def _peptide_binder(preset: dict) -> dict:
+    result = _protein_binder(preset)
+    for rule in result["rules"]:
+        if rule["metric"] == "rfd4_min_ipae_angstrom":
+            rule["value"] = 3.5
+    return result
+
+
 def profile_presets(profile: str) -> dict:
     """Return independent native definitions with the profile's fixed deltas."""
-    if profile not in {"protein", "nuc", "ppi"}:
+    if profile not in {"protein", "nuc", "ppi", "antibody"}:
         raise ValueError(f"Unknown pipeline criteria profile: {profile}")
     native = load_presets(inference_config_dir() / "criteria.yaml")
     if profile == "ppi":
         result = {
             "pipeline_protein_binder": _protein_binder(native["af3_basic"]),
+            "pipeline_peptide_binder": _peptide_binder(native["af3_peptide"]),
             "pipeline_af2_ig_protein": _relaxed(native["af2_ig_protein"]),
             "pipeline_af2_ig_peptide": _relaxed(native["af2_ig_peptide"]),
             "af2_ig_protdbench": copy.deepcopy(native["af2_ig_protdbench"]),
             "af2_ig_peptide": copy.deepcopy(native["af2_ig_peptide"]),
             "af3_basic": copy.deepcopy(native["af3_basic"]),
+            "af3_peptide": copy.deepcopy(native["af3_peptide"]),
         }
         result["af2_ig_protdbench"]["reduction"] = "all_and_mean"
         return result
@@ -97,6 +108,7 @@ def profile_presets(profile: str) -> dict:
         for name in _NATIVE_PRESETS
     })
     result["pipeline_protein_binder"] = _protein_binder(native["af3_basic"])
+    result["pipeline_peptide_binder"] = _peptide_binder(native["af3_peptide"])
     return result
 
 
@@ -144,3 +156,28 @@ def without_motif_geometry(names, definitions):
             result[name] = dict(preset, rules=rules)
             kept.append(name)
     return kept, result
+
+
+def with_antibody_contacts(names, definitions):
+    """Keep shared contact gates mandatory under either all/any criteria mode.
+
+    Attach the rules to each selected same-prediction criterion, rather than
+    allowing a different conformer to satisfy the contact gate independently.
+    """
+    contacts = definitions["antibody_contacts"]
+    names = list(names) or ["antibody_contacts"]
+    for name in names:
+        if name == "antibody_contacts":
+            continue
+        preset = definitions[name]
+        rules = list(preset["rules"])
+        additions = copy.deepcopy(contacts["rules"])
+        if (preset["reduction"] in {"any_prediction", "best_ranked"}
+                and {rule.get("scope", "complex") for rule in rules} == {"prediction"}):
+            # Native prediction-scoped rules still select one complete complex.
+            # Mixing scope names would make validate reject this conjunction.
+            for rule in additions:
+                rule["scope"] = "prediction"
+        rules.extend(rule for rule in additions if rule not in rules)
+        definitions[name] = dict(preset, rules=rules)
+    return names, definitions

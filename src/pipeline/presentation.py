@@ -74,6 +74,9 @@ def public_config(cfg):
             profiles[profile] = (profile_presets(profile), _load(inference_config_dir()/"pipeline"/(profile+".yaml")))
         rounds = [iteration(stage, profile) for stage in settings["rounds"]]
         common = copy.deepcopy(rounds[1] if len(rounds) > 1 else rounds[0])
+        # Family limits are round-specific; a shared value would also apply
+        # to boundary rounds that intentionally omit the limit.
+        common["selection"].pop("per_family", None)
         # Last-round transition is automatically disabled; it is not an override.
         overrides = {}
         for stage, row in zip(settings["rounds"], rounds):
@@ -99,6 +102,8 @@ def public_config(cfg):
                 final_view.update(view)
         flow = {"preset": settings["preset"], "recycle": settings["recycle"],
                 "iteration": common, "final": final_view}
+        if "initial" in settings:
+            flow["initial"] = copy.deepcopy(settings["initial"])
         if shared_msa:
             from src.validate.af3_msa import DEFAULT_MSA_CONFIG
             flow['msa'] = {k: copy.deepcopy(v) for k, v in shared_msa.items()
@@ -149,11 +154,36 @@ def plan_view(cfg):
                            "reference": "original motif"}
     for name in cfg["task_names"]:
         task, authored = cfg["tasks"][name], cfg["task_payload"][name]
-        if cfg["from_run"]:
+        if cfg.get("seed_input"):
+            seeds = [row for row in cfg["seed_input"]["rows"] if row["task"] == name]
+            children = sum(row["initial_partial"]["replicas"]
+                           for row in seeds if row["initial_partial"]["enabled"])
+            retained = sum(int(row["initial_partial"]["include_parent"])
+                           if row["initial_partial"]["enabled"] else 1 for row in seeds)
+            start = {"directory": cfg["seed_input"]["directory"], "seeds": len(seeds),
+                     "initial_partial": copy.deepcopy(task["initial"]["partial"]),
+                     "partial_children": children, "retained_inputs": retained,
+                     "round_1_structures": children + retained,
+                     "round_1_sequence_proposals_max": (children + retained) *
+                         (int(task["rounds"][0]["include_gt"]) + task["rounds"][0]["mpnn_count"]),
+                     "conditions": "native task conditions retained separately for every seed"}
+            overrides = [{"sample_id": row["sample_id"], **row["initial_partial"]}
+                         for row in seeds if row["initial_partial"] != task["initial"]["partial"]]
+            if overrides:
+                start["sample_overrides"] = overrides
+        elif cfg["from_run"]:
             start = {"from_run": cfg["from_run"]}
         elif authored.get("partial"):
             start = {"sample": authored["partial"]["reference"],
                      "fraction": authored["partial"]["fraction"], "replicas": authored["sample_num"]}
+        elif authored.get("format") == "antibody":
+            antibody = authored["antibody"]
+            start = {"sample_num": authored.get("sample_num", 1), "format": "antibody",
+                     "scaffold": copy.deepcopy(antibody["scaffold"]),
+                     "chains": copy.deepcopy(antibody.get("chains", "from scaffold")),
+                     "design": copy.deepcopy(antibody.get("design", "all CDRs")),
+                     "paratope": copy.deepcopy(antibody.get("paratope", "all CDRs; no framework")),
+                     "template": antibody.get("template", True)}
         else:
             start = {"sample_num": authored.get("sample_num", 1), "design_chains": authored["design_chains"],
                      "design_length": authored.get("design_length")}
@@ -193,6 +223,9 @@ def plan_view(cfg):
                     'cache_dir': msa['cache_dir']}
         result["tasks"][name] = {"start": start, "preset": task["preset"], "rounds": rows,
                                  "rank_by": "design_plddt", "final": final_view}
+        if task.get("antibody_contacts"):
+            result["tasks"][name]["antibody_contact_filter"] = copy.deepcopy(
+                task["presets"]["antibody_contacts"]["rules"])
         if cfg.get("motif_policy") == "first_and_final":
             result["tasks"][name]["motif_filter"] = copy.deepcopy(task["presets"]["pipeline_motif"]["rules"])
     return result

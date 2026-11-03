@@ -27,6 +27,8 @@ class RoleDesign:
     lengths: tuple[tuple[int, int], ...]
     framework_positions: tuple[int, ...] = ()
     official_edits: tuple[bool, ...] = (False, False, False)
+    paratope_cdrs: tuple[int, ...] = (1, 2, 3)
+    paratope_framework_positions: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -169,10 +171,12 @@ def _length(value: Any, native: int, official: tuple[int, int], where: str) -> t
 
 
 def parse_antibody_task(name: str, payload: Mapping[str, Any], *, invocation_dir: Path) -> TaskSpec:
-    from ..core.tasks import _parse_crop, _positive_int, _resolve_local_path
+    from ..core.tasks import _parse_crop, _parse_partial, _positive_int, _resolve_local_path
 
-    _closed(payload, {"format", "sample_num", "antibody", "antigen", "score", "postprocess", "override", "rm_token_type"}, f"task {name!r}")
-    raw = _closed(payload.get("antibody"), {"scaffold", "chains", "design", "template"}, "antibody")
+    _closed(payload, {"format", "sample_num", "antibody", "antigen", "score", "postprocess", "override", "rm_token_type", "partial"}, f"task {name!r}")
+    partial = (_parse_partial(payload["partial"], task_name=name, invocation_dir=invocation_dir)
+               if "partial" in payload else None)
+    raw = _closed(payload.get("antibody"), {"scaffold", "chains", "design", "paratope", "template"}, "antibody")
     source = raw.get("scaffold")
     source_roles: tuple[tuple[str, str], ...] = ()
     if isinstance(source, str):
@@ -196,6 +200,8 @@ def parse_antibody_task(name: str, payload: Mapping[str, Any], *, invocation_dir
     source_roles = tuple((c.role, c.source_chain) for c in scaffold.chains)
     framework_view, framework_records = _framework_metadata_view(scaffold)
     roles = {c.role for c in scaffold.chains}
+    if partial is not None and set(partial.cdr_lengths) - roles:
+        raise DesignConfigError("partial.cdr_lengths contains a role absent from the antibody scaffold")
     chains = raw.get("chains", {role: "L" if role == "VL" else "H" for role in roles})
     if not isinstance(chains, Mapping) or set(chains) != roles:
         raise DesignConfigError(f"antibody.chains must assign exactly roles {sorted(roles)}")
@@ -204,6 +210,9 @@ def parse_antibody_task(name: str, payload: Mapping[str, Any], *, invocation_dir
     design = raw.get("design", {role: {"cdrs": ["CDR1", "CDR2", "CDR3"]} for role in roles})
     if not isinstance(design, Mapping) or set(design) - roles:
         raise DesignConfigError("antibody.design contains unknown roles")
+    paratope = raw.get("paratope", {})
+    if not isinstance(paratope, Mapping) or set(paratope) - roles:
+        raise DesignConfigError("antibody.paratope contains unknown roles")
     planned: list[RoleDesign] = []
     sizes: dict[str, int] = {}
     for source_chain in scaffold.chains:
@@ -234,8 +243,30 @@ def parse_antibody_task(name: str, payload: Mapping[str, Any], *, invocation_dir
             )
         else:
             raise DesignConfigError(_framework_selector_hint(role, source_chain.source_chain))
+        paratope_selection = _closed(paratope.get(role, {}), {"cdrs", "framework"}, f"antibody.paratope.{role}")
+        paratope_cdrs = paratope_selection.get("cdrs", ["CDR1", "CDR2", "CDR3"])
+        if not isinstance(paratope_cdrs, list) or any(c not in ("CDR1", "CDR2", "CDR3") for c in paratope_cdrs) or len(set(paratope_cdrs)) != len(paratope_cdrs):
+            raise DesignConfigError(f"antibody.paratope.{role}.cdrs must be a unique list drawn from CDR1/CDR2/CDR3")
+        chosen_paratope = tuple(sorted(int(c[-1]) for c in paratope_cdrs))
+        paratope_framework = paratope_selection.get("framework", False)
+        if paratope_framework is False:
+            paratope_fr = ()
+        elif paratope_framework is True:
+            paratope_fr = fr_available
+        elif isinstance(paratope_framework, str):
+            paratope_fr = _resolve_framework_selector(
+                paratope_framework,
+                role=role,
+                source_chain=source_chain,
+                framework_available=fr_available,
+                metadata_view=framework_view,
+                source_by_uid=framework_records,
+            )
+        else:
+            raise DesignConfigError(_framework_selector_hint(role, source_chain.source_chain))
         official_edits = tuple(lengths.get(f"CDR{i}") == "official" for i in (1, 2, 3))
-        planned.append(RoleDesign(role, chains[role], chosen, intervals, mutable_fr, official_edits))
+        planned.append(RoleDesign(role, chains[role], chosen, intervals, mutable_fr, official_edits,
+                                  paratope_cdrs=chosen_paratope, paratope_framework_positions=paratope_fr))
         sizes[chains[role]] = len(source_chain.sequence) + sum(intervals[i-1][0] - len(source_chain.cdr_positions[i-1]) for i in chosen)
     template = raw.get("template", True)
     if type(template) is not bool:
@@ -263,4 +294,5 @@ def parse_antibody_task(name: str, payload: Mapping[str, Any], *, invocation_dir
         crop=_parse_crop(target.get("crop"), name), **controls,
         format="antibody", antibody=AntibodySpec(source_path, source_roles, tuple(planned), template),
         rm_token_type=normalize_task_rm_token_type(payload.get("rm_token_type"), f"task {name!r} rm_token_type"),
+        partial=partial,
     )

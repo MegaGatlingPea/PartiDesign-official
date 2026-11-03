@@ -1097,6 +1097,7 @@ def _constraint_output_fields(
     *,
     output_format: str = "cif",
     canonical_ligand_names: bool = True,
+    omitted_atom_names_by_token_uid: Mapping[int, Sequence[str]] | None = None,
 ) -> dict[str, str]:
     """Report design constraints using the structure being written.
 
@@ -1104,6 +1105,7 @@ def _constraint_output_fields(
     output bonds. Requested any/unknown orders remain distinct from predictions.
     """
     source = candidate.atoms
+    omitted_by_token = omitted_atom_names_by_token_uid or {}
     design = np.asarray(source.is_design, dtype=bool)
     polymer = np.isin(np.asarray(source.mol_type).astype(str), ("protein", "rna", "dna"))
     fixed_rows = np.flatnonzero(
@@ -1172,8 +1174,28 @@ def _constraint_output_fields(
         anchor = next(
             (index for index in rows if str(source.atom_name[index]) == anchor_name), row
         )
-        locator = residue_locator(output_row(anchor))
+        final_anchor = output_row(anchor)
+        locator = residue_locator(final_anchor)
         locator["restype"] = str(source.res_name[row])
+        modality = str(source.mol_type[row])
+        standard = (_AA3_TO_1 if modality == "protein" else
+                    _RNA3_TO_1 if modality == "rna" else _DNA3_TO_1)
+        has_terminal_op3 = (modality in {"rna", "dna"}
+                            and "OP3" in source.atom_name[rows])
+        if (str(source.res_name[row]) in standard
+                and (omitted_by_token.get(int(source.token_uid[row])) or has_terminal_op3)):
+            residue_rows = np.flatnonzero(source.residue_uid == source.residue_uid[row])
+            if bool(np.asarray(source.identity_condition[residue_rows], dtype=bool).all()):
+                # Only explicit native product omissions or a loaded terminal
+                # OP3 establish a special canonical occurrence. Ordinary fixed
+                # residues keep the standard-token path, including antibodies.
+                final_rows = np.flatnonzero(
+                    output_atoms.residue_uid == output_atoms.residue_uid[final_anchor]
+                )
+                locator["atom_names"] = sorted(
+                    str(output_atoms.atom_name[index]) for index in final_rows
+                    if str(output_atoms.element[index]).upper() not in {"H", "D", "T"}
+                )
         fixed.append(locator)
 
     def atom_locator(uid: int) -> dict[str, Any]:
@@ -1196,11 +1218,24 @@ def _constraint_output_fields(
             (atom_locator(condition.atom_uid_a), atom_locator(condition.atom_uid_b)),
             key=lambda value: value["atom_id"],
         )
-        bonds.append({
+        bond = {
             "atom1": endpoints[0], "atom2": endpoints[1],
             "order": str(condition.order),
             "required_output": bool(condition.required_output),
-        })
+        }
+        omissions = []
+        for uid in condition.canonical_uids():
+            source_row = uid_to_row[uid]
+            names = omitted_by_token.get(int(source.token_uid[source_row]), ())
+            if names:
+                locator = residue_locator(output_row(source_row))
+                omissions.extend({**locator, "atom": str(name)} for name in names)
+        if omissions:
+            # Removed atoms have semantic residue/name locators, never invented
+            # atom_site IDs. The compiler already tied each omission to a bond
+            # endpoint residue before assigning the final token UIDs.
+            bond["omit_atoms"] = omissions
+        bonds.append(bond)
     fixed.sort(key=lambda value: (value["chain"], value["res_id"], value.get("ins_code", "")))
     bonds.sort(key=lambda value: (value["atom1"]["atom_id"], value["atom2"]["atom_id"], value["order"]))
     return {
@@ -1246,6 +1281,75 @@ def _antibody_output_metadata(candidate, atoms, path, *, fold=None, sequence_sou
             "_antibody_context": json.dumps(antibody_result_context(candidate), allow_nan=False)}
 
 
+def reference_output_atoms(compiled: CompiledSample):
+    """Return only actual reference atoms, preserving native UIDs and chemistry."""
+    atoms = compiled.reference_atoms
+    if atoms is None:
+        raise DesignSampleError("reference output requires a compiled partial reference")
+    return atoms[np.asarray(atoms.coord_valid, dtype=bool)].copy()
+
+
+def reference_result_row(compiled: CompiledSample, *, filename) -> dict[str, Any]:
+    """Export an imported parent through the same final-output metadata producers."""
+    atoms = reference_output_atoms(compiled)
+    candidate = SearchCandidate(candidate_id=compiled.request.sample_id,
+        candidate_ordinal=compiled.request.global_ordinal, base_request=compiled.request,
+        actual_joint_length=actual_joint_length(compiled), atoms=atoms,
+        topology_conditions=compiled.topology_conditions,
+        model_parent_residue=dict(compiled.model_parent_residue),
+        fixed_modified_residue_names=_fixed_modified_residue_names(compiled),
+        fixed_modified_parent_residue=_fixed_modified_parent_residue(compiled),
+        validated_ligand_identities=dict(compiled.validated_ligand_identities),
+        antibody_metadata=dict(compiled.antibody_metadata),
+        motif_output_fields=dict(compiled.motif_output_fields))
+    metadata = json.loads(_design_chains_json(candidate, atoms))
+    row = {"filename": Path(filename).name, "design_chains": json.dumps(metadata, separators=(",", ":")),
+           "design_modality": "joint" if len(metadata) > 1 else metadata[0]["modality"],
+           "design_chain_id": ",".join(item["chain"] for item in metadata), "error": ""}
+    row.update(_constraint_output_fields(candidate, atoms,
+        omitted_atom_names_by_token_uid=compiled.omitted_atom_names_by_token_uid))
+    motifs = [_motif_output_fields(candidate, chain.chain_id, chain.modality)
+              for chain in compiled.request.task.design_chains]
+    row["contig_string"] = "/".join(text for text, _ in motifs if text)
+    row["tip_atoms"] = ";".join(text for _, text in motifs if text)
+    if compiled.request.task.format == "antibody":
+        from ..antibody.results import build_antibody_result, antibody_result_context
+        row.update(build_antibody_result(candidate, atoms, Path(filename)))
+        row["_antibody_context"] = antibody_result_context(candidate)
+    return row
+
+
+def _write_antibody_reference_ledger(candidate, atoms, path):
+    """Retain private restart permissions without extending public antibody CSV."""
+    from ..antibody.results import antibody_result_context
+    ownership = atoms
+    source = candidate.atoms
+    source_chains = np.asarray(source.chain_id).astype(str)
+    source_labels = np.asarray(getattr(source, "label_asym_id", source.chain_id)).astype(str)
+    labels = np.asarray(getattr(atoms, "label_asym_id", atoms.chain_id)).astype(str)
+    for chain in np.unique(source_chains):
+        outputs = np.unique(source_labels[source_chains == chain])
+        rows = np.isin(labels, outputs)
+        if np.any(rows) and np.any(np.asarray(ownership.chain_id)[rows] != chain):
+            if ownership is atoms:
+                ownership = atoms.copy()
+            ownership.chain_id[rows] = chain
+    ledger = {"design_chains": _design_chains_json(candidate, ownership),
+              "contig_string": "", "tip_atoms": "",
+              "_antibody_context": antibody_result_context(candidate)}
+    ledger.update(_constraint_output_fields(candidate, ownership))
+    ledger.update(candidate.partial_metadata)
+    target = Path(path).parent / ".work" / "antibody" / (Path(path).name + ".json")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix="." + target.name, dir=target.parent)
+    try:
+        with os.fdopen(fd, "w") as stream:
+            json.dump(ledger, stream, allow_nan=False, separators=(",", ":"))
+        os.replace(temporary, target)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
 
 def _write_candidate_output(candidate, atoms, path, *, entry_id, **metadata_options):
     """Publish antibody CIF and its row together, measured after serialization."""
@@ -1262,6 +1366,7 @@ def _write_candidate_output(candidate, atoms, path, *, entry_id, **metadata_opti
                                validated_ligand_identities=candidate.validated_ligand_identities)
         final_atoms = read_structure(temporary)
         fields = _antibody_output_metadata(candidate, final_atoms, path, **metadata_options)
+        _write_antibody_reference_ledger(candidate, final_atoms, path)
         os.replace(temporary, path)
     return fields
 
@@ -2549,6 +2654,7 @@ class _StandalonePredictModule(LightningModule):
         self._global_failures: tuple[FailureWire, ...] | None = None
         self._local_slot_groups: list[SlotWire] = []
         self._local_candidates: dict[str, SearchCandidate] = {}
+        self._local_omitted_atoms: dict[ResultKey, Mapping[int, tuple[str, ...]]] = {}
         self._local_design_ledgers: dict[str, tuple[dict[str, Any], ...]] = {}
         self._local_fold_results: dict[str, FoldRewardResult] = {}
         self._local_batch_seconds: list[float] = []
@@ -3025,6 +3131,12 @@ class _StandalonePredictModule(LightningModule):
         if predict_batch is None:
             return {}
 
+        for compiled in predict_batch.samples:
+            if compiled.omitted_atom_names_by_token_uid:
+                self._local_omitted_atoms[_request_key(compiled.request)] = (
+                    compiled.omitted_atom_names_by_token_uid
+                )
+
         _require_bond_order_checkpoint_support(
             self.inference_model,
             predict_batch.canonical,
@@ -3124,6 +3236,9 @@ class _StandalonePredictModule(LightningModule):
                 )
                 constraint_fields = _constraint_output_fields(
                     result, result.atoms, output_format=self.output_format,
+                    omitted_atom_names_by_token_uid=(
+                        compiled_by_key[key].omitted_atom_names_by_token_uid
+                    ),
                 )
                 design_chains = _design_chains_json(result, result.atoms)
                 antibody_fields = _write_candidate_output(
@@ -4332,6 +4447,7 @@ class _StandalonePredictModule(LightningModule):
                 constraint_fields = _constraint_output_fields(
                     candidate, output_atoms, output_format=self.output_format,
                     canonical_ligand_names=self.reward_method == "esmfold2",
+                    omitted_atom_names_by_token_uid=self._local_omitted_atoms.get(key),
                 )
                 actual_sequence_source = (fold.sequence_source if fold is not None else
                                           self._local_reward_records.get(candidate_id, {}).get("reward_sequence_source", "design"))

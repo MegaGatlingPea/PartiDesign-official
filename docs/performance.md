@@ -1,7 +1,9 @@
 # Computational budget and performance
 
-This page collects the full compute-budget tables and task-specific figures.
-The main [README](../README.md#computational-budget) contains a shorter summary.
+This page collects the full compute-budget tables, sequence protocols,
+task-specific figures, and timing boundaries. See [Capabilities](../README.md#capabilities)
+for illustrated protein, DNA, RNA, and ligand design, or [a first run](design.md#a-first-run)
+for generation instructions.
 
 ## Budget summary
 
@@ -205,9 +207,9 @@ clustering; no measured compute-budget estimate is reported for this task.
 
 The paper does not report separate budgets for standalone folding, inverse
 folding, or individual combinations of design constraints. Docking, antibody
-design, and peptide design with multiple topologies support inference and remain under
-active development; this page does not report performance for those workflows.
+design, and peptide design with multiple topologies support inference; this
+page does not report performance for those workflows.
 
 See the [validation guide](validate.md) for criteria and result interpretation,
 or return to the
-[main README](../README.md#computational-budget).
+[documentation index](../README.md#documentation).

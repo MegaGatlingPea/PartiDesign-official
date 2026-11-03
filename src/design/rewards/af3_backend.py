@@ -57,7 +57,8 @@ def _variant_with_ligand_smiles(input_record: Any, variant: Any) -> Any:
   if not isinstance(native_variant, dict):
     return native_variant
   ligand_entries = dict(getattr(input_record, "ligand_entries", {}) or {})
-  task_dir = getattr(input_record, "task_dir", None)
+  from src.validate.metadata import authoring_dir
+  task_dir = authoring_dir(input_record)
   if task_dir is not None and (Path(task_dir) / "resolved_config.yaml").is_file():
     from src.validate.inputs import ValidationInput
 

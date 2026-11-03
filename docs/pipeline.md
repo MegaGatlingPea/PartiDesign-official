@@ -1,7 +1,8 @@
 # Pipeline
 
-Use `partidesign pipeline` to go from initial designs to validated candidates
-in one command:
+Use `partidesign pipeline` for de novo molecular design or optimization of existing
+complexes, from the first structures through iterative sequence/structure refinement
+to final validation, in one command:
 
 ```bash
 partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor --preset ppi --run-name insulin_receptor
@@ -9,25 +10,251 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insu
 
 This insulin receptor binder task requests 32 initial backbones. The command
 uses the PPI workflow below. Add `--config configs/pipeline/demo.yaml`
-for strict screening and a three-model final filter with the same production
+for a lighter final stage with five Mol-1 samples and the same production
 candidate limits.
 
-Run from the repository root with the generation, MPNN, ESMFold2-fast, and AF2
-assets prepared; see [model setup](download.md#optional-evaluation-models).
+For the default PPI profile, prepare generation, MPNN, ESMFold2-fast, AF2,
+Mol-1, AF3 and ESMFold2-standard assets; see
+[model setup](download.md#optional-evaluation-models). Run from the repository root.
 Add `--plan` for a short task/workflow preview or `--show-config` for the full
 configuration used for diagnostics. Neither loads models nor creates run output.
 
-The pipeline supports protein, peptide, RNA, and DNA design within each
+The pipeline supports protein, peptide, RNA, DNA, VHH and VH/VL antibody design within each
 backend's capabilities, including supported ligand context. Pure ligand design
 uses [generation](design.md).
 
+## Optimize existing structures
+
+Pass a directory containing `annotation.csv` and the structures it lists:
+
+```bash
+partidesign pipeline configs/examples/optimization \
+  --config configs/pipeline/optimize.yaml --preset ppi \
+  --run-name peptide_optimization
+```
+
+The bundled directory contains complete linear and head-to-tail cyclic peptide
+complexes. Binder chain `B` is redesigned and target chain `A` remains context.
+The cyclic CIF already contains its terminal C–N bond. No input `result.csv` is
+needed. Add `--task linear_peptides` or `--task cyclic_peptides` to select one
+group, or `--plan` to preview both.
+
+The directory workflow first creates partial-diffusion children around each
+listed complex, retaining the original by default, then starts round 1.
+It does not generate a new de novo structure first. Passed, rejected and
+unfiltered structures can all be used: earlier scores and status do not decide
+whether a seed is imported. The new predictions face the configured pipeline
+criteria.
+
+### Write annotation.csv
+
+Each row describes one concrete starting complex. Only listed files are read;
+there is no recursive directory search. CIF and PDB are accepted. PDB inputs
+are converted to internal CIF once during import, preserving the available
+identifiers and declared chemistry. The source files are not changed.
+
+| Column | Meaning |
+| --- | --- |
+| `filename` | Required path to the full starting structure, relative to `annotation.csv`. |
+| `task` | Shared candidate-pool name, default `optimize`. Select it with `--task`. |
+| `sample_id` | Stable identifier within that task, default file stem. |
+| `source_status` | Optional source label such as `passed` or `rejected`; does not filter inputs. |
+| Native task fields | Use the ordinary `design_chains`, `condition`, `input`, `hotspot`, `crop`, `cyclic_offset`, `format`, `antibody`, `antigen` and other fields from the [task schema](task_schema.md). |
+
+Structured cells use JSON. Numbers and booleans use JSON values such as `4`
+and `true`; ordinary strings such as a hotspot selector can be written directly.
+An empty cell omits the field; `null` retains the native field's explicit-null
+meaning. CSV quoting doubles quotes inside JSON. For example, the `design_chains`
+cell `[ {"B": "peptide"} ]` is written as `"[{""B"": ""peptide""}]"`.
+The bundled [annotation.csv](../configs/examples/optimization/annotation.csv)
+is a complete example.
+
+These are native tasks, not a reduced set of annotation constraints. For example,
+a `condition` cell can fix position 2 of the bundled linear peptide:
+
+```json
+{"sequence": {"B": [{"resid": 2, "residue": "K"}]}}
+```
+
+A residue or atom motif uses the same contig syntax as a YAML task:
+
+```json
+{"contig": {"B": {"token": "5/B6-8/11", "polymer_atom": {"B6": ["N", "CA", "C", "O"]}}}}
+```
+
+For an explicit terminal closure, use the existing bond endpoints:
+
+```json
+{"bond": [{"atom1": {"chain": "B", "resid": 1, "atom": "N"}, "atom2": {"chain": "B", "resid": -1, "atom": "C"}, "order": "single"}]}
+```
+
+Combine compatible entries within one `condition` object. Full and sparse fixed
+sequences, modified CCD identities, backbone conditions, secondary structure,
+motifs and chemical links have the same meanings as in YAML. Conditions must
+match the actual seed; a fixed identity is not a request to substitute a
+different residue before partial diffusion.
+
+Unless supplied explicitly, a normal task's `input` is its seed structure.
+Set `input` to the original source when a motif or other source condition
+comes from a different file. All annotation file paths, including nested
+antigen/scaffold and explicit partial paths, resolve relative to `annotation.csv`.
+The original motif evaluation reference is kept separately from the current
+complex used for partial and parent-relative consistency metrics.
+
+Input special covalent links are retained as native constraints. Additional
+links can be supplied through `condition.bond`; incompatible declarations are
+an error. A disulfide retains its endpoint CYS identities, without fixing the
+whole peptide. A cyclic offset and a terminal chemical bond remain separate
+choices. Explicit leaving-atom rules and modified-component chemistry still use
+the native bond schema. Fixed ligand context must include a complete molecular
+graph with known bond orders, alongside its native ligand condition (such as
+a trusted SMILES).
+
+Actual sequences and lengths come from the structure. `design_length`, if
+provided, must be compatible with those lengths; partial does not resample
+lengths or invent missing geometry. A row's `sample_num` optionally overrides
+its number of initial partial children. A row's `partial.fraction` overrides
+its initial fraction; an explicit `partial.reference` must identify the same
+structure as `filename`. A real `partial.result_csv` may restore saved mappings,
+but is not required. Workflow-controlled scoring, reward/search and postprocessing
+follow the same rules as the YAML pipeline.
+
+### Shared pools and independent conditions
+
+Rows in the same `task` share sequence deduplication, clustering, selection caps
+and the final candidate pool. Use a group for seeds of the same optimization
+problem, and separate groups for different targets or design roles. Each seed
+and all its descendants retain their own molecular task, motif source, fixed
+identities, topology and provenance. One row's conditions never replace another's.
+Different structures with the same sequence remain valid partial starting
+points; prediction-request deduplication still reuses identical model inputs.
+
+Antibody rows use `format: antibody` plus the native `antibody` and `antigen`
+objects, rather than ordinary `design_chains` and `condition` fields. Keep the
+scaffold, VHH or VH/VL roles, mutable CDR/framework choices and antigen conditions.
+Actual CDR layouts stay fixed across partial iterations. If several allowed
+CDR lengths make the reference layout ambiguous, provide `partial.cdr_lengths`;
+see [antibody partial diffusion](partial.md#antibody-references). Framework identity
+permissions and soft template geometry keep their native meanings.
+
+### Configure the initial step
+
+[optimize.yaml](../configs/pipeline/optimize.yaml) inherits the selected preset's
+native validation profiles and final methods. For protein and nucleic-acid tasks,
+auto uses Mol-1, AF3 and ESMFold2-standard; native antibody tasks use their
+ESMFold2-standard profile. The command above selects `ppi`, which also runs AF2-IG. It does not define a separate catalog of optimization thresholds.
+
+```yaml
+initial:
+  partial:
+    enabled: true
+    fraction: 0.625
+    replicas: 4
+    include_parent: true
+```
+
+Without an explicit `initial.partial`, directory initialization inherits the
+first round's partial settings. Global/per-task `initial.partial` overrides
+those settings, then row `sample_num` and `partial.fraction` apply; explicit
+`--partial-replicas` and `--partial-fraction` take final precedence over both
+initial and inter-round partial settings. Row sampling overrides affect only
+initialization. Set `initial.partial.enabled: false` to begin by refolding the
+listed parents directly.
+
+With the defaults, two seeds yield eight partial children plus two retained
+parents: ten structures, up to twenty GT/MPNN proposals in round 1 before
+deduplication. Initial partial is not a refolding round. Even with `recycle: 1`,
+the directory path performs its configured initial partial, round 1 and final
+validation; there is no inter-round partial or relax afterward.
+
+## Antibody pipelines
+
+Use the `antibody` preset for native `format: antibody` tasks; automatic preset
+selection also chooses it for antibody YAML and antibody annotation rows.
+The bundled GLP1R examples support both entry points:
+
+```bash
+partidesign pipeline configs/examples/antibody.yaml --task glp1r_vhh_bindcraft2 --preset antibody --run-name glp1r_vhh_denovo
+partidesign pipeline configs/examples/antibody_opt --preset antibody --run-name glp1r_vhh_optimization
+```
+
+The de novo task requests five initial VHH backbones. The optimization directory
+contains five fixed full complexes with binder `B` and antigen `A`; it starts
+with four partial children per seed and retains the five parents. Both use three
+rounds, GT1+MPNN1 in the first round, GT1+MPNN4 later, ESMFold2-fast iteration,
+partial fraction 0.625, four replicas, parent retention and `relax: false`.
+Final validation runs only ESMFold2-standard, with five samples of each selected
+candidate’s current sequence and no further MPNN redesign. It selects the best
+prediction by 0.8 ipTM + 0.2 pTM before filtering; a lower-ranked passing
+prediction does not replace a failing winner. Prepare generation, MPNN,
+ESMFold2-fast and ESMFold2-standard assets before execution.
+ESMFold2 currently uses query-only inputs; the shared ColabFold MSA cache is
+not yet passed into this backend.
+
+For an antibody annotation, use these columns:
+
+```csv
+filename,task,sample_id,source_status,format,antibody,antigen,partial
+```
+
+The structured cells below are ordinary JSON objects; CSV quoting doubles the
+quotes inside each object. The complete five-row
+[annotation.csv](../configs/examples/antibody_opt/annotation.csv) is ready to use:
+
+```json
+{
+  "antibody": {
+    "scaffold": "bindcraft2_vhh",
+    "chains": {"VHH": "B"},
+    "template": true,
+    "design": {"VHH": {
+      "cdrs": ["CDR1", "CDR2", "CDR3"],
+      "lengths": {"CDR1": "official", "CDR2": "official", "CDR3": "official"},
+      "framework": "35/37/45/47/50/59/97-99/115-116"
+    }},
+    "paratope": {"VHH": {
+      "cdrs": ["CDR1", "CDR2", "CDR3"],
+      "framework": "26/34/51/58-59/95-96/115-116"
+    }}
+  },
+  "antigen": {"input": "glp1r_vhh_01.cif", "crop": {"include": ["A"]}},
+  "partial": {"cdr_lengths": {"VHH": {"CDR1": 7, "CDR2": 5, "CDR3": 25}}}
+}
+```
+
+Here `filename` supplies the complete current partial reference; no external
+`result.csv` is required. Scaffold coordinates remain a soft template, antigen
+input supplies retained context, and mutable identities remain distinct from
+intended contact residues. Keep actual CDR counts per seed. VHH uses one role;
+paired antibodies keep both VH/VL roles and are evaluated as one binder.
+
+Every antibody pipeline, including an explicit alternative preset, conjoins
+`antibody_contacts` with the selected criteria on the same prediction. At least
+seven unique antibody residues must contact antigen by a heavy-atom distance
+≤4 Å, and at most 0.20 of contacting antibody residues may lie outside the
+intended paratope. VH–VL internal contacts are excluded. The antibody profile
+also requires RFD4 min iPAE and antigen-aligned binder RMSD each ≤3 Å during
+iteration and each ≤2 Å at final validation. `criteria_mode: any` does not bypass the
+contact rules. Thresholds can be customized through the existing
+`presets.antibody_contacts` definition, using ordinary native criterion rules;
+see [contact metrics](validate.md#antibody-contact-metrics).
+
 ## Default flow
+
+![Iterative sequence and structure refinement before final validation](assets/capabilities/pipeline.png)
+
+Each round proposes sequences, refolds them and selects candidates for the next
+step. Selected refold structures supply the reference for partial diffusion,
+so subsequent rounds explore structures around the accepted candidates.
+
+All presets use relaxed pipeline screening during iteration by default.
+Original-reference motif geometry remains checked strictly at round 1 and final.
 
 The default is three rounds, including the first validation round (`recycle: 3`):
 
 ```text
 prepare required fixed-context MSA/templates
-→ generate once using each task's sample_num
+→ YAML: generate once using task sample_num / directory: initial partial + retained seeds
 → round 1: current sequence + MPNN1 → refold → filter → cluster
 → selected parent + four partial replicas
 → round 2: current sequence + MPNN4 → refold → filter → select
@@ -43,11 +270,12 @@ the best candidate in each cluster; if fewer unique sequences pass, all remain.
 Later rounds select the best child per immediate parent and deduplicate across
 the task. Middle rounds forwarding candidates retain at most **two per partial
 family**, then apply the task-wide cap of 200. A family is the previous selected
-refold and its partial children. The last round has no family cap. Iteration
+refold and its partial children. The last round has no family cap by default. Iteration
 ranking uses **design-chain pLDDT**; context confidence is excluded.
 
 Transitions use `fraction: 0.625`, four replicas and parent retention by default;
-OpenMM is off. The last round has no transition, including when `recycle: 1`.
+OpenMM is off. The last round has no inter-round transition, including when `recycle: 1`.
+Directory initialization is a separate earlier step.
 Original task conditions, fixed identities, motifs, context, and bonds remain
 active as the current complex supplies the next partial-diffusion reference.
 
@@ -64,8 +292,9 @@ Later `per_parent: 1` selection applies to each immediate input structure, so
 the retained refold and its four partial children are five separate parents.
 In middle rounds, `per_family: 2` then keeps the two highest-scoring candidates
 from that family after task-wide sequence deduplication. Set `per_family: null`
-to disable this extra cap. First-round clustering and last/final selection do
-not apply the family cap.
+to disable this extra cap. First and last refolding rounds skip it by default;
+set `rounds.N.selection.per_family` to apply it explicitly. Final validation
+uses `final.pool` instead.
 
 `max_pass: 200` caps the selected survivors **after refolding and filtering**;
 it does not cap the number of sequence proposals submitted by that round.
@@ -92,22 +321,26 @@ change this cap, or `final.pool.source: last` to use last-round survivors.
 
 | Profile | Final prediction and acceptance |
 | --- | --- |
-| `protein`, `nuc` | Mol-1, five samples per sequence. Select the highest native `ranking_score`, then apply final criteria to that prediction. |
-| `ppi` | AF2-IG models `[1, 2]`, five matched complex/monomer pairs per model. Select each model's best complex by `0.8 * ipTM + 0.2 * pTM`, keep its same-sample monomer, and require both selected model pairs to pass. |
+| `protein`, `nuc` | Mol-1, AF3 and ESMFold2-standard (`methods: [mol1, af3, esmfold2-standard]`), five samples per model. Each selects its native best-ranked prediction, then applies its final criteria. |
+| `antibody` | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by 0.8 ipTM + 0.2 pTM before final criteria. |
+| `ppi` | AF2-IG, Mol-1, AF3 and ESMFold2-standard (`methods: [af2_ig, mol1, af3, esmfold2-standard]`). Mol-1, AF3 and ESMFold2-standard each use five samples; AF2 models `[1, 2]` each use five matched complex/monomer pairs. AF2 selects each model's best complex by `0.8 * ipTM + 0.2 * pTM` with its same-sample monomer, and both model pairs must pass its internal filter. |
 
-`preset: auto` chooses protein or nuc from each task; select `ppi` explicitly
-for an eligible standard protein/peptide binder with protein context. PPI final
+All configured methods run, and a candidate is accepted when **any method passes**.
+`preset: auto` chooses antibody for native antibody tasks, otherwise protein or nuc; select `ppi` explicitly
+for an eligible standard protein/peptide binder with protein context. Its AF2 final
 criteria are `af2_ig_protdbench` for proteins and `af2_ig_peptide` for peptides.
-PPI produces ten pairs (twenty structures) per candidate with its default two
-models. Mol-1, AF3, and ESMFold2-standard can also be selected explicitly with
-`final.method`. ESMFold2-standard selects its best sample by
-`0.8 * ipTM + 0.2 * pTM`, then applies the requested criteria. It uses the standard
-checkpoint and query-only inputs; external MSA and templates are not supplied.
+AF2 produces ten pairs (twenty structures) per candidate with its default two
+models, in addition to the Mol-1, AF3 and ESMFold2-standard predictions.
+Use `final.method` to override the preset with a single method, or
+`final.methods` to choose a method list.
+ESMFold2-standard selects its best sample by `0.8 * ipTM + 0.2 * pTM`, then
+applies the requested criteria. It uses the standard checkpoint and query-only
+inputs; external MSA and templates are not supplied.
 Prediction selection precedes criteria; a lower-ranked passing sample
 does not replace a selected failing sample. All final structures remain in
-`predictions/`. Each accepted candidate has one representative complex in
-`success/`; the metrics and selection records retain both PPI model winners
-and their matching monomer evidence.
+`predictions/`. For each accepted candidate, `success/` contains every executed
+method's best-ranked complex, including both AF2 model winners; matching monomers
+remain in prediction evidence.
 
 For example, keep the protein profile's iteration settings and change only final
 validation in a workflow YAML:
@@ -120,8 +353,8 @@ final:
   criteria: [af3_basic]
 ```
 
-ESMFold2-standard can also appear in `final.methods` for union filtering. Each
-executed method still publishes its own best complex for accepted candidates.
+ESMFold2-standard is included in the default `final.methods` for union filtering.
+Each executed method still publishes its own best complex for accepted candidates.
 The default iteration backend remains ESMFold2-fast.
 
 The strict validation presets listed in [validate.md](validate.md) can be selected
@@ -150,27 +383,29 @@ its own ranking and criteria, and all requested methods run. Use either
 ```yaml
 preset: ppi
 final:
-  methods: [af2_ig, mol1, af3]
+  methods: [af2_ig, mol1, af3, esmfold2-standard]
   af2: {models: [1, 2], samples: 5}
   mol1: {samples: 5}
   af3: {samples: 5}
+  esmfold2: {samples: 5}
 criteria_routes:
   protein:
     final:
       af2_ig: [af2_ig_protdbench]
       mol1: [af3_basic]
       af3: [af3_basic]
+      esmfold2-standard: [af3_basic]
   peptide:
     final:
       af2_ig: [af2_ig_peptide]
-      mol1: [af3_basic]
-      af3: [af3_basic]
+      mol1: [af3_peptide]
+      af3: [af3_peptide]
+      esmfold2-standard: [af3_peptide]
 ```
 
 For this combination, AF2 still requires both selected model pairs to pass its
-own filter. That requirement does not make the three-method result an
-intersection. To choose method-specific criteria, use the routes shown in
-[`configs/pipeline/demo.yaml`](../configs/pipeline/demo.yaml).
+own filter. That requirement does not make the four-method result an
+intersection. To choose method-specific criteria, set `criteria_routes` as above.
 
 There is one `final/success/` directory. For every union-accepted candidate it
 contains each executed method's own best-ranked complex CIF, including a method
@@ -303,6 +538,24 @@ PPI model winners. For a multi-method final, only structures with
 evidence. The other final predictions and isolated monomers remain
 validation evidence.
 
+Directory-start runs replace each task's `design/` with:
+
+```text
+<task>/
+  start/
+    result.csv
+    <sample_id>.cif
+    partial/<sample_id>/sample*.cif
+  round_1/ ... round_3/
+  final/
+```
+
+The run saves `annotation.csv` instead of a de novo task-file snapshot. The
+imported CIFs and resolved conditions form the run's input snapshot; per-seed
+native authoring and recovery metadata stay under `.work/`. `start/result.csv`
+is produced by import, not an additional input the user has to write.
+All later round and final output conventions are shared.
+
 ## Tasks, presets, and workflow files
 
 A task file describes the molecules and conditions. Keep it in the normal
@@ -357,14 +610,15 @@ These tasks retain the native benchmark crops and hotspots and each request
 automatically routed iteration criteria, K=200 first selection, later
 max-pass=200 and final max-pass=200.
 
-The optional [demo workflow](../configs/pipeline/demo.yaml) uses production
-candidate limits and stricter screening: strict `af3_basic` iteration filtering,
-K=200 first selection, later max-pass=200 and final max-pass=200. It retains three rounds,
-partial fraction 0.625 with four replicas and parent retention, and relaxation
-off. Iteration and final prediction workers each request one GPU. Both the
-preset uses PPI final AF2 validation. The demo instead runs AF2-IG, Mol-1,
-and AF3 and accepts the union of passing candidates. Prepare all three models
-before running the demo. Strict criteria may end a task early or leave no final pass.
+The optional [demo workflow](../configs/pipeline/demo.yaml) keeps production
+candidate limits with a lighter final stage. Iteration uses ESMFold2-fast and
+relaxed `pipeline_protein_binder` / `pipeline_peptide_binder` screening. Final
+validation uses **only Mol-1 with five samples**, selected by native ranking
+before criteria. The workflow retains K=200 first selection, later max-pass=200
+and final max-pass=200, three rounds, partial fraction 0.625 with four replicas
+and parent retention, and relaxation off. Iteration and final prediction workers
+each request one GPU. Prepare ESMFold2-fast and Mol-1 alongside generation and
+auto MPNN. A task may end early or have no final pass.
 
 ```bash
 partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor \
@@ -444,7 +698,7 @@ Apply it to a task from the native collection:
 
 ```bash
 partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor \
-  --config configs/pipeline/custom.yaml --run-name my_binder
+  --preset ppi --config configs/pipeline/custom.yaml --run-name my_binder
 ```
 
 For a per-task workflow change, add an override to that same workflow file:
@@ -513,16 +767,39 @@ rounds:
 Generation flags such as `--ckpt`, `--batch-size` and `--compile` keep their
 native meanings.
 
+The pipeline uses one Ray runtime with independent partial-diffusion, MPNN
+and refolding worker pools. MPNN workers request 1 CPU and 0.0625 GPU each,
+allowing up to 16 per GPU, further limited by parent count and available CPUs.
+Each phase closes its workers and model cache before the next phase, so later
+phases reload their models. `--worker-gpus` sets refolding resources; partial
+workers independently request one GPU and `generation.num_workers + 1` CPUs
+each. Both initial and inter-round partial diffusion retain the effective
+`generation.batch_size` (set by `--batch-size`), regardless of parent count or
+refolding budgets. For example, one parent with 20 replicas and batch size 16
+runs as batches of 16 and 4.
+
 ## Selection controls
 
 `selection.num_clusters` sets K for `mode: cluster`. For `mode: top`,
 `per_parent` limits children per immediate input structure. Middle rounds also
 use `per_family: 2` across a retained refold and its partial children; positive
 integers change that cap and `null` disables it. First and last rounds omit the
-family cap. `max_pass` caps task-wide survivors after these limits.
+family cap unless their round overrides set it explicitly. `max_pass` caps
+task-wide survivors after these limits.
 `max_pass_ratio` caps the fraction of unique proposed sequences before filtering;
 when both limits are set, the smaller applies. There is no minimum-pass target
 or backfill after a duplicate or transition failure.
+
+For a maximum of five candidates per partial family in all three rounds:
+
+```yaml
+rounds:
+  1: {selection: {per_family: 5}}
+  2: {selection: {per_family: 5}}
+  3: {selection: {per_family: 5}}
+```
+
+This keeps the inherited clustering and task-wide limits.
 
 Deduplication preserves chain boundaries, modality and modified-residue tokens.
 Legal cyclic rotations are equivalent only when motif and connection mappings
@@ -537,13 +814,35 @@ Automatic iteration screening uses relaxed versions of those rules. The
 protein-binder screen uses `binder_iptm > 0.6`, `binder_ptm > 0.7` and
 `complex_design_rmsd < 4 Å`; selected other geometric limits are 1.5 times their
 native values. Identity, discrete and clash checks retain their native limits.
+Linear and cyclic peptide binders use `pipeline_peptide_binder`: the same
+`binder_iptm > 0.6` and `complex_design_rmsd < 4 Å`, plus
+`rfd4_min_ipae_angstrom < 3.5 Å`, with no binder pTM gate.
+Their AF3, Mol-1 and ESMFold2 final criterion is `af3_peptide`, which requires
+min iPAE <1.5 Å; the PPI AF2 filter keeps `af2_ig_peptide`. Explicit peptide
+chain labels are respected regardless of length. The demo uses the same relaxed
+`pipeline_peptide_binder` iteration screen.
 Explicit `filter: [af3_basic]` requests that existing strict criterion instead.
 Its name does not select the prediction backend.
+
+To skip general confidence and self-consistency quality thresholds during
+iteration, select the native `blank` criterion:
+
+```yaml
+iteration: {filter: [blank]}
+```
+
+The CLI equivalent is `--criteria blank`. It uses one complex-scoped
+`plddt >= 0` rule with `any_prediction` reduction; completed predictions with
+finite pLDDT are still required. Original-reference motif gates at round 1 and
+final, mandatory antibody contact checks, native identity and bond constraints,
+deduplication, ranking and selection budgets remain active. Final validation
+keeps the selected pipeline preset's criteria unless explicitly changed with
+`--final-criteria` or `final.criteria`.
 
 The pipeline normally requires all requested criteria on the same prediction.
 Use `criteria_mode: any` in a filter mapping for a union. Additional native
 `presets:` definitions can be supplied with `--presets FILE.yaml`. The PPI
-protein final route preserves its intentional `all_and_mean` reduction for
+protein AF2 final route preserves its intentional `all_and_mean` reduction for
 `af2_ig_protdbench`; it is not an exact copy of every standalone reduction.
 
 For coordinate motifs, new runs require the original-reference motif RMSD to

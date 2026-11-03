@@ -353,11 +353,11 @@ def _token_groups(atoms: Any, rows: Sequence[int]) -> list[tuple[Any, list[int]]
             raise SequenceGenerationError(
                 "validation input atoms lack a finalized token_uid ledger"
             )
-        keys = sorted({int(values[int(row)]) for row in rows})
-        return [
-            (key, [int(row) for row in rows if int(values[int(row)]) == key])
-            for key in keys
-        ]
+        by_token: dict[int, list[int]] = {}
+        for row in rows:
+            row = int(row)
+            by_token.setdefault(int(values[row]), []).append(row)
+        return [(key, by_token[key]) for key in sorted(by_token)]
     residue_values = getattr(atoms, "res_id", None)
     if residue_values is None:
         residue_values = getattr(atoms, "label_seq_id", None)
@@ -366,18 +366,15 @@ def _token_groups(atoms: Any, rows: Sequence[int]) -> list[tuple[Any, list[int]]
             "validation input atoms lack token_uid and residue numbering"
         )
     insertion_values = getattr(atoms, "ins_code", None)
-    groups: list[tuple[Any, list[int]]] = []
-    seen: list[tuple[str, str]] = []
+    by_residue: dict[tuple[str, str], list[int]] = {}
     for row in rows:
+        row = int(row)
         key = (
-            str(residue_values[int(row)]),
-            "" if insertion_values is None else str(insertion_values[int(row)]),
+            str(residue_values[row]),
+            "" if insertion_values is None else str(insertion_values[row]),
         )
-        if key not in seen:
-            seen.append(key)
-            groups.append((key, []))
-        groups[seen.index(key)][1].append(int(row))
-    return groups
+        by_residue.setdefault(key, []).append(row)
+    return list(by_residue.items())
 
 
 def _initial_sequences(input_record: Any) -> dict[str, str]:
@@ -753,17 +750,22 @@ def _bond_order_name(value: Any) -> str:
 
 
 def _graph_edge_is_template(input_record: Any, left: int, right: int,
-                            modified_uids: set[int]) -> bool:
+                            modified_uids: set[int], *,
+                            _annotations: tuple[Any, Any, Any] | None = None) -> bool:
     import numpy as np
 
     atoms = _field(input_record, "atoms")
-    tokens = np.asarray(getattr(atoms, "token_uid"), dtype=np.int64)
+    if _annotations is None:
+        tokens = np.asarray(getattr(atoms, "token_uid"), dtype=np.int64)
+    else:
+        tokens, modalities, chains = _annotations
     if int(tokens[left]) == int(tokens[right]):
         return True
-    modalities = np.asarray(atoms.mol_type).astype(str)
-    chains = np.asarray(
-        getattr(atoms, "label_asym_id", getattr(atoms, "chain_id"))
-    ).astype(str)
+    if _annotations is None:
+        modalities = np.asarray(atoms.mol_type).astype(str)
+        chains = np.asarray(
+            getattr(atoms, "label_asym_id", getattr(atoms, "chain_id"))
+        ).astype(str)
     if modalities[left] == modalities[right] == "ligand":
         molecules = getattr(atoms, "molecule_uid", None)
         components = getattr(atoms, "component_uid", None)
@@ -798,6 +800,8 @@ def _graph_edge_is_template(input_record: Any, left: int, right: int,
 
 
 def _graph_topology_conditions(input_record: Any, TopologyCondition: Any) -> tuple[Any, ...]:
+    import numpy as np
+
     atoms = _field(input_record, "atoms")
     bonds = getattr(atoms, "bonds", None)
     if bonds is None:
@@ -805,10 +809,25 @@ def _graph_topology_conditions(input_record: Any, TopologyCondition: Any) -> tup
     if not hasattr(atoms, "atom_uid"):
         raise SequenceGenerationError("source bond graph lacks finalized atom_uid identities")
     modified_uids = set(_fixed_modified_map(input_record)[0])
+    edges = bonds.as_array().tolist()
+    if not edges:
+        return ()
+    tokens = np.asarray(getattr(atoms, "token_uid"), dtype=np.int64)
+    modalities = chains = None
+    # Same-token edges need no modality/chain annotations. Convert the full
+    # arrays at most once for the inter-token edges of this source graph.
+    if any(int(tokens[int(left)]) != int(tokens[int(right)]) for left, right, _ in edges):
+        modalities = np.asarray(atoms.mol_type).astype(str)
+        chains = np.asarray(
+            getattr(atoms, "label_asym_id", getattr(atoms, "chain_id"))
+        ).astype(str)
+    annotations = (tokens, modalities, chains)
     result: list[Any] = []
-    for left, right, order in bonds.as_array().tolist():
+    for left, right, order in edges:
         left, right = int(left), int(right)
-        if _graph_edge_is_template(input_record, left, right, modified_uids):
+        if _graph_edge_is_template(
+            input_record, left, right, modified_uids, _annotations=annotations,
+        ):
             continue
         result.append(TopologyCondition(
             atom_uid_a=int(atoms.atom_uid[left]),
@@ -927,13 +946,17 @@ def _candidate_adapter(
         # A loaded validation row normally has no SearchCandidate yet.  When
         # a caller supplies one, make a shallow owner-local copy so batched
         # slots still carry distinct IDs/ordinals into native workers.
+        result = copy.copy(existing)
+        if result is existing:
+            raise SequenceGenerationError("MPNN candidate needs an owner-local copy")
         try:
-            result = copy.copy(existing)
             result.candidate_id = candidate_id
             result.candidate_ordinal = int(candidate_ordinal)
-            return _propagate_cyclic_offset_intent(result, cyclic_offset_chains)
-        except (AttributeError, TypeError):
-            return existing
+        except (AttributeError, TypeError) as exc:
+            raise SequenceGenerationError(
+                "MPNN candidate cannot carry the requested slot identity"
+            ) from exc
+        return _propagate_cyclic_offset_intent(result, cyclic_offset_chains)
     import numpy as np
 
     names, parents = _fixed_modified_map(input_record)
@@ -1573,11 +1596,21 @@ class SequenceGenerator:
         items: list[tuple[Any, Any]] = []
         candidate_by_index: dict[int, Any] = {}
         results: dict[int, tuple[dict[str, str] | None, dict[str, Any], str | None]] = {}
+        template_input = None
+        template_plan = None
+        all_design_positions_fixed = False
         for source_index in indices:
             candidate_id = (
                 f"{sample_id}__{sequence_branch}__{public_source}__{source_index}"
             )
-            candidate = _candidate_adapter(input_record, candidate_id, source_index)
+            candidate = _candidate_adapter(
+                input_record if template_input is None else template_input,
+                candidate_id, source_index,
+            )
+            if template_input is None:
+                # One batch has one immutable preparation input/settings set.
+                # Slots share its prepared atoms while retaining their IDs.
+                template_input = {"candidate": candidate}
             if candidate.atoms is None:
                 results[source_index] = (
                     None,
@@ -1591,14 +1624,17 @@ class SequenceGenerator:
                     "MPNN input has no AtomArray",
                 )
                 continue
+            needs_plan = template_plan is None
             try:
-                plan = self._plan_source(
-                    plan_sequence_source,
-                    candidate,
-                    internal_source,
-                    fixed_positions,
-                    fixed_interface,
-                )
+                if needs_plan:
+                    template_plan = self._plan_source(
+                        plan_sequence_source,
+                        candidate,
+                        internal_source,
+                        fixed_positions,
+                        fixed_interface,
+                    )
+                plan = template_plan
             except (MPNNSequenceError, SequenceGenerationError, ValueError, KeyError, OSError) as exc:
                 results[source_index] = (
                     None,
@@ -1612,7 +1648,11 @@ class SequenceGenerator:
                     str(exc),
                 )
                 continue
-            if self._fi_covers_all_design_positions(candidate, plan, fixed_interface):
+            if needs_plan:
+                all_design_positions_fixed = self._fi_covers_all_design_positions(
+                    candidate, plan, fixed_interface,
+                )
+            if all_design_positions_fixed:
                 results[source_index] = self._fi_passthrough(
                     input_record, plan, public_source, sequence_branch,
                     fixed_interface, raw_seed, effective_backend,
@@ -1634,6 +1674,7 @@ class SequenceGenerator:
                 repo_root=self.repo_root,
                 work_dir=work_dir,
                 seed=raw_seed,
+                shared_input=True,
                 **({"antibody_plans": antibody_plans} if antibody_plans else {}),
             )
         except (MPNNSequenceError, SequenceGenerationError, ValueError, KeyError, OSError) as exc:

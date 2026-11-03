@@ -83,7 +83,7 @@ def _msa_options(parser, *, source_alias=False):
     parser.add_argument("--msa-refresh", action="store_true",
                         help="Refresh matching shared MSA/template cache generations")
     _single(parser, "--msa-templates", choices=("true", "false"),
-            help=argparse.SUPPRESS)
+            help="Include protein templates with MSA search (default: true)")
     _single(parser, "--msa-template-date",
             help="Maximum template release date (YYYY-MM-DD)")
 
