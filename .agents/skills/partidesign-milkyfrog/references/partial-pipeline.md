@@ -133,7 +133,7 @@ whole-complex relaxation before partial.
 | --- | --- |
 | protein, nuc | Mol-1, AF3 and ESMFold2-standard, five samples per model; each selects its native best-ranked prediction before applying its criteria. |
 | antibody | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by 0.8 ipTM + 0.2 pTM, then apply final criteria. |
-| ppi, explicitly selected | AF2-IG, Mol-1, AF3 and ESMFold2-standard. Mol-1, AF3 and ESMFold2-standard each use five samples; AF2-IG models `[1, 2]` each use five matched complex/monomer pairs. Each AF2 model chooses its best complex by 0.8ipTM+0.2pTM and its same-sample monomer; both model pairs must pass AF2's internal filter. |
+| ppi, explicitly selected | AF2-IG, Mol-1, AF3 and ESMFold2-standard. Mol-1, AF3 and ESMFold2-standard each use five samples; AF2-IG models `[1, 2]` each use one matched complex/monomer pair. Each AF2 model chooses its best complex by 0.8ipTM+0.2pTM and its same-sample monomer; both model pairs must pass AF2's internal filter. |
 
 Auto selects antibody for native antibody tasks, otherwise protein/nuc, never
 ppi. PPI requires eligible standard

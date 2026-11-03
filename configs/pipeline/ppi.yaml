@@ -8,7 +8,7 @@ final:
       models:
       - 1
       - 2
-      samples: 5
+      samples: 1
       mode: both
     mol1: {samples: 5}
     af3: {samples: 5}

@@ -965,7 +965,7 @@ def build_config(args: Any, repo_root: str | Path, *,
             _choice(method, FINAL_METHODS, f"task {name}.final.methods")
             group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1",
                      "esmfold2-standard": "esmfold2"}[method]
-            samples = final["validation"].get(group, {}).get("samples", 5)
+            samples = final["validation"].get(group, {}).get("samples", 1 if method == "af2_ig" else 5)
             validator = dict(final, method=method)
             validator.pop("methods", None)
             validator["validation"] = _native_validation(

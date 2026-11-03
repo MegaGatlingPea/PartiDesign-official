@@ -323,14 +323,17 @@ change this cap, or `final.pool.source: last` to use last-round survivors.
 | --- | --- |
 | `protein`, `nuc` | Mol-1, AF3 and ESMFold2-standard (`methods: [mol1, af3, esmfold2-standard]`), five samples per model. Each selects its native best-ranked prediction, then applies its final criteria. |
 | `antibody` | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by 0.8 ipTM + 0.2 pTM before final criteria. |
-| `ppi` | AF2-IG, Mol-1, AF3 and ESMFold2-standard (`methods: [af2_ig, mol1, af3, esmfold2-standard]`). Mol-1, AF3 and ESMFold2-standard each use five samples; AF2 models `[1, 2]` each use five matched complex/monomer pairs. AF2 selects each model's best complex by `0.8 * ipTM + 0.2 * pTM` with its same-sample monomer, and both model pairs must pass its internal filter. |
+| `ppi` | AF2-IG, Mol-1, AF3 and ESMFold2-standard (`methods: [af2_ig, mol1, af3, esmfold2-standard]`). Mol-1, AF3 and ESMFold2-standard each use five samples; AF2 models `[1, 2]` each use one matched complex/monomer pair. AF2 selects each model's best complex by `0.8 * ipTM + 0.2 * pTM` with its same-sample monomer, and both model pairs must pass its internal filter. |
 
 All configured methods run, and a candidate is accepted when **any method passes**.
 `preset: auto` chooses antibody for native antibody tasks, otherwise protein or nuc; select `ppi` explicitly
 for an eligible standard protein/peptide binder with protein context. Its AF2 final
 criteria are `af2_ig_protdbench` for proteins and `af2_ig_peptide` for peptides.
-AF2 produces ten pairs (twenty structures) per candidate with its default two
+AF2 produces two pairs (four structures) per candidate with its default two
 models, in addition to the Mol-1, AF3 and ESMFold2-standard predictions.
+Native AF2-IG is deterministic with its default settings; changing only the seed
+does not add prediction diversity. One matched pair per model avoids redundant
+repeats.
 Use `final.method` to override the preset with a single method, or
 `final.methods` to choose a method list.
 ESMFold2-standard selects its best sample by `0.8 * ipTM + 0.2 * pTM`, then
@@ -384,7 +387,7 @@ its own ranking and criteria, and all requested methods run. Use either
 preset: ppi
 final:
   methods: [af2_ig, mol1, af3, esmfold2-standard]
-  af2: {models: [1, 2], samples: 5}
+  af2: {models: [1, 2], samples: 1}
   mol1: {samples: 5}
   af3: {samples: 5}
   esmfold2: {samples: 5}
