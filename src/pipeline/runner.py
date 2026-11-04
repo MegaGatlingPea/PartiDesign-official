@@ -517,12 +517,16 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
                 passing=set()
         for prediction in record['predictions'].values():
             for reference in prediction.get('msa_context', {}).get('chains', []):
+                # AF3/Mol-1 report source labels; ESMFold2 reports submitted chains.
+                chain = reference.get('source_id') or reference.get('chain_id')
+                if not chain:
+                    continue
                 usage = getattr(owner, '_msa_usage', None)
                 if usage is None:
                     owner._msa_usage = usage = {}
-                key = (task_name, method, reference['source_id'], reference.get('entry_id'),
+                key = (task_name, method, chain, reference.get('entry_id'),
                        reference.get('profile_id'), reference.get('generation_id'))
-                usage[key] = {'task': task_name, 'method': method, 'chain': reference['source_id'],
+                usage[key] = {'task': task_name, 'method': method, 'chain': chain,
                               'modality': reference['modality'], 'length': len(reference['sequence']),
                               **{field: reference.get(field) for field in
                                  ('source', 'cache_dir', 'entry_id', 'profile_id', 'generation_id',
