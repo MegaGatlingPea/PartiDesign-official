@@ -109,15 +109,35 @@ validation, relax, postfiltering, clustering and result interpretation.
 
 ## Installation
 
-Use Linux with an NVIDIA GPU and Conda or a compatible environment manager.
+Use Linux with an NVIDIA GPU and Mamba or Conda (for example, Miniforge).
 From your working directory:
 
 ```bash
 git clone https://github.com/MegaGatlingPea/PartiDesign-official.git
 cd PartiDesign-official
-conda env create -f partidesign_cu12.yaml
+bash install.sh
 conda activate partidesign
 ```
+
+The Bash installer defaults to CUDA 12, uses Mamba when available or Conda
+otherwise, and creates the environment with its required Python version.
+
+The installer shows a stage table with elapsed time and streams pip's download,
+build and installation output. It reads the supplied environment YAML, keeping
+the same package versions. For CUDA 13, use `--cuda 13` and activate
+`partidesign_cu13`.
+
+If installation stops during pip, continue in the existing environment:
+
+```bash
+bash install.sh --cuda 12 --pip-only
+```
+
+If environment creation was interrupted, use `--update` instead. Keep the environment
+and package caches: pip normally reuses completed cached downloads and skips
+satisfied packages, though an interrupted download or local source build may
+restart. See [installation recovery](docs/environments.md#resume-an-interrupted-install)
+for both CUDA profiles and cache settings.
 
 Download the **[PartiDesign generation bundle](https://drive.google.com/file/d/19j8aaysxeQlT0RI5URrQm3A9uWdqSE5e/view?usp=sharing)**
 and save it as `ckpts/partidesign.ckpt`. PartiScore, CyclicMPNN and native

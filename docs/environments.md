@@ -30,11 +30,120 @@ repository root. Do not use `--no-deps` or ignore resolver errors.
 The CUDA 12 definition retains the environment name `partidesign`:
 
 ```bash
-conda env create -f partidesign_cu12.yaml
+bash install.sh --cuda 12
 conda activate partidesign
 python -m pip check
 partidesign --help
 ```
+
+## Installation progress
+
+Run the installer from a complete checkout:
+
+```bash
+bash install.sh --cuda 12
+```
+
+Use `--cuda 13` for the other profile. The Bash script uses Mamba when available
+and otherwise Conda. Select either explicitly with `--manager mamba` or
+`--manager conda`. It creates the target environment, including its Python,
+then runs pip there. No Python installation or activation is needed to start
+the script; Mamba or Conda must already be installed.
+
+| Stage | What you see |
+| --- | --- |
+| Mamba / Conda dependencies | Environment creation or update, with Conda's package output. |
+| Python packages | Live pip resolution, download progress, source builds and installation output. |
+
+A stage table records pending, running, completed, failed or interrupted stages
+and their elapsed time. Pip may resolve, download and build in overlapping
+steps, so there is no estimated overall percentage. Native builds can remain
+on one pip status line until the build finishes.
+
+The two CUDA YAMLs remain the package definitions. The script derives a temporary
+Conda-only YAML and one pip requirements file, then runs pip in the chosen
+environment with uncaptured output. It does not split packages into separate
+resolver transactions or disable dependency resolution.
+
+Preview the stages and commands without installing or creating files:
+
+```bash
+bash install.sh --cuda 12 --plan
+```
+
+The original Conda entry point remains available:
+
+```bash
+conda env create -f partidesign_cu12.yaml
+# Or: conda env create -f partidesign_cu13.yaml
+```
+
+Conda may buffer the pip output until that subprocess finishes. Use the script
+when you want live pip progress.
+
+## Resume an interrupted install
+
+Keep the environment and use the same CUDA profile, manager and cache settings.
+Use `--manager mamba` or `--manager conda` to keep that choice explicit.
+If Conda finished and the interruption happened during pip, rerun only that
+stage from the repository root:
+
+```bash
+# CUDA 12: existing environment partidesign
+bash install.sh --cuda 12 --pip-only
+
+# CUDA 13: existing environment partidesign_cu13
+bash install.sh --cuda 13 --pip-only
+```
+
+This also works after the pip stage of a direct `conda env create` command
+fails. No environment activation is needed for the script: it selects the
+environment from the profile. Use the same `--name NAME` on retries if you
+chose a custom environment name.
+
+If the interruption happened during Mamba or Conda dependency installation,
+retry that stage and then pip:
+
+```bash
+bash install.sh --cuda 12 --update
+# Or: bash install.sh --cuda 13 --update
+```
+
+With the original Conda commands, the equivalent retry is:
+
+```bash
+conda env update -n partidesign -f partidesign_cu12.yaml
+# Or: conda env update -n partidesign_cu13 -f partidesign_cu13.yaml
+```
+
+Use the matching CUDA profile. These are environment installation commands;
+there is no `partidesign update` command.
+
+[Pip caches downloads and built wheels by default](https://pip.pypa.io/en/stable/topics/caching/).
+A retry normally skips installed packages that already satisfy the requirements
+and reuses valid cached downloads. Cache entries may need revalidation;
+temporary incomplete downloads and local source builds may restart. Retrying
+does not guarantee a byte-for-byte continuation or zero repeated work.
+
+After activating the target environment, inspect the cache with:
+
+```bash
+pip cache dir
+pip cache info
+```
+
+On Linux the default is usually `~/.cache/pip`. To use another disk, set
+`PIP_CACHE_DIR` before the first install and retain that setting on retries:
+
+```bash
+export PIP_CACHE_DIR=/path/to/package-cache
+bash install.sh --cuda 12
+```
+
+Leave caching enabled and keep the cache directory when retrying. Routine
+recovery does not need `--force-reinstall`, cache cleanup or environment deletion.
+Conda's own package cache is separate and is also retained by the script.
+Models are separate downloads, as described in the [download guide](download.md).
 
 ## Protein complex postfilter
 
@@ -69,7 +178,7 @@ CUDA runtime and compiler tools, including an explicit CUDA 13 OpenMM build.
 Do not override them with an older toolkit in `CUDA_ROOT` or `LD_LIBRARY_PATH`.
 
 ```bash
-conda env create -f partidesign_cu13.yaml
+bash install.sh --cuda 13
 conda activate partidesign_cu13
 python -m pip check
 partidesign --help

@@ -116,7 +116,7 @@ environment, bundled resources, generation bundle, and CPU checks.
 | Symptom | Check |
 | --- | --- |
 | `partidesign: command not found` | Run `conda activate partidesign` and confirm environment creation completed successfully. |
-| A package or backend path fails during installation | Run `conda env create -f partidesign_cu12.yaml` from the repository root; the environment definition installs relative source paths. Keep the supplied versions and bundled dependencies together. |
+| A package or backend path fails during installation | Run the installer from the complete repository root so local source paths resolve. If Conda already finished, retry with `bash install.sh --cuda 12 --pip-only`; see [installation recovery](environments.md#resume-an-interrupted-install). Keep the supplied versions and bundled dependencies together. |
 | The native checkpoint is missing | Download the [release bundle](download.md#generation-weights-and-bundled-assets) to `ckpts/partidesign.ckpt` under the selected model root, or use `--ckpt` with a task check. The Drive release is downloaded separately from the CLI asset downloader. |
 | CUDA is unavailable | Check `nvidia-smi`, the activated Python/PyTorch environment, and `CUDA_VISIBLE_DEVICES`. CPU checks do not establish GPU availability. |
 | An example input cannot be found | Run from the repository root. Input paths resolve relative to the invocation directory; `--model-dir` does not change input/output resolution. |
