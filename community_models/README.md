@@ -1,8 +1,9 @@
 # PartiDesign community models
 
 This directory is the only runtime asset root for optional sequence design and
-ESMFold2 reward.  Runtime code must not search user caches, sibling checkouts,
-Hugging Face, model hubs, MSA services, or the public network.
+ESMFold2 reward/validation. Model and sequence workers must not search user
+caches, sibling checkouts, Hugging Face, model hubs, MSA services, or the public
+network. Validation and pipeline drivers prepare shared context MSA separately.
 
 ## Layout
 
@@ -24,7 +25,7 @@ Hugging Face, model hubs, MSA services, or the public network.
   circular relative-position offset (never a chemical-bond tensor) for
   task-local cyclic protein requests.
 - `pipetools/`: only the copied ESMFold2/MPNN compatibility modules required by
-  the reward runtime. RF3, Protenix, orchestration, MSA, publication, and
+  the runtime. RF3, Protenix, orchestration, MSA-search, publication, and
   downloader modules are deliberately absent. Its shared runtime helper resolves one
   physical owner GPU consistently for ESMFold2 and all MPNN children.
 - `offline_site/`: Python `sitecustomize` that rejects AF_INET/AF_INET6 sockets
@@ -33,8 +34,22 @@ Hugging Face, model hubs, MSA services, or the public network.
 Checkpoint directories and Python environments are intentionally ignored by
 Git. Source, licenses, concise provenance, and configuration are tracked; local
 SHA256 manifests and smoke-test logs are not release artifacts. Installation
-may use a network while constructing an environment;
-inference is entirely local and every MSA search path is forbidden.
+may use a network while constructing an environment. Model execution stays
+local. ESMFold2-standard validation and pipeline prediction can consume the
+existing shared ColabFold or local AF3 cache for fixed protein context, with no
+templates. Fast stays query-only, and designed GT/MPNN/VHH/VH/VL chains are not
+automatically searched. ESMFold2 keeps RNA/DNA query-only with either source.
+The driver performs authorized searches before prediction workers start;
+`--msa off` restores standard's query-only path.
+
+`esmfold2.msa` uses the shared MSA schema and common `--msa`/`--msa-source`
+options. Native defaults are `msa_max_depth: 1024`, `msa_column_mask_rate: 0.1`,
+and `msa_subsample_at_inference: true`; a `null` depth removes the row limit
+subject to native feature caps. Cache paths, source/profile/generation pins,
+and prediction directories stay unchanged. A compatible template-on generation
+can supply ESMFold2's template-off view while retaining AF3/Mol-1 templates.
+The existing prediction `confidence.msa` metadata reports actual features and
+effective depth.
 
 Community backend load, asset, timeout, device-owner, and worker-protocol failures are
 systemic. They never silently fall back to another graph/sequence/reward backend.

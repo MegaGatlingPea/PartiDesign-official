@@ -869,7 +869,13 @@ def _antibody_reference_bonds(task, reference, chain_map, condition):
 def _compile_antibody_partial(request, prepared, reference, chain_map, ccd_path,
                               trusted_ccd_components):
     from ..antibody.compiler import compile_antibody_request, attach_candidate_annotations
+    from ..antibody.schema import resolve_antibody_spec
 
+    selected = resolve_antibody_spec(request.task.antibody, reference.record.row)
+    if selected is not request.task.antibody:
+        task = replace(request.task, antibody=selected)
+        request = replace(request, task=task)
+        prepared = replace(prepared, task=task)
     lengths = _antibody_reference_lengths(request.task, reference, chain_map)
     locked = set()
 

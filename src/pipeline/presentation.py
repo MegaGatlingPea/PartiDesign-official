@@ -3,6 +3,8 @@ from __future__ import annotations
 import copy
 from pathlib import Path
 
+from src.validate.methods import REFOLD_METHODS
+
 
 def _delta(value, baseline):
     if not isinstance(value, dict) or not isinstance(baseline, dict):
@@ -25,8 +27,7 @@ def public_config(cfg):
 
     def validation_view(stage, profile, final=False):
         method = stage["method"]
-        group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1", "esmfold2-fast": "esmfold2",
-                 "esmfold2-standard": "esmfold2"}[method]
+        group = REFOLD_METHODS[method].group
         count = stage["validation"][group]["samples"]
         key = profile, method, count, final, str(sorted(shared_msa.items()))
         if key not in native_defaults:
@@ -50,9 +51,12 @@ def public_config(cfg):
         return result
 
     def filtering(stage):
+        if stage.get("filter_enabled") is False:
+            return False
         result = {"criteria": copy.deepcopy(stage["criteria"])} if stage["criteria"] is not None else {}
         if stage["criteria_route"] != "auto": result["criteria_route"] = stage["criteria_route"]
         if stage["criteria_mode"] != "all": result["criteria_mode"] = stage["criteria_mode"]
+        if stage.get("filter_enabled") is True: result["enabled"] = True
         return result
 
     def iteration(stage, profile):
@@ -147,11 +151,30 @@ def public_tasks(cfg):
     return {name: copy.deepcopy(cfg["task_payload"][name]) for name in cfg["task_names"]}
 
 
+
+def _msa_view(stage):
+    spec = REFOLD_METHODS[stage["method"]]
+    if not spec.msa:
+        return None
+    section = stage["validation"][spec.group]
+    msa = section["msa"]
+    view = {"mode": msa["mode"], "source": msa["source"],
+            "protein_templates": msa["mode"] != "off" and msa["templates"],
+            "rna_msa": spec.family != "esmfold2" and msa["mode"] != "off" and msa["source"] == "af3",
+            "cache_dir": msa["cache_dir"]}
+    if spec.family == "esmfold2" and msa["mode"] != "off":
+        view.update({key: section[key] for key in
+                     ("msa_max_depth", "msa_column_mask_rate", "msa_subsample_at_inference")})
+    return view
+
+
 def plan_view(cfg):
     result = {"output": cfg["output_dir"], "seed": cfg["seed"], "tasks": {}}
     if cfg.get("motif_policy") == "first_and_final":
         result["motif"] = {"applies_to": "coordinate motifs", "check": [1, "final"],
                            "reference": "original motif"}
+        if all(task["rounds"][0].get("filter_enabled") is False for task in cfg["tasks"].values()):
+            result["motif"]["check"] = ["final"]
     for name in cfg["task_names"]:
         task, authored = cfg["tasks"][name], cfg["task_payload"][name]
         if cfg.get("seed_input"):
@@ -192,16 +215,23 @@ def plan_view(cfg):
             selection = {k: v for k, v in stage["selection"].items() if k != "rank_by" and v is not None}
             row = {"gt": int(stage["include_gt"]), "mpnn": stage["mpnn_count"],
                    "refold": stage["method"], "conformers": stage["samples"],
-                   "filter": stage["criteria"] if stage["criteria"] is not None else "auto",
+                   "filter": False if stage.get("filter_enabled") is False else (
+                       stage["criteria"] if stage["criteria"] is not None else "auto"),
                    "selection": selection}
+            msa = _msa_view(stage)
+            if msa is not None:
+                row["msa"] = msa
+            if stage["sequence_source"] != "auto":
+                row["mpnn_source"] = stage["sequence_source"]
+            if stage["sequence_settings"]:
+                row["mpnn_settings"] = copy.deepcopy(stage["sequence_settings"])
             if stage["round"] < task["recycle"]:
                 row["relax"] = stage["relax_enabled"]
                 row["partial"] = ({k: v for k, v in stage["partial"].items() if k != "enabled"}
                                    if stage["partial"]["enabled"] else False)
             rows[stage["round"]] = row
         final = task["final"]
-        group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1",
-                 "esmfold2-standard": "esmfold2"}[final["method"]]
+        group = REFOLD_METHODS[final["method"]].group
         final_view = {"method": final["method"], "samples": final["validation"][group]["samples"],
                       "pool": final["pool"], "filter": final["criteria"] if final["criteria"] is not None else "auto"}
         if group == "af2":
@@ -211,21 +241,21 @@ def plan_view(cfg):
             final_view.pop("method", None)
             final_view["methods"] = final["methods"]
             final_view["combination"] = "any"
-            final_view["samples"] = {v["method"]: v["validation"][{"af2_ig": "af2", "af3": "af3", "mol1": "mol1", "esmfold2-standard": "esmfold2"}[v["method"]]]["samples"] for v in final["validators"]}
+            final_view["samples"] = {v["method"]: v["validation"][REFOLD_METHODS[v["method"]].group]["samples"] for v in final["validators"]}
         final_view['msa'] = {}
         for validator in final.get('validators', [final]):
-            if validator['method'] in {'af3', 'mol1'}:
-                msa = validator['validation'][validator['method']]['msa']
-                final_view['msa'][validator['method']] = {
-                    'mode': msa['mode'], 'source': msa['source'],
-                    'protein_templates': msa['mode'] != 'off' and msa['templates'],
-                    'rna_msa': msa['mode'] != 'off' and msa['source'] == 'af3',
-                    'cache_dir': msa['cache_dir']}
+            msa = _msa_view(validator)
+            if msa is not None:
+                final_view['msa'][validator['method']] = msa
         result["tasks"][name] = {"start": start, "preset": task["preset"], "rounds": rows,
                                  "rank_by": "design_plddt", "final": final_view}
         if task.get("antibody_contacts"):
             result["tasks"][name]["antibody_contact_filter"] = copy.deepcopy(
                 task["presets"]["antibody_contacts"]["rules"])
+            if any(stage.get("filter_enabled") is False for stage in task["rounds"]):
+                result["tasks"][name]["antibody_contact_filter_applies_to"] = [
+                    stage["round"] for stage in task["rounds"]
+                    if stage.get("filter_enabled") is not False] + ["final"]
         if cfg.get("motif_policy") == "first_and_final":
             result["tasks"][name]["motif_filter"] = copy.deepcopy(task["presets"]["pipeline_motif"]["rules"])
     return result

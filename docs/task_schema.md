@@ -523,6 +523,48 @@ Normal contig, bond, and cyclic fields are not accepted by this schema. Compare
 `antibody_fixture`, `pdl1_adalimumab_selective_cdr3_official`, and
 `pdl1_adalimumab_reference` in [antibody.yaml](../configs/examples/antibody.yaml).
 
+### Random scaffold selection
+
+Use a list to draw one compatible scaffold for each initial sample:
+
+```yaml
+antibody:
+  scaffold: [7eow, 7xl0, 8coh]
+  chains: {VHH: B}
+  design:
+    VHH:
+      cdrs: [CDR1, CDR2, CDR3]
+      lengths: {CDR1: official, CDR2: official, CDR3: official}
+```
+
+`sample_num` is the total across the list. Each request draws one entry
+uniformly using its seed; worker order does not change the choice. Entries
+must share roles (VHH or paired VH/VL) and output chain IDs. Each selected
+source supplies its own official lengths and layout; omitted lengths still
+mean native.
+
+List items may use the existing custom scaffold mapping. To override common
+permissions for one template, use a wrapper inside the scaffold list:
+
+```yaml
+scaffold:
+  - 7eow
+  - scaffold: bindcraft2_vhh
+    design:
+      VHH: {framework: '35/37'}
+    paratope:
+      VHH: {framework: '26/34'}
+```
+
+Item design, paratope and template settings override common settings; mappings
+merge and lists replace. Framework/paratope selectors use that source's
+positions. List sources must be distinct. The existing scaffold result column
+records the selected source; custom list choices use the resolved YAML path.
+Partial and pipeline descendants retain this source and actual CDR lengths.
+Native reference CSV metadata can resolve an original list; CIF-only references
+need a concrete scaffold. Ready-to-run examples are tnfr1_vhh_random_scaffolds
+and pdl1_fv_random_scaffolds in [antibody.yaml](../configs/examples/antibody.yaml).
+
 ### Custom scaffold data
 
 A custom scaffold needs a native scaffold YAML and a real local CIF containing

@@ -121,7 +121,7 @@ backend support differs for modifications and crosslinks.
 ## Antibody CDR design
 
 Use `<repo>/configs/examples/antibody.yaml` with `format: antibody`; submit it
-separately from normal tasks. Every shipped antibody task requests five samples.
+separately from normal tasks. The task sample_num sets its total sample count.
 
 | Goal | Starting task or choice |
 | --- | --- |
@@ -143,6 +143,17 @@ exclusions/insertions and residue-index reset; the windows are not IMGT labels.
 The built-in `bindcraft2_vhh` uses source label chain B (author A), residues
 1–127, windows 27–33 / 52–57 / 100–114 and official final lengths 7 / 5–7 / 3–25.
 CDRs and framework 35/37/45/47/50/59/97-99/115-116 are hidden from its template.
+
+A scaffold list draws one compatible source per initial request, for example
+scaffold: [7eow, 7xl0, 8coh]. sample_num is a total, not per source. Keep VHH
+and paired VH/VL in separate lists. Each source resolves its own native/official
+lengths. Items may be custom source mappings, or wrappers with scaffold,
+design, paratope and template keys to override common settings. Maps merge;
+lists replace. Source-numbered framework/paratope selectors are per template.
+The existing scaffold column records the selected source. Native partial and
+pipeline descendants pin it and preserve actual CDR lengths; CIF-only partial
+needs a concrete source. See tnfr1_vhh_random_scaffolds and
+pdl1_fv_random_scaffolds in the bundled examples.
 
 Identity design, template visibility and intended paratope are independent.
 Omitted `antibody.paratope` means all three CDRs and no framework per role,

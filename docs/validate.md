@@ -40,8 +40,8 @@ These first commands collect metrics. To publish passing candidates, add criteri
 
 | `--method` | Suitable inputs and behavior | Model asset target |
 | --- | --- | --- |
-| `esmfold2-fast` | Protein, RNA, DNA, and ligand-containing structures; fast refolding | `esmfold2-fast` |
-| `esmfold2-standard` | The same input modalities with standard ESMFold2 weights | `esmfold2-standard` |
+| `esmfold2-fast` | Protein, RNA, DNA, and ligand-containing structures; query-only fast refolding | `esmfold2-fast` |
+| `esmfold2-standard` | The same input modalities with standard weights and shared fixed protein-context MSA; no templates | `esmfold2-standard` |
 | `af2_ig` | One standard protein design chain with protein context; predicts both complex and isolated design chain | `af2` |
 | `mol1` | Protein, RNA, DNA, and ligand-containing structures; shared context MSA/template cache | `mol1` |
 | `af3` | Protein, RNA, DNA, and ligand-containing structures; complex prediction by default | `af3` |
@@ -374,7 +374,7 @@ Keep `refolds/` and `.state/` for reuse or recomputation. After applying criteri
 | Repeat the original command | Saved sequences and complete predictions | Finishes missing/incomplete work and rebuilds reports |
 | `--refilter` | Saved metrics | Applies selected criteria and rebuilds reports/links; no models |
 | `--recompute-metrics` | Saved sequences, predictions, and confidence data | Recalculates available geometry/metrics and rebuilds reports; no new model samples |
-| `--rerun-refold` | All requested saved sequence slots | AF3/AF3-LA/Mol-1 predictions again; never generates missing MPNN sequences |
+| `--rerun-refold` | All requested saved sequence slots | ESMFold2-standard/AF3/AF3-LA/Mol-1 predictions again; never generates missing MPNN sequences |
 | `--rerun` | Original design inputs | Regenerates requested sequence/prediction slots |
 
 ```bash
@@ -404,7 +404,34 @@ the score remains unavailable; recomputation does not run new predictions.
 `--plan`, `--refilter`, and `--recompute-metrics` are mutually exclusive. `--rerun` and
 `--rerun-refold` are mutually exclusive. Neither refiltering nor recomputation can accompany
 `--rerun` or `--score`. Recomputation is unsupported for `vina_dock`.
-`--rerun-refold` supports AF3/AF3-LA/Mol-1 and cannot accompany plan/refilter/recompute. `--msa-refresh` also cannot accompany plan/refilter/recompute.
+`--rerun-refold` supports ESMFold2-standard/AF3/AF3-LA/Mol-1 and cannot accompany plan/refilter/recompute. `--msa-refresh` also cannot accompany plan/refilter/recompute.
+
+## ESMFold2 standard settings
+
+ESMFold2-standard uses shared fixed protein-context MSA by default. Configure it
+in a validation profile, for example:
+
+```yaml
+methods: [esmfold2-standard]
+esmfold2:
+  msa: {mode: auto, source: colabfold}
+  msa_max_depth: 1024
+  msa_column_mask_rate: 0.1
+  msa_subsample_at_inference: true
+```
+
+`esmfold2.msa` accepts the same settings as the shared top-level `msa` mapping.
+Model-specific values override shared YAML values; common CLI options such as
+`--msa` and `--msa-source` override the configured values. Templates are always
+disabled for ESMFold2. Fast remains query-only even when the shared policy is
+`auto`; `--msa off` gives standard its historical query-only path.
+
+`msa_max_depth` is a positive integer or `null`; `null` removes the row limit,
+subject to native feature caps. `msa_column_mask_rate` is finite and between 0
+and 1, and `msa_subsample_at_inference` is boolean. Each prediction's existing
+`confidence.msa` metadata reports its actual MSA features and effective depth
+after native selection and featurization. This uses the ordinary prediction
+evidence, without a separate output directory.
 
 ## Mol-1 predictor settings
 
@@ -446,18 +473,22 @@ These settings belong under `mol1`; pipeline uses `final.mol1` or
 
 ## Shared MSA, templates, and worker resources
 
-AF3, AF3-LA and Mol-1 share one context MSA/template cache. The defaults are
+ESMFold2-standard, AF3, AF3-LA and Mol-1 share one context MSA/template cache. The defaults are
 `--msa auto`, `--msa-source colabfold`, and maximum template release date
-**2021-09-30**. Fixed protein context receives MSA and templates together;
-`--msa off` disables both. There is no separate template setting to enable.
-Designed chains remain query-only, including peptides and antibody chains.
+**2021-09-30**. ESMFold2-standard searches only fixed protein context and consumes
+its MSA without templates. AF3/AF3-LA/Mol-1 use protein templates by default;
+`--msa-templates false` disables their template work. `--msa off` disables both
+alignments and templates. Designed chains remain query-only, including original
+GT sequences, MPNN sequences, peptides, and antibody VHH/VH/VL chains.
+
 ColabFold does not search RNA or DNA. Select `--msa-source af3` to search fixed
-RNA context with the existing local tools; RNA/DNA have no structural templates.
+RNA context for AF3/AF3-LA/Mol-1 with the existing local tools. ESMFold2 keeps
+RNA and DNA query-only with either source. RNA/DNA have no structural templates.
 Generation coordinates are not automatically prediction templates.
 
 ```bash
 # Preview the default ColabFold route.
-partidesign validate inference/first_run --method mol1 --source gt:1 \
+partidesign validate inference/first_run --method esmfold2-standard --source gt:1 \
   --criteria af3_basic --msa-source colabfold --limit 2 --plan
 
 # Use existing local AF3 search resources instead.
@@ -473,6 +504,11 @@ input. `--msa-profile` selects a recorded profile with `cache-only`.
 `--msa-refresh` requires `auto` and publishes a new generation. When new MSA/template
 evidence would change saved prediction inputs, use `--rerun-refold` to keep saved
 sequences, or `--rerun` to regenerate them too.
+
+The shared cache remains `<model_dir>/.cache/af3_msa/` with the existing
+source/profile/generation references. A compatible template-on generation can
+supply ESMFold2's template-off view while preserving templates for AF3/Mol-1.
+No separate ESMFold2 search cache is created.
 
 See [MSA and templates](msa.md) for pre-search commands, shared workflow settings,
 cache paths, source-specific resources and template handling. Mol-1 consumes the

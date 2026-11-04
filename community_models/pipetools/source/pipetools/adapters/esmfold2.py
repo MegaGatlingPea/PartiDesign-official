@@ -17,7 +17,11 @@ from typing import Any
 import numpy as np
 
 from ..ccd_bonds import CCDBondCacheReader
-from ..config import ESMFold2Config, effective_esmfold2_lm_mask_pct
+from ..config import (
+    ESMFold2Config,
+    effective_esmfold2_lm_mask_pct,
+    effective_esmfold2_msa_options,
+)
 from ..esmfold2_evidence import (
     atomic_number,
     decode_atom_name_rows,
@@ -161,6 +165,9 @@ def _effective_model_contract(config: ESMFold2Config) -> dict[str, Any]:
         "samples": config.samples,
         "lm_dropout": config.lm_dropout,
         "lm_mask_pct": effective_esmfold2_lm_mask_pct(config),
+        "msa_max_depth": config.msa_max_depth,
+        "msa_column_mask_rate": config.msa_column_mask_rate,
+        "msa_subsample_at_inference": config.msa_subsample_at_inference,
         "esmc_attention_backend": config.esmc_attention_backend,
         "context_embedding_cache": config.context_embedding_cache,
         "optimization": optimization,
@@ -169,6 +176,8 @@ def _effective_model_contract(config: ESMFold2Config) -> dict[str, Any]:
 
 def _validated_request_input(
     request: ESMFold2BatchFoldRequest,
+    *,
+    mode: str = "fast",
 ) -> tuple[Path, dict[str, Any], Path]:
     input_path = _safe_input(request.input_json)
     try:
@@ -179,11 +188,27 @@ def _validated_request_input(
         not isinstance(input_payload, dict)
         or input_payload.get("sample_id") != request.sample_id
         or input_payload.get("variant_id") != request.variant_id
-        or input_payload.get("msa_policy") != "none"
+        or input_payload.get("msa_policy") not in {"none", "context"}
     ):
         raise AdapterError(
             "ESMFold2 private input identity/MSA policy differs from its request"
         )
+    sequences = input_payload.get("sequences")
+    if not isinstance(sequences, list) or not sequences:
+        raise AdapterError("ESMFold2 private input has no sequence ledger")
+    msa_entries = [
+        entry for entry in sequences
+        if isinstance(entry, dict) and entry.get("msa") is not None
+    ]
+    if input_payload["msa_policy"] == "context":
+        if mode != "standard":
+            raise AdapterError("External protein MSA requires ESMFold2 standard")
+        if not msa_entries:
+            raise AdapterError("ESMFold2 context MSA policy has no MSA inputs")
+    elif msa_entries:
+        raise AdapterError("ESMFold2 MSA inputs require context MSA policy")
+    if any(entry.get("modality") != "protein" for entry in msa_entries):
+        raise AdapterError("ESMFold2 external MSA is supported only for proteins")
     raw_parent = Path(request.raw_dir).expanduser()
     if raw_parent.is_symlink() or (raw_parent.exists() and not raw_parent.is_dir()):
         raise AdapterError(f"ESMFold2 raw request root is unsafe: {raw_parent}")
@@ -224,7 +249,9 @@ def _run_esmfold2_batch_fresh(
     planned: list[tuple[ESMFold2BatchFoldRequest, Path, str, dict[str, Any]]] = []
     worker_requests: list[dict[str, Any]] = []
     for request in requests:
-        input_path, input_payload, raw_parent = _validated_request_input(request)
+        input_path, input_payload, raw_parent = _validated_request_input(
+            request, mode=config.mode
+        )
         expected_prefix = f"{request.sample_id}__{request.variant_id}"
         raw_parent.mkdir(parents=True, exist_ok=True)
         attempt_dir = raw_parent / f"attempt_{time.time_ns()}_{uuid.uuid4().hex[:8]}"
@@ -420,6 +447,9 @@ def _publish_artifacts(
             cache_evidence = confidence_record.get("context_embedding_cache")
             if isinstance(cache_evidence, dict):
                 confidence["context_embedding_cache"] = dict(cache_evidence)
+            msa_evidence = confidence_record.get("msa")
+            if isinstance(msa_evidence, dict):
+                confidence["msa"] = dict(msa_evidence)
             recorded = confidence_record.get("confidence_unavailable", [])
             if not isinstance(recorded, list):
                 recorded = []
@@ -517,6 +547,82 @@ def _valid_context_embedding_cache_evidence(
         and value >= 0
     )
 
+
+def _valid_msa_evidence(
+    evidence: object,
+    input_payload: dict[str, Any],
+    effective_config: dict[str, Any],
+) -> bool:
+    if not isinstance(evidence, dict) or set(evidence) != {
+        "enabled", "policy", "max_depth", "column_mask_rate",
+        "subsample_at_inference", "feature_depth", "effective_depth", "chains",
+    }:
+        return False
+    policy = input_payload["msa_policy"]
+    options = effective_esmfold2_msa_options(effective_config, policy)
+    if (
+        evidence["enabled"] is not (policy == "context")
+        or evidence["policy"] != policy
+        or evidence["max_depth"] != options["msa_max_depth"]
+        or evidence["column_mask_rate"] != options["msa_column_mask_rate"]
+        or evidence["subsample_at_inference"] is not options["msa_subsample_at_inference"]
+    ):
+        return False
+    for field in ("feature_depth", "effective_depth"):
+        if (
+            not isinstance(evidence[field], int)
+            or isinstance(evidence[field], bool)
+            or evidence[field] < 1
+        ):
+            return False
+    depth = evidence["feature_depth"]
+    effective_depth = depth
+    if options["msa_subsample_at_inference"] and options["msa_max_depth"] is not None:
+        effective_depth = min(depth, options["msa_max_depth"])
+    if evidence["effective_depth"] != effective_depth:
+        return False
+    proteins = [entry for entry in input_payload["sequences"]
+                if entry.get("modality") == "protein"]
+    chains = evidence["chains"]
+    if not isinstance(chains, list) or len(chains) != len(proteins):
+        return False
+    for row, entry in zip(chains, proteins):
+        if (
+            not isinstance(row, dict)
+            or set(row) != {"chain_id", "unpaired_rows", "paired_rows", "rows"}
+            or row["chain_id"] != entry["chain_id"]
+            or not isinstance(row["rows"], int)
+            or isinstance(row["rows"], bool)
+            or row["rows"] < 1
+        ):
+            return False
+        raw = entry.get("msa")
+        if raw is None:
+            if (row["unpaired_rows"], row["paired_rows"], row["rows"]) != (0, 0, 1):
+                return False
+        elif "sequences" in raw:
+            if row["unpaired_rows"] is not None or row["paired_rows"] is not None:
+                return False
+            if row["rows"] != len(raw["sequences"]):
+                return False
+        else:
+            unpaired, paired = row["unpaired_rows"], row["paired_rows"]
+            if any(not isinstance(count, int) or isinstance(count, bool)
+                   for count in (unpaired, paired)):
+                return False
+            if unpaired < 1 or paired < 0:
+                return False
+            if (paired > 0) != ("paired_msa_path" in raw):
+                return False
+            if row["rows"] != unpaired + max(0, paired - 1):
+                return False
+    if policy == "none" and depth != 1:
+        return False
+    if any(row["rows"] > 1 for row in chains) and depth == 1:
+        return False
+    return True
+
+
 def _validated_artifacts(
     attempt_dir: Path,
     result: dict[str, Any],
@@ -597,10 +703,13 @@ def _validated_artifacts(
                 **effective_config,
                 "mode": mode,
                 "external_msa_search": False,
-                "msa_max_depth": 1,
-                "msa_column_mask_rate": 0.1,
-                "msa_subsample_at_inference": False,
+                **effective_esmfold2_msa_options(
+                    effective_config, input_payload["msa_policy"]
+                ),
             }
+            or not _valid_msa_evidence(
+                confidence.get("msa"), input_payload, effective_config
+            )
             or not isinstance(confidence.get("confidence_unavailable"), list)
             or not _valid_context_embedding_cache_evidence(
                 confidence.get("context_embedding_cache"),

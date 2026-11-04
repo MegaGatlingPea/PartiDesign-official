@@ -60,8 +60,13 @@ def search_context(repo, settings, query):
 def run_staged_jobs(ray, actors, jobs, repo, cfg, resources, finished):
     """Prepare ahead at most two samples per actor, refold ready tickets first."""
     from .af3_msa import AF3MSACache, msa_query_enabled
-    group = "mol1" if jobs and jobs[0][0]["method"] == "mol1" else "af3"
-    settings = cfg[group]["msa"]
+    method = jobs[0][0]["method"] if jobs else "af3"
+    group = "esmfold2" if method == "esmfold2-standard" else ("mol1" if method == "mol1" else "af3")
+    if group == "esmfold2":
+        from .esmfold2_msa import msa_settings
+        settings = msa_settings(cfg[group])
+    else:
+        settings = cfg[group]["msa"]
     search_remote = ray.remote(search_context)
     pending_gpu, pending_search = {}, {}
     tickets = set()

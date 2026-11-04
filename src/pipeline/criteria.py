@@ -5,6 +5,7 @@ import copy
 
 from partidesign.paths import inference_config_dir
 from src.validate.filters import load_presets
+from src.validate.methods import REFOLD_METHODS
 
 _NATIVE_PRESETS = (
     "af2_ig_protein",
@@ -64,7 +65,7 @@ def _relaxed(preset: dict) -> dict:
 
 def _protein_binder(preset: dict) -> dict:
     result = copy.deepcopy(preset)
-    result["methods"] = ["esmfold2-fast", "esmfold2-standard", "af3", "mol1"]
+    result["methods"] = [method for method, spec in REFOLD_METHODS.items() if spec.family != "af2"]
     thresholds = {
         "binder_iptm": 0.6,
         "binder_ptm": 0.7,
@@ -81,6 +82,17 @@ def _peptide_binder(preset: dict) -> dict:
     for rule in result["rules"]:
         if rule["metric"] == "rfd4_min_ipae_angstrom":
             rule["value"] = 3.5
+    return result
+
+
+def _af2_antibody(native: dict) -> dict:
+    """Keep AF2 protein thresholds and the antibody's geometric epitope check."""
+    result = copy.deepcopy(native["af2_ig_protein"])
+    geometry = [copy.deepcopy(rule) for rule in native["af3_antibody"]["rules"]
+                if rule["metric"] == "rfd4_target_aligned_binder_rmsd"]
+    if not geometry:
+        raise ValueError("validate af3_antibody must define target-aligned binder RMSD")
+    result["rules"].extend(geometry)
     return result
 
 
@@ -109,6 +121,9 @@ def profile_presets(profile: str) -> dict:
     })
     result["pipeline_protein_binder"] = _protein_binder(native["af3_basic"])
     result["pipeline_peptide_binder"] = _peptide_binder(native["af3_peptide"])
+    antibody = _af2_antibody(native)
+    result["pipeline_af2_ig_antibody"] = _relaxed(antibody)
+    result["pipeline_af2_ig_antibody_final"] = antibody
     return result
 
 
@@ -141,7 +156,7 @@ def motif_reference_preset(native=None, *, nucleic=False):
              if rule["metric"] == "motif_rmsd_reference"]
     if not rules:
         raise ValueError(f"validate {source_name} must define the strict motif RMSD rule")
-    return {"methods": ["esmfold2-fast", "esmfold2-standard", "af2_ig", "af3", "mol1"],
+    return {"methods": list(REFOLD_METHODS),
             "reduction": "any_prediction", "rules": rules}
 
 

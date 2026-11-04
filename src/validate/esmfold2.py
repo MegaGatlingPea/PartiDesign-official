@@ -835,6 +835,7 @@ def _esm_config(config: Mapping[str, Any], repo_root: Path | None = None) -> Any
             sys.path.insert(0, str(pipetools_source))
     from pipetools.config import ESMFold2Config
 
+    msa_max_depth = settings.get("msa_max_depth", 1024)
     return ESMFold2Config(
         mode=str(settings.get("mode", "fast")), samples=int(settings.get("samples", 1)),
         cpus=float(settings.get("cpus", 4.0)), gpus=float(settings.get("gpus", 1.0)),
@@ -843,6 +844,9 @@ def _esm_config(config: Mapping[str, Any], repo_root: Path | None = None) -> Any
         lm_mask_pct=settings.get("lm_mask_pct"),
         esmc_attention_backend=str(settings.get("attention_backend", settings.get("esmc_attention_backend", "sdpa"))),
         context_embedding_cache=settings.get("context_embedding_cache"),
+        msa_max_depth=None if msa_max_depth is None else int(msa_max_depth),
+        msa_column_mask_rate=float(settings.get("msa_column_mask_rate", 0.1)),
+        msa_subsample_at_inference=bool(settings.get("msa_subsample_at_inference", True)),
         timeout_seconds=int(settings.get("timeout_seconds", 7200)),
         optimization=dict(settings.get("optimization", {"mode": "auto", "disable": []})),
     )
@@ -1170,10 +1174,20 @@ class ESMFold2Backend:
     def predict(
         self, input: Any, variant: Mapping[str, Any], output_dir: Path,
         completed_keys: set[str] | None = None,
+        *, prepared_inputs: Mapping[str, Any] | None = None,
     ) -> Iterator[dict[str, Any]]:
         if self._closed:
             raise ESMFold2Error("ESMFold2 backend is closed")
         completed = set(completed_keys or ())
+        settings = self.config.get("esmfold2", self.config)
+        expected = {f"sample{i}" for i in range(int(settings.get("samples", 1)))}
+        if expected <= completed:
+            return
+        if prepared_inputs is None:
+            from .esmfold2_msa import prepare_esmfold2_input
+            payload = prepare_esmfold2_input(input, variant, settings, self.repo_root)
+        else:
+            payload = copy.deepcopy(dict(prepared_inputs))
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         if not self._log_dir_explicit:
@@ -1195,12 +1209,6 @@ class ESMFold2Backend:
                         "error": f"{type(exc).__name__}: {exc}",
                     }
             return
-        expected = {f"sample{i}" for i in range(int(config.samples))}
-        if expected <= completed:
-            return
-        payload = _build_payload(input, variant)
-        payload["sample_id"] = str(_field(input, "sample_id", payload.get("sample_id", "sample")))
-        payload["variant_id"] = variant_id
         with tempfile.TemporaryDirectory(prefix=f".{variant_id}_", dir=output_dir) as temporary:
             request_root = Path(temporary)
             input_json = request_root / f"{variant_id}.json"
@@ -1285,6 +1293,9 @@ class ESMFold2Backend:
                 confidence = mapped_confidence_summary(confidence_record["confidence"])
                 if isinstance(confidence_record.get("context_embedding_cache"), Mapping):
                     confidence["context_embedding_cache"] = dict(confidence_record["context_embedding_cache"])
+                msa_evidence = confidence_record.get("msa", confidence_record["confidence"].get("msa"))
+                if isinstance(msa_evidence, Mapping):
+                    confidence["msa"] = dict(msa_evidence)
                 final_structure = output_dir / f"{variant_id}__s{sample_index:03d}.cif"
                 arrays = _read_native_confidence_arrays(raw_confidence)
                 arrays = _logical_confidence_arrays(arrays, payload, confidence)
@@ -1307,6 +1318,10 @@ class ESMFold2Backend:
                         for entry in payload["sequences"] if entry.get("modality") == "ligand"
                     },
                 }
+                msa_context = payload.get("msa_context")
+                if (isinstance(msa_context, Mapping) and msa_context.get("mode") != "off"
+                        and msa_context.get("chains")):
+                    prediction["msa_context"] = copy.deepcopy(msa_context)
                 shutil.rmtree(attempt_dir)
                 yield prediction
 

@@ -1,7 +1,10 @@
 """Closed task-level antibody schema, lowered to ordinary structural design."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, replace
+from functools import lru_cache
+import json
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -37,6 +40,8 @@ class AntibodySpec:
     source_roles: tuple[tuple[str, str], ...]
     chains: tuple[RoleDesign, ...]
     template: bool = True
+    alternatives: tuple[AntibodySpec, ...] = ()
+    selection_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -170,6 +175,132 @@ def _length(value: Any, native: int, official: tuple[int, int], where: str) -> t
     raise DesignConfigError(f"{where} must be native, official, a positive count or {{min, max}}")
 
 
+def _merge_antibody_settings(common: Mapping[str, Any], override: Mapping[str, Any]) -> dict[str, Any]:
+    """Merge per-scaffold authoring recursively; every list replaces its parent."""
+    result = deepcopy(dict(common))
+    for key, value in override.items():
+        if isinstance(value, Mapping) and isinstance(result.get(key), Mapping):
+            result[key] = _merge_antibody_settings(result[key], value)
+        else:
+            result[key] = deepcopy(value)
+    return result
+
+
+@lru_cache(maxsize=256)
+def _custom_selection_path(path: str, invocation_dir: Path) -> str:
+    from ..core.tasks import _resolve_local_path
+
+    resolved = _resolve_local_path(path, invocation_dir, "antibody.scaffold.path")
+    if resolved is None:
+        raise DesignConfigError("custom antibody scaffold needs a local YAML path")
+    return str(resolved)
+
+
+def _selection_name(source: Any, invocation_dir: Path) -> str:
+    if isinstance(source, str) and source:
+        return source
+    if isinstance(source, Mapping):
+        path = source.get("path")
+        if isinstance(path, str) and path:
+            return _custom_selection_path(path, invocation_dir)
+    raise DesignConfigError("antibody.scaffold choices must name an official scaffold or a custom scaffold mapping")
+
+
+def _antibody_choices(raw: Mapping[str, Any], invocation_dir: Path) -> tuple[tuple[str, dict[str, Any]], ...]:
+    sources = raw.get("scaffold")
+    if not isinstance(sources, list) or not sources:
+        raise DesignConfigError("antibody.scaffold list must be nonempty")
+    common = {key: value for key, value in raw.items() if key != "scaffold"}
+    choices = []
+    seen = set()
+    for index, item in enumerate(sources):
+        if isinstance(item, Mapping) and "scaffold" in item:
+            wrapper = _closed(item, {"scaffold", "design", "paratope", "template"},
+                              f"antibody.scaffold[{index}]")
+            source = wrapper["scaffold"]
+            settings = _merge_antibody_settings(common, {
+                key: value for key, value in wrapper.items() if key != "scaffold"})
+        else:
+            source = item
+            settings = deepcopy(common)
+        identity = _selection_name(source, invocation_dir)
+        if identity in seen:
+            raise DesignConfigError(f"antibody.scaffold list repeats scaffold {identity!r}; each choice needs a unique source")
+        seen.add(identity)
+        settings["scaffold"] = deepcopy(source)
+        choices.append((identity, settings))
+    return tuple(choices)
+
+
+def _saved_scaffold_name(saved_row: Mapping[str, Any]) -> str | None:
+    """Use the public scalar column without reading private context files."""
+    identity = saved_row.get("scaffold")
+    if isinstance(identity, str) and identity.strip():
+        return identity.strip()
+    context = saved_row.get("_antibody_context")
+    if isinstance(context, str) and context.strip():
+        try:
+            context = json.loads(context)
+        except (TypeError, ValueError) as exc:
+            raise DesignSampleError("invalid saved antibody context") from exc
+    if isinstance(context, Mapping):
+        identity = context.get("scaffold")
+        if isinstance(identity, str) and identity.strip():
+            return identity.strip()
+    return None
+
+
+def resolve_antibody_authoring(
+    authored_task: Mapping[str, Any], saved_row: Mapping[str, Any], *,
+    invocation_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Pin list authoring to a saved choice without loading any scaffold assets.
+
+    Scalar tasks return unchanged. Custom list identities use full YAML paths;
+    callers with relative custom paths can supply their captured invocation_dir.
+    Saved public ``scaffold`` takes precedence over the in-memory native context.
+    """
+    raw = authored_task.get("antibody")
+    if not isinstance(raw, Mapping) or not isinstance(raw.get("scaffold"), list):
+        return authored_task if isinstance(authored_task, dict) else dict(authored_task)
+    choices = _antibody_choices(raw, Path.cwd() if invocation_dir is None else Path(invocation_dir))
+    identity = _saved_scaffold_name(saved_row)
+    if identity is None and len(choices) == 1:
+        identity = choices[0][0]
+    selected = next((settings for name, settings in choices if name == identity), None)
+    if selected is None:
+        raise DesignSampleError(
+            "partial antibody scaffold list requires a saved concrete scaffold choice; "
+            "for a CIF-only reference specify one concrete antibody.scaffold")
+    source = selected["scaffold"]
+    if isinstance(source, Mapping):
+        selected["scaffold"] = dict(source, path=identity)
+    result = deepcopy(dict(authored_task))
+    result["antibody"] = selected
+    return result
+
+
+def resolve_antibody_spec(spec: AntibodySpec, saved_row: Mapping[str, Any]) -> AntibodySpec:
+    """Resolve a partial request before interpreting any saved CDR lengths."""
+    if not spec.alternatives:
+        # Pipeline authoring may already have pinned a custom list choice to
+        # a scalar mapping. Keep its saved full-path identity on later rounds.
+        identity = _saved_scaffold_name(saved_row)
+        if spec.selection_name is None and identity == str(spec.scaffold_path):
+            return replace(spec, selection_name=identity)
+        return spec
+    identity = _saved_scaffold_name(saved_row)
+    if identity is None and len(spec.alternatives) == 1:
+        return spec.alternatives[0]
+    selected = next((choice for choice in spec.alternatives
+                     if choice.selection_name == identity), None)
+    if selected is None:
+        raise DesignSampleError(
+            "partial antibody scaffold list requires a saved concrete scaffold choice; "
+            "for a CIF-only reference specify one concrete antibody.scaffold")
+    return selected
+
+
 def parse_antibody_task(name: str, payload: Mapping[str, Any], *, invocation_dir: Path) -> TaskSpec:
     from ..core.tasks import _parse_crop, _parse_partial, _positive_int, _resolve_local_path
 
@@ -178,6 +309,25 @@ def parse_antibody_task(name: str, payload: Mapping[str, Any], *, invocation_dir
                if "partial" in payload else None)
     raw = _closed(payload.get("antibody"), {"scaffold", "chains", "design", "paratope", "template"}, "antibody")
     source = raw.get("scaffold")
+    if isinstance(source, list):
+        if len(source) > 1 and partial is not None and partial.result_csv is None:
+            raise DesignConfigError(
+                "partial antibody.scaffold list needs saved native result_csv metadata; "
+                "for a CIF-only reference specify one concrete antibody.scaffold")
+        alternatives = []
+        first_task = None
+        expected_roles = None
+        for identity, settings in _antibody_choices(raw, invocation_dir):
+            choice_task = parse_antibody_task(name, dict(payload, antibody=settings), invocation_dir=invocation_dir)
+            choice = choice_task.antibody
+            role_chains = {chain.role: chain.chain_id for chain in choice.chains}
+            if expected_roles is None:
+                expected_roles = role_chains
+                first_task = choice_task
+            elif role_chains != expected_roles:
+                raise DesignConfigError("antibody.scaffold choices must share the same roles and output chains; VHH and VH/VL cannot mix")
+            alternatives.append(replace(choice, selection_name=identity))
+        return replace(first_task, antibody=replace(first_task.antibody, alternatives=tuple(alternatives)))
     source_roles: tuple[tuple[str, str], ...] = ()
     if isinstance(source, str):
         source_path = scaffold_path(source)

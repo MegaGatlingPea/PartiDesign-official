@@ -60,7 +60,9 @@ DEFAULTS = {
     "sequence": {"sources": [{"source": "soluble_mpnn", "count": 1}], "seed": 101},
     "af2": {"models": [1], "samples": 1, "recycles": 3, "seed": 101},
     "esmfold2": {"samples": 1, "mode": "fast", "loops": 20, "steps": 100,
-                 "lm_dropout": 0.3, "seed": 101},
+                 "lm_dropout": 0.3, "seed": 101, "msa_max_depth": 1024,
+                 "msa_column_mask_rate": 0.1, "msa_subsample_at_inference": True,
+                 "msa": {**copy.deepcopy(DEFAULT_MSA_CONFIG), "templates": False}},
     "af3": {"samples": 1, "mode": "complex", "recycles": 10, "seed": 101,
             "attention_backend": "triton",
             "buckets": [256, 512, 768, 1024, 1536, 2048, 3072, 4096, 5120],
@@ -151,11 +153,55 @@ def _settings(value, context):
         _normalize_fixed_interface(value["fixed_interface"])
 
 
-def _validate_esmfold_optimization(value: Any) -> None:
+def _validate_esmfold_optimization(value: Any, label: str = "esmfold2") -> None:
     if not isinstance(value, dict) or set(value) - {"mode", "disable"}:
-        raise ValueError("esmfold2.optimization requires mode and disable fields")
+        raise ValueError(f"{label}.optimization requires mode and disable fields")
     if "disable" in value and not isinstance(value["disable"], list):
-        raise ValueError("esmfold2.optimization.disable must be a list")
+        raise ValueError(f"{label}.optimization.disable must be a list")
+
+
+def validate_esmfold2_settings(section: Any, label: str = "esmfold2") -> dict[str, Any]:
+    """Validate ESMFold2 settings without enabling MSA for legacy sections."""
+    allowed = set(DEFAULTS["esmfold2"]) | EXTRA_FIELDS["esmfold2"]
+    if not isinstance(section, dict) or set(section) - allowed:
+        raise ValueError(f"{label} must contain only the documented ESMFold2 settings")
+    for key in ("samples", "loops", "steps", "seed"):
+        if key not in section:
+            continue
+        minimum = 0 if key == "seed" else 1
+        if type(section[key]) is not int or section[key] < minimum:
+            qualifier = "nonnegative" if minimum == 0 else "positive"
+            raise ValueError(f"{label}.{key} must be a {qualifier} integer")
+    if "mode" in section and (
+        not isinstance(section["mode"], str) or section["mode"] not in {"fast", "standard"}
+    ):
+        raise ValueError(f"{label}.mode must be fast or standard")
+    for key in ("lm_dropout", "lm_mask_pct", "msa_column_mask_rate"):
+        if key not in section or (key == "lm_mask_pct" and section[key] is None):
+            continue
+        raw = section[key]
+        if (isinstance(raw, bool) or not isinstance(raw, (int, float))
+                or not math.isfinite(raw) or not 0 <= raw <= 1):
+            raise ValueError(f"{label}.{key} must be finite and between 0 and 1")
+    depth = section.get("msa_max_depth")
+    if depth is not None and (type(depth) is not int or depth < 1):
+        raise ValueError(f"{label}.msa_max_depth must be null or a positive integer")
+    if "msa_subsample_at_inference" in section and type(section["msa_subsample_at_inference"]) is not bool:
+        raise ValueError(f"{label}.msa_subsample_at_inference must be boolean")
+    for key in ("cpus", "gpus", "timeout_seconds"):
+        if key not in section:
+            continue
+        raw = section[key]
+        if (isinstance(raw, bool) or not isinstance(raw, (int, float))
+                or not math.isfinite(raw) or raw <= 0):
+            raise ValueError(f"{label}.{key} must be a positive finite number")
+    if "optimization" in section:
+        _validate_esmfold_optimization(section["optimization"], label)
+    if "msa" in section:
+        from .msa_options import normalize_esmfold2_msa
+
+        section["msa"] = normalize_esmfold2_msa(section["msa"])
+    return section
 
 
 def _merge_mapping(result: dict, override: dict, *, path: str = "") -> None:
@@ -360,10 +406,10 @@ def parse_args(argv=None):
     rerun.add_argument("--rerun", action="store_true", help="Regenerate all requested sequence slots")
     rerun.add_argument(
         "--rerun-refold", action="store_true",
-        help="AF3/AF3-LA/Mol-1 only: reuse saved sequence slots and regenerate refolds",
+        help="Reuse saved sequence slots and regenerate supported refold predictions",
     )
     parser.add_argument("--msa", choices=("auto", "off", "cache-only"),
-                        help="AF3/AF3-LA/Mol-1 target/context MSA policy")
+                        help="Shared target/context MSA policy; ESMFold2-fast remains query-only")
     parser.add_argument("--msa-source", choices=("colabfold", "af3"),
                         help="Shared MSA/template search source: ColabFold service or local AF3 databases")
     parser.add_argument("--msa-server-url", help="ColabFold MSA service URL")
@@ -440,7 +486,7 @@ def parse_args(argv=None):
     msa_cli_values = cli_settings(args)
     msa_cli_explicit = any(value is not None for value in msa_cli_values.values()) or args.msa_refresh
     if msa_cli_explicit:
-        for group in ("af3", "mol1"):
+        for group in ("esmfold2", "af3", "mol1"):
             cfg[group]["msa"].update({
                 key: value for key, value in msa_cli_values.items() if value is not None
             })
@@ -465,16 +511,16 @@ def parse_args(argv=None):
     cfg["worker_cpus"] = float(worker_cpus)
     if not isinstance(cfg["methods"], list) or not cfg["methods"] or any(m not in METHODS for m in cfg["methods"]):
         raise ValueError(f"methods must be a nonempty subset of {METHODS}")
-    if msa_cli_explicit and not any(method in {"af3", "af3-la", "mol1"} for method in cfg["methods"]):
-        raise ValueError("MSA command options require AF3, AF3-LA, or Mol-1")
+    if msa_cli_explicit and not any(method in {"esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1"} for method in cfg["methods"]):
+        raise ValueError("MSA command options require ESMFold2, AF3, AF3-LA, or Mol-1")
     if len(cfg["methods"]) != len(set(cfg["methods"])):
         raise ValueError("Duplicate validation methods")
     if type(cfg["rerun"]) is not bool or type(cfg["rerun_refold"]) is not bool:
         raise ValueError("rerun and rerun_refold must be boolean")
     if cfg["rerun"] and cfg["rerun_refold"]:
         raise ValueError("rerun and rerun_refold are mutually exclusive")
-    if cfg["rerun_refold"] and any(method not in {"af3", "af3-la", "mol1"} for method in cfg["methods"]):
-        raise ValueError("--rerun-refold requires AF3, AF3-LA, or Mol-1")
+    if cfg["rerun_refold"] and any(method not in {"esmfold2-standard", "af3", "af3-la", "mol1"} for method in cfg["methods"]):
+        raise ValueError("--rerun-refold requires ESMFold2-standard, AF3, AF3-LA, or Mol-1")
     if cfg["rerun_refold"] and (args.plan or args.refilter or args.recompute_metrics):
         raise ValueError("--rerun-refold cannot be combined with --plan, --refilter, or --recompute-metrics")
     if args.msa_refresh and (args.plan or args.refilter or args.recompute_metrics):
@@ -484,6 +530,7 @@ def parse_args(argv=None):
     _validate_vina(cfg.get("vina"))
     validate_af3_settings(cfg.get("af3"))
     validate_mol1_settings(cfg.get("mol1"))
+    validate_esmfold2_settings(cfg.get("esmfold2"))
     validate_ipsae_settings(cfg.get("ipsae"))
     if "vina_dock" in cfg["methods"] and len(cfg["methods"]) != 1:
         raise ValueError("vina_dock cannot be combined with other validation methods")
@@ -499,26 +546,18 @@ def parse_args(argv=None):
         raise ValueError("unfiltered_success must be boolean")
     if cfg["unfiltered_success"] and cfg["criteria"]:
         raise ValueError("unfiltered_success requires empty criteria")
-    for group in ("af2", "esmfold2"):
-        if type(cfg[group].get("samples")) is not int or cfg[group]["samples"] < 1:
-            raise ValueError(f"{group}.samples must be a positive integer")
+    if type(cfg["af2"].get("samples")) is not int or cfg["af2"]["samples"] < 1:
+        raise ValueError("af2.samples must be a positive integer")
     models = cfg["af2"].get("models")
     if not isinstance(models, list) or not models or any(type(m) is not int or m not in (1, 2) for m in models) or len(set(models)) != len(models):
         raise ValueError("af2.models must be an ordered unique subset of [1, 2]")
     if cfg["af2"].get("mode", "both") != "both":
         raise ValueError("AF2 validation requires both complex and monomer predictions")
-    for group, keys in (("af2", ("recycles",)), ("esmfold2", ("loops", "steps"))):
-        for key in keys:
-            if type(cfg[group].get(key)) is not int or cfg[group][key] < 1:
-                raise ValueError(f"{group}.{key} must be a positive integer")
-    for group in ("sequence", "af2", "esmfold2"):
+    if type(cfg["af2"].get("recycles")) is not int or cfg["af2"]["recycles"] < 1:
+        raise ValueError("af2.recycles must be a positive integer")
+    for group in ("sequence", "af2"):
         if type(cfg[group].get("seed")) is not int or cfg[group]["seed"] < 0:
             raise ValueError(f"{group}.seed must be a nonnegative integer")
-    if cfg["esmfold2"].get("mode") not in {"fast", "standard"}:
-        raise ValueError("esmfold2.mode must be fast or standard")
-    dropout = cfg["esmfold2"].get("lm_dropout")
-    if isinstance(dropout, bool) or not isinstance(dropout, (int, float)) or not 0 <= dropout <= 1:
-        raise ValueError("esmfold2.lm_dropout must be between 0 and 1")
     for key in ("enabled", "original", "refold"):
         if type(cfg["scorer"][key]) is not bool:
             raise ValueError(f"scorer.{key} must be boolean")
@@ -536,5 +575,12 @@ def config_for_method(cfg: dict, method: str) -> dict:
     """Resolve selected weights in an isolated per-method configuration."""
     resolved = copy.deepcopy(cfg)
     if method in {"esmfold2-fast", "esmfold2-standard"}:
-        resolved.setdefault("esmfold2", {})["mode"] = method.removeprefix("esmfold2-")
+        from .msa_options import normalize_esmfold2_msa
+
+        section = resolved.setdefault("esmfold2", {})
+        section["mode"] = method.removeprefix("esmfold2-")
+        settings = normalize_esmfold2_msa(section.get("msa", {"mode": "off"}))
+        if method == "esmfold2-fast":
+            settings.update(mode="off", templates=False, refresh=False, cache_profile=None)
+        section["msa"] = settings
     return resolved

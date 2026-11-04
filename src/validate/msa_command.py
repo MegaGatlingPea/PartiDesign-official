@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from .methods import REFOLD_METHODS
+
 
 def task_queries(cfg):
     from src.design.core.tasks import parse_task
@@ -56,17 +58,22 @@ def task_queries(cfg):
         configured = cfg['tasks'][name]
         policies = {}
         for stage in [*configured['rounds'], *configured['final'].get('validators', [configured['final']])]:
-            if stage['method'] in {'af3', 'mol1'}:
-                settings = stage['validation'][stage['method']]['msa']
-                policies.setdefault(tuple(sorted(settings.items())), settings)
+            if REFOLD_METHODS[stage['method']].msa:
+                settings = stage['validation'][REFOLD_METHODS[stage['method']].group]['msa']
+                key = tuple(sorted(settings.items()))
+                policy = policies.setdefault(key, (settings, set()))
+                policy[1].update({'protein'} if REFOLD_METHODS[stage['method']].family == 'esmfold2'
+                                 else {'protein', 'rna', 'dna'})
         if not policies:
             settings = configured['msa']
-            policies[tuple(sorted(settings.items()))] = settings
+            policies[tuple(sorted(settings.items()))] = (settings, {'protein', 'rna', 'dna'})
         for chain in payload['chains']:
             modality = chain['modality']
             if modality not in {'protein', 'rna', 'dna'}:
                 continue
-            for settings in policies.values():
+            for settings, modalities in policies.values():
+                if modality not in modalities:
+                    continue
                 rows.append({'task': name, 'chain': chain['source_id'], 'modality': modality,
                              **({'sample_id': sample_id} if sample_id is not None else {}),
                              'sequence': chain['sequence'], 'length': len(chain['sequence']),
@@ -100,14 +107,41 @@ def run(args, repo_root):
             elif settings['refresh']:
                 settings = dict(previous[0], refresh=True)
                 requests[query] = settings, AF3MSACache(repo_root, settings, readonly=bool(args.plan))
+    # Resolve a compatible automatic template-on donor before template-off rows.
+    donors, aliases = {}, {}
+    def alignment_key(settings, row):
+        return query_identity(dict(settings, templates=False, max_template_date=None),
+                              row['modality'], row['sequence'])
+    for row, _, _, query in prepared:
+        if not row['enabled']:
+            continue
+        settings, _ = requests[query]
+        if (row['modality'] == 'protein' and settings['templates'] and settings['mode'] == 'auto'
+                and settings['cache_profile'] is None):
+            donors.setdefault(alignment_key(settings, row), query)
+    for row, _, _, query in prepared:
+        if not row['enabled']:
+            continue
+        settings, _ = requests[query]
+        if row['modality'] != 'protein' or settings['templates'] or settings['cache_profile'] is not None:
+            continue
+        donor = donors.get(alignment_key(settings, row))
+        if donor is None:
+            continue
+        aliases[query] = donor
+        donor_settings, _ = requests[donor]
+        if settings['refresh'] and not donor_settings['refresh']:
+            merged = dict(donor_settings, refresh=True)
+            requests[donor] = merged, AF3MSACache(repo_root, merged, readonly=bool(args.plan))
     for row, settings, cache, query in prepared:
         row.update(cache_dir=str(cache.cache_dir), templates=bool(row['enabled'] and row['modality'] == 'protein' and settings['templates']))
         if not row['enabled']:
             row['status'] = 'query-only'
             view.append(row)
             continue
-        if query not in results:
-            settings, cache = requests[query]
+        controller = aliases.get(query, query)
+        if controller not in results:
+            settings, cache = requests[controller]
             cached = cache.lookup(row['modality'], row['sequence'])
             if not args.plan and settings['mode'] == 'auto' and (cached is None or settings['refresh']):
                 searches += 1
@@ -121,6 +155,12 @@ def run(args, repo_root):
             hit = cached is not None and not settings['refresh']
             status = ('refresh-required' if args.plan and settings['refresh'] else 'cached' if hit else
                       'search-required' if args.plan else 'ready')
+            results[controller] = reference, hit, status
+        if query in aliases and query not in results:
+            reference, hit, status = results[controller]
+            cache = requests[query][1]
+            reference = None if reference is None else cache.reference(
+                reference['entry_id'], reference['profile_id'], reference['generation_id'])
             results[query] = reference, hit, status
         reference, hit, status = results[query]
         row.update(status=status, cache_hit=hit)
@@ -130,7 +170,7 @@ def run(args, repo_root):
                        unpaired_msa=reference['unpaired_msa_path'],
                        template_count=len(reference.get('templates', [])))
         view.append(row)
-    print(yaml.safe_dump({'cache_policy': 'shared by AF3 and Mol-1', 'queries': view,
-                          'unique_queries': len(results), 'search_started': searches > 0},
+    print(yaml.safe_dump({'cache_policy': 'shared by ESMFold2-standard, AF3, AF3-LA and Mol-1', 'queries': view,
+                          'unique_queries': len(results), 'actual_search_count': searches, 'search_started': searches > 0},
                          sort_keys=False), end='')
     return 0

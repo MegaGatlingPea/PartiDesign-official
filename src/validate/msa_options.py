@@ -28,9 +28,18 @@ def merge_shared(base, overlay):
     shared = overlay.get('msa', {})
     validate_msa_settings(shared)
     result = merge(base, {k: v for k, v in overlay.items() if k != 'msa'})
-    for group in ('af3', 'mol1'):
+    for group in ('esmfold2', 'af3', 'mol1'):
         explicit = overlay.get(group, {}).get('msa', {})
         result[group]['msa'] = merge(result[group]['msa'], {**shared, **explicit})
+    return result
+
+
+def normalize_esmfold2_msa(settings):
+    """Reuse the shared MSA schema for the protein-only ESMFold2 consumer."""
+    from .af3_msa import validate_msa_settings
+
+    result = validate_msa_settings(settings)
+    result['templates'] = False
     return result
 
 

@@ -12,14 +12,15 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from partidesign.paths import inference_config_dir, model_dir as resolve_model_dir
+from src.validate.methods import REFOLD_METHODS
 from src.validate.msa_options import cli_settings
 from src.validate.config import DEFAULTS as VALIDATE_DEFAULTS
 from src.validate.config import merge as merge_validation
-from src.validate.config import validate_ipsae_settings
+from src.validate.config import validate_ipsae_settings, validate_esmfold2_settings, config_for_method
 from src.validate.config import validate_af3_settings, validate_mol1_settings, _settings, _validate_vina
 
-METHODS = ("esmfold2-fast", "af2_ig", "af3", "mol1")
-FINAL_METHODS = ("esmfold2-standard", "af2_ig", "af3", "mol1")
+METHODS = tuple(REFOLD_METHODS)
+FINAL_METHODS = METHODS
 PROFILES = ("auto", "protein", "nuc", "ppi", "antibody")
 _ROUTES = {"monomer", "protein", "nuc", "ligand", "peptide", "antibody", "ame", "joint"}
 _ROUTE_ALIASES = {"protein_context": "protein", "nucleic_context": "nuc",
@@ -266,7 +267,7 @@ def _check_iteration(value: dict, label: str, *, partial: bool = False) -> None:
         if "validation" in refold:
             _check_validation(refold["validation"], f"{label}.refold.validation")
     if "filter" in value:
-        _check_filter(value["filter"], f"{label}.filter")
+        _check_filter(value["filter"], f"{label}.filter", iteration=True)
     if "selection" in value:
         _selection(value["selection"], f"{label}.selection", partial=partial)
     if "transition" in value:
@@ -285,8 +286,10 @@ def _boolean(value: Any, label: str) -> bool:
     return value
 
 
-def _check_filter(value: dict, label: str) -> None:
-    _mapping(value, label, _FILTER_FIELDS)
+def _check_filter(value: dict, label: str, *, iteration: bool = False) -> None:
+    _mapping(value, label, _FILTER_FIELDS | {"enabled"} if iteration else _FILTER_FIELDS)
+    if "enabled" in value:
+        _boolean(value["enabled"], f"{label}.enabled")
     if "criteria" in value:
         _names(value["criteria"], f"{label}.criteria", nullable=True)
     if "criteria_mode" in value:
@@ -528,6 +531,8 @@ def criteria_for(task_config: dict, stage: dict | str, context_route: str,
     selected_method = method or row["method"]
     if selected_method not in METHODS and not (is_final and selected_method in FINAL_METHODS):
         raise ValueError(f"Unsupported pipeline method: {selected_method}")
+    if not is_final and row.get("filter_enabled") is False:
+        return [], copy.deepcopy(task_config["presets"])
     names = row.get("criteria")
     if names is None:
         route = row.get("criteria_route", "auto")
@@ -540,9 +545,14 @@ def criteria_for(task_config: dict, stage: dict | str, context_route: str,
             raise ValueError(f"No {task_config['preset']} criteria route for {route}")
         names = routing["final" if is_final else "screen"]
         if isinstance(names, dict):
+            route_method = selected_method
             if selected_method not in names:
+                aliases = ({"esmfold2-standard": "esmfold2-fast", "af3-la": "af3"}
+                           if not is_final else {"esmfold2-fast": "esmfold2-standard", "af3-la": "af3"})
+                route_method = aliases.get(selected_method, selected_method)
+            if route_method not in names:
                 raise ValueError(f"No {selected_method} criteria for {route}; configure explicit criteria")
-            names = names[selected_method]
+            names = names[route_method]
     definitions = task_config["presets"]
     for name in names:
         if name not in definitions:
@@ -564,6 +574,7 @@ def _validation_defaults() -> dict:
         defaults = merge_shared(defaults, _load(default_file))
     # Keep pipeline-only protocol choices in one place, over native validate defaults.
     defaults["af2"]["mode"] = "both"
+    defaults["af2"]["models"] = [1, 2]
     defaults["af3"]["buckets"] = list(range(128, 1025, 128))
     return defaults
 
@@ -578,11 +589,11 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
                                         "settings": {}}]
     for group in ("sequence", "af2", "esmfold2", "af3", "mol1"):
         defaults[group]["seed"] = seed
-    for group in ('af3', 'mol1'):
+    for group in ('esmfold2', 'af3', 'mol1'):
         defaults[group]['msa'] = merge_validation(defaults[group]['msa'], shared_msa or {})
     cfg = merge_validation(defaults, overrides)
     validate_ipsae_settings(cfg["ipsae"])
-    for group in ('af3', 'mol1'):
+    for group in ('esmfold2', 'af3', 'mol1'):
         cfg[group]['msa'] = merge_validation(cfg[group]['msa'], cli_msa or {})
     # Validate caller values before workflow-owned sample/mode normalization:
     # bool-as-int or invalid dormant native settings must not be hidden by it.
@@ -612,8 +623,7 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
         cfg["worker_gpus"] = worker_gpus
     if worker_cpus is not None:
         cfg["worker_cpus"] = worker_cpus
-    selected_group = {"esmfold2-fast": "esmfold2", "esmfold2-standard": "esmfold2",
-                      "af2_ig": "af2", "af3": "af3", "mol1": "mol1"}[method]
+    selected_group = REFOLD_METHODS[method].group
     cfg[selected_group]["samples"] = samples
     cfg["esmfold2"]["mode"] = "standard" if method == "esmfold2-standard" else "fast"
     for group in ("sequence", "af2", "esmfold2", "af3", "mol1"):
@@ -642,6 +652,8 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
     if cfg["worker_gpus"] is not None:
         cfg["worker_gpus"] = _number(cfg["worker_gpus"], "validation.worker_gpus", maximum=1)
     cfg["worker_cpus"] = _number(cfg["worker_cpus"], "validation.worker_cpus")
+    validate_esmfold2_settings(cfg["esmfold2"], "validation.esmfold2")
+    cfg["esmfold2"] = config_for_method(cfg, method)["esmfold2"]
     validate_af3_settings(cfg["af3"])
     validate_mol1_settings(cfg["mol1"])
     # A scorer path remains part of native config even with the stage disabled.
@@ -682,6 +694,60 @@ def _generation(value: dict, base: Path, model_root: Path) -> dict:
     result["workflow_controls"] = {
         "score": False, "postprocess": False, "reward": None, "search": None,
     }
+    return result
+
+
+def _saved_validation(stage: dict) -> dict:
+    """Recover public native settings from a saved effective stage."""
+    result = {key: copy.deepcopy(value) for key, value in stage["validation"].items()
+              if key in _NATIVE_VALIDATION_FIELDS}
+    result.get("sequence", {}).pop("sources", None)
+    if "esmfold2" in result and "msa" not in result["esmfold2"]:
+        result["esmfold2"]["msa"] = {"mode": "off"}
+    return result
+
+
+def _saved_iteration(stage: dict) -> dict:
+    """Pin changed native/sequence defaults without replaying concrete selection."""
+    return {
+        "sequence": {"mpnn": {"source": stage["sequence_source"],
+                              "settings": copy.deepcopy(stage["sequence_settings"])}},
+        "refold": {"validation": _saved_validation(stage)},
+    }
+
+
+def _saved_final(stage: dict) -> dict:
+    result = {key: copy.deepcopy(stage[key]) for key in _FINAL_FIELDS
+              if key in stage and key not in {"validation", "method", "methods"}}
+    result["validation"] = _saved_validation(stage)
+    for validator in stage.get("validators", []):
+        group = REFOLD_METHODS[validator["method"]].group
+        result["validation"][group] = copy.deepcopy(validator["validation"][group])
+        if group == "esmfold2" and "msa" not in result["validation"][group]:
+            result["validation"][group]["msa"] = {"mode": "off"}
+    if "methods" in stage:
+        result["methods"] = copy.deepcopy(stage["methods"])
+    else:
+        result["method"] = stage["method"]
+    return result
+
+
+
+def normalize_legacy_esmfold2_snapshot(config: dict) -> dict:
+    """Compare old query-only stages with the new explicit MSA-off defaults."""
+    result = copy.deepcopy(config)
+    from src.validate.msa_options import normalize_esmfold2_msa
+
+    for task in result.get("tasks", {}).values():
+        final = task.get("final", {})
+        stages = [*task.get("rounds", []), final, *final.get("validators", [])]
+        for stage in stages:
+            section = stage.get("validation", {}).get("esmfold2")
+            if section is None or "msa" in section:
+                continue
+            section["msa"] = normalize_esmfold2_msa({"mode": "off"})
+            for key in ("msa_max_depth", "msa_column_mask_rate", "msa_subsample_at_inference"):
+                section.setdefault(key, copy.deepcopy(VALIDATE_DEFAULTS["esmfold2"][key]))
     return result
 
 
@@ -786,8 +852,8 @@ def build_config(args: Any, repo_root: str | Path, *,
         custom = _load(Path(_path(custom_presets_path, base, "--presets")))
         _mapping(custom, "--presets file", {"presets"})
         custom_presets = _presets(custom.get("presets"), "custom presets")
-    # Read only this run's saved settings. Older runs retain their resolved
-    # antibody profile and do not acquire new scientific gates on resume.
+    # Saved effective strategies are defaults on resume. Apply explicit caller
+    # overlays afterward so changed model/sequence settings still fail comparison.
     previous_tasks = {}
     if global_cfg["resume"]:
         for snapshot in (Path(output_dir) / ".work" / "resolved_config.yaml",
@@ -824,20 +890,25 @@ def build_config(args: Any, repo_root: str | Path, *,
             _check_overlay(preset, f"preset {profile}")
             profiles[profile] = _merge({"presets": profile_presets(profile)}, preset)
         task_cfg = _merge(BUILTINS, profiles[profile])
-        if (previous_task is not None and profile == "antibody"
-                and previous_task["preset"] == profile
-                and "validators" not in previous_task["final"]):
-            # Preset updates apply to new runs. Explicit overlays below still
-            # participate in the ordinary strict resume comparison.
-            task_cfg = _merge(task_cfg, {"final": {"method": previous_task["final"]["method"]}})
+        saved_defaults = previous_task if previous_task is not None and previous_task["preset"] == profile else None
+        if saved_defaults is not None:
+            # Keep the complete old definitions/routes, including method lists.
+            for key in ("presets", "criteria_routes", "msa", "openmm", "initial"):
+                if key in saved_defaults:
+                    task_cfg[key] = copy.deepcopy(saved_defaults[key])
+            task_cfg["recycle"] = saved_defaults["recycle"]
+            task_cfg["final"] = _saved_final(saved_defaults["final"])
+        elif antibody:
+            task_cfg["iteration"]["sequence"]["mpnn"]["source"] = "protein_mpnn"
+            task_cfg["iteration"]["sequence"]["mpnn"]["settings"]["temperature"] = 0.1
         if contact_policy:
             from .criteria import include_native_presets
             include_native_presets(task_cfg["presets"], ["antibody_contacts"])
+        iteration_defaults = copy.deepcopy(task_cfg["iteration"])
         task_cfg = _merge(task_cfg, {k: v for k, v in overlay.items() if k != "tasks"})
         # Each round is assembled in precedence order below, so global round
         # rows must remain separate from task-level values.
         global_rounds = task_cfg.pop("rounds", {})
-        shared_iteration = copy.deepcopy(task_cfg["iteration"])
         task_cfg = _merge(task_cfg, {k: v for k, v in task_override.items() if k != "rounds"})
         task_cfg["preset"] = profile
         recycle = getattr(args, "recycle", None)
@@ -863,7 +934,13 @@ def build_config(args: Any, repo_root: str | Path, *,
         # Task controls follow global round controls, then task-round and CLI.
         task_iteration = task_override.get("iteration", {})
         for number in range(1, recycle + 1):
-            row = copy.deepcopy(shared_iteration)
+            saved_round = (next((stage for stage in saved_defaults["rounds"]
+                                 if stage["round"] == number), None)
+                           if saved_defaults is not None else None)
+            row = copy.deepcopy(iteration_defaults)
+            if saved_round is not None:
+                row = _merge(row, _saved_iteration(saved_round))
+            row = _merge(row, overlay.get("iteration", {}))
             # The built-in family cap applies to middle rounds. Explicit round
             # or task overrides can also constrain initial and final selection.
             if number == 1 or number == recycle:
@@ -879,6 +956,7 @@ def build_config(args: Any, repo_root: str | Path, *,
             if getattr(args, count_attr, None) is not None:
                 row["sequence"]["mpnn"]["count"] = getattr(args, count_attr)
             if getattr(args, "criteria", None) is not None:
+                row["filter"].pop("enabled", None)
                 row["filter"]["criteria"] = list(args.criteria)
             if number == 1 and getattr(args, "num_clusters", None) is not None:
                 selection = {"mode": "cluster", "num_clusters": args.num_clusters,
@@ -924,17 +1002,21 @@ def build_config(args: Any, repo_root: str | Path, *,
             if number == recycle:
                 partial["enabled"] = False
                 partial.pop("fraction", None)
+            filtering = copy.deepcopy(row["filter"])
+            filter_enabled = filtering.pop("enabled", True)
             normalized_round = {
                 "round": number, "method": refold["method"],
                 "mpnn_count": sequence["mpnn"]["count"], "samples": refold["conformers"],
                 "include_gt": sequence["include_gt"],
                 "sequence_source": sequence["mpnn"]["source"],
                 "sequence_settings": copy.deepcopy(sequence["mpnn"]["settings"]),
-                **copy.deepcopy(row["filter"]),
+                **filtering,
                 "selection": _selection(row["selection"], f"task {name}.rounds.{number}.selection"),
                 "relax_enabled": number < recycle and row["transition"]["relax"]["enabled"],
                 "partial": partial,
             }
+            if "enabled" in row["filter"]:
+                normalized_round["filter_enabled"] = filter_enabled
             if number in {1, recycle} and "per_family" not in row["selection"]:
                 normalized_round["selection"].pop("per_family", None)
             normalized_round["criteria_route"] = _route(normalized_round["criteria_route"], "criteria_route")
@@ -963,8 +1045,7 @@ def build_config(args: Any, repo_root: str | Path, *,
         validators = []
         for method in methods:
             _choice(method, FINAL_METHODS, f"task {name}.final.methods")
-            group = {"af2_ig": "af2", "af3": "af3", "mol1": "mol1",
-                     "esmfold2-standard": "esmfold2"}[method]
+            group = REFOLD_METHODS[method].group
             samples = final["validation"].get(group, {}).get("samples", 1 if method == "af2_ig" else 5)
             validator = dict(final, method=method)
             validator.pop("methods", None)
@@ -1014,6 +1095,8 @@ def build_config(args: Any, repo_root: str | Path, *,
                 seed_row["initial_partial"] = initial_cli(setting)
         if len(modalities & {"protein", "nuc"}) > 1:
             for row in [*rounds, final]:
+                if row.get("filter_enabled") is False:
+                    continue
                 if row["criteria"] is None and row["criteria_route"] == "auto":
                     raise ValueError(f"task {name}: mixed design requires explicit criteria_route "
                                      "or criteria for both iteration and final")

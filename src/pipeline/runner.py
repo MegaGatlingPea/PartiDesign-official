@@ -11,7 +11,8 @@ import shutil
 import sys
 import time
 
-from .config import build_config, criteria_for
+from .config import build_config, criteria_for, normalize_legacy_esmfold2_snapshot
+from src.validate.methods import REFOLD_METHODS
 from .layout import (TASK_LAYOUT, design_folder, metadata_folder, refold_folder,
                      run_work, stage_folder, stage_state, task_layout)
 from .selection import SelectionCandidate, select_candidates, sequence_key
@@ -367,6 +368,17 @@ def _selection_family(parent):
     return parent.parent_id if parent.source == "partial" else parent.candidate_id
 
 
+
+def _score_profile(method, validation):
+    spec = REFOLD_METHODS[method]
+    settings = validation.get(spec.group, {})
+    if spec.family == "esmfold2" and (
+            method == "esmfold2-fast" or settings.get("msa", {}).get("mode", "off") == "off"):
+        inactive = {"msa", "msa_max_depth", "msa_column_mask_rate", "msa_subsample_at_inference"}
+        settings = {key: value for key, value in settings.items() if key not in inactive}
+    return json.dumps([method, settings], sort_keys=True)
+
+
 def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, force=False,
               folder_override=None, predictions_dir=None, publish_success=True):
     from .backends import design_score
@@ -379,13 +391,13 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
     requested_method=method
     policy_records=None
     refold_override=None
-    policy_checked=bool(not final and method in {"af2_ig","af3"} and parents)
+    policy_checked=bool(not final and REFOLD_METHODS[method].bond_policy in {"native_af2", "omit_polymer_polymer"} and parents)
     if policy_checked:
         policy_records=[_candidate_record(parent,previous) for parent in parents]
-        if method in {"af2_ig", "af3"} and any(has_special_polymer_bond(record) for record in policy_records):
+        if REFOLD_METHODS[method].bond_policy in {"native_af2", "omit_polymer_polymer"} and any(has_special_polymer_bond(record) for record in policy_records):
             method="esmfold2-fast"
             validation=copy.deepcopy(stage["validation"])
-            requested_group={"af2_ig":"af2","af3":"af3","mol1":"mol1"}[requested_method]
+            requested_group=REFOLD_METHODS[requested_method].group
             validation["methods"]=[method]
             validation["esmfold2"]["samples"]=stage["samples"]
             validation["esmfold2"]["seed"]=validation[requested_group]["seed"]
@@ -449,12 +461,11 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
     eligible=[]
     candidate_by_id={}
     input_by_id={}
-    group={"af2_ig":"af2","af3":"af3","mol1":"mol1",
-           "esmfold2-fast":"esmfold2","esmfold2-standard":"esmfold2"}[method]
-    score_profile=json.dumps([method,stage["validation"].get(group,{})],sort_keys=True)
+    group=REFOLD_METHODS[method].group
+    score_profile=_score_profile(method,stage["validation"])
     result_rows=[]
     motif_policy=cfg.get("motif_policy")=="first_and_final"
-    check_motif=not motif_policy or final or number==1
+    check_motif=(final or stage.get("filter_enabled",True)) and (not motif_policy or final or number==1)
     metric_settings=(stage["validation"] if check_motif else
                      dict(stage["validation"], _pipeline_motif_geometry=False))
     if hasattr(owner,"activate"):
@@ -784,7 +795,7 @@ def run(args):
             final_samples, final_structures = {}, {}
             for final_stage in final_stages:
                 method = final_stage["method"]
-                group = {"af2_ig": "af2", "mol1": "mol1", "esmfold2-standard":"esmfold2"}.get(method, "af3")
+                group = REFOLD_METHODS[method].group
                 settings = final_stage["validation"][group]
                 final_samples[method] = settings["samples"]
                 final_structures[method] = settings["samples"] * (2 * len(settings["models"]) if method == "af2_ig" else 1)
@@ -807,9 +818,9 @@ def run(args):
                               "generation_expansion":"sample_num follows native per-length-plan expansion",
                               "capabilities":{"design":"protein, peptide, RNA, DNA, VHH and VH/VL antibody",
                                               "af2_ig":"one standard protein design chain with protein context; paired protocols",
-                                              "cyclic_offset":"AF2/AF3 relative encoding; ESMFold2/Mol-1 use explicit covalent bonds",
+                                              "cyclic_offset":"AF2/AF3/AF3-LA relative encoding; ESMFold2/Mol-1 use explicit covalent bonds",
                                               "context_motion":True,"pure_ligand_design":False,
-                                              "polymer_bond_iteration":"special polymer-polymer bonds force esmfold2-fast; final AF3 is unchanged"}},
+                                              "polymer_bond_iteration":"special polymer-polymer bonds use esmfold2-fast for AF2/AF3/AF3-LA iteration; final chemistry is native"}},
                              sort_keys=False),end="")
         return 0
     native=generation_runner(cfg,repo)
@@ -824,7 +835,7 @@ def run(args):
         if not snapshot.is_file():
             raise ValueError("--resume requires an existing resolved_config.yaml")
         previous=yaml.safe_load(snapshot.read_text())
-        if previous!=cfg:
+        if normalize_legacy_esmfold2_snapshot(previous)!=cfg:
             raise ValueError("Effective configuration changed; start a new run instead of --resume")
     root.mkdir(parents=True,exist_ok=True)
     if not resume:
@@ -896,10 +907,10 @@ def run(args):
             groups={}
             for name in cfg["task_names"]:
                 methods=[r["method"] for r in cfg["tasks"][name]["rounds"]]
-                if initial[name] and any(method in {"af2_ig", "af3"} for method in methods):
+                if initial[name] and any(REFOLD_METHODS[method].bond_policy in {"native_af2", "omit_polymer_polymer"} for method in methods):
                     if any(has_special_polymer_bond(_candidate_record(candidate,previous_dirs[name]))
                            for candidate in initial[name]):
-                        methods=["esmfold2-fast" if method in {"af2_ig", "af3"} else method
+                        methods=["esmfold2-fast" if REFOLD_METHODS[method].bond_policy in {"native_af2", "omit_polymer_polymer"} else method
                                  for method in methods]
                 signature=tuple(methods)
                 groups.setdefault(signature,[]).append(name)
@@ -1017,7 +1028,7 @@ class _OwnerPool:
                 settings=stage["validation"]
                 fraction=settings.get("worker_gpus")
                 fraction=float(fraction if fraction is not None else
-                               {"af2_ig":0.25,"af3":0.5}.get(stage["method"],1.0))
+                               REFOLD_METHODS[stage["method"]].worker_gpus)
                 budgets.append(math.floor(1/fraction)*gpus*float(settings.get("worker_cpus",1)))
             if any(stage.get("relax_enabled",False) for stage in task["rounds"]):
                 settings=task["openmm"]
@@ -1055,7 +1066,7 @@ class _OwnerPool:
 
     def activate(self,method,validation,openmm):
         gpu=validation.get("worker_gpus")
-        gpu=float(gpu if gpu is not None else {"af2_ig":0.25,"af3":0.5}.get(method,1.0))
+        gpu=float(gpu if gpu is not None else REFOLD_METHODS[method].worker_gpus)
         self._activate(method,gpu,validation.get("worker_cpus",1))
 
     def activate_partial(self,effective_generation,*,parent_count):

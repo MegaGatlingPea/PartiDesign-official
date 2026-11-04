@@ -29,7 +29,10 @@ criteria_routes:
       mol1:
       - pipeline_protein_binder
     final:
-    - af3_basic
+      af2_ig: [af2_ig_protein]
+      mol1: [af3_basic]
+      af3: [af3_basic]
+      esmfold2-standard: [af3_basic]
   peptide:
     screen:
       esmfold2-fast:
@@ -41,7 +44,10 @@ criteria_routes:
       mol1:
       - pipeline_peptide_binder
     final:
-    - af3_peptide
+      af2_ig: [af2_ig_peptide]
+      mol1: [af3_peptide]
+      af3: [af3_peptide]
+      esmfold2-standard: [af3_peptide]
   nuc:
     screen:
       esmfold2-fast:
@@ -64,6 +70,8 @@ criteria_routes:
     - af3_protein_bind_ligand
   antibody:
     screen:
+      af2_ig:
+      - pipeline_af2_ig_antibody
       esmfold2-fast:
       - pipeline_af3_antibody
       af3:
@@ -71,7 +79,10 @@ criteria_routes:
       mol1:
       - pipeline_af3_antibody
     final:
-    - af3_antibody
+      af2_ig: [pipeline_af2_ig_antibody_final]
+      mol1: [af3_antibody]
+      af3: [af3_antibody]
+      esmfold2-standard: [af3_antibody]
   ame:
     screen:
       esmfold2-fast:

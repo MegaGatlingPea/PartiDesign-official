@@ -7,16 +7,18 @@ import importlib
 import inspect
 import io
 import json
+import math
 import os
 import tempfile
 import time
 import traceback
 from contextlib import nullcontext
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 from ..ccd_bonds import CCDBondCacheReader
+from ..config import effective_esmfold2_msa_options
 from ..esmfold2_evidence import (
     atomic_number,
     decode_atom_name_rows,
@@ -44,6 +46,13 @@ def _is_cuda_oom(torch: Any, error: BaseException) -> bool:
     return oom_type is not None and isinstance(error, oom_type)
 
 
+@dataclass(frozen=True, slots=True)
+class _LoadedProteinMSA:
+    msa: Any
+    unpaired_rows: int | None
+    paired_rows: int | None
+
+
 @dataclass(slots=True)
 class _ModelBundle:
     torch: Any
@@ -60,6 +69,10 @@ class _ModelBundle:
     # used for modified-polymer occurrence validation.  Keep it beside the
     # builder so request conversion never reaches back into PartiDesign data.
     ccd_molecules: dict[str, Any] | None = None
+    # Keys are immutable context references, never candidate IDs or sequences.
+    context_msa_cache: dict[tuple[str, str | None], _LoadedProteinMSA] = field(
+        default_factory=dict
+    )
     context_embedding_cache: dict[str, Any] = field(default_factory=dict)
     context_cache_signature: str | None = None
     context_cache_hits: int = 0
@@ -709,6 +722,7 @@ def _execute_request(
     staged_input = output_dir / "input.json"
     staged_input.write_bytes(input_bytes)
     spec = json.loads(input_bytes)
+    msa_chains: dict[str, _LoadedProteinMSA] = {}
     structure_input, preview_chains, expected_covalent_edges = (
         _structure_input_from_payload(
             spec,
@@ -716,12 +730,16 @@ def _execute_request(
             bundle.build_chains_from_input,
             ccd_molecules=bundle.ccd_molecules,
             seed=config["seed"],
+            mode=mode,
+            context_msa_cache=bundle.context_msa_cache,
+            msa_chains=msa_chains,
         )
     )
     expected_chain_ids = [entry["chain_id"] for entry in spec["sequences"]]
     if [chain.chain_id for chain in preview_chains] != expected_chain_ids:
         raise RuntimeError("ESMFold2 changed canonical label_asym_id chain order")
 
+    msa_options = effective_esmfold2_msa_options(config, spec["msa_policy"])
     torch = bundle.torch
     attempt_stage = "device input preparation"
 
@@ -781,9 +799,7 @@ def _execute_request(
                                 num_sampling_steps=config["steps"],
                                 num_diffusion_samples=config["samples"],
                                 lm_mask_pct=config["lm_mask_pct"],
-                                msa_max_depth=1,
-                                msa_column_mask_rate=0.1,
-                                msa_subsample_at_inference=False,
+                                **msa_options,
                             )
 
                         output = _model_forward()
@@ -828,6 +844,7 @@ def _execute_request(
         lm_cache_seconds,
         forward_seconds,
     ) = attempt_result
+    msa_evidence = _msa_confidence_evidence(spec, features, msa_options, msa_chains)
     prepared_atom_inventory = _prepared_atom_inventory(features, bundle.np)
     token_residue_atom_names = _token_residue_atom_names(prepared_atom_inventory, bundle.np)
     polymer_asym = [index for index, entry in enumerate(spec["sequences"])
@@ -893,13 +910,12 @@ def _execute_request(
             "confidence": confidence,
             "confidence_unavailable": list(_UNAVAILABLE_CONFIDENCE),
             "context_embedding_cache": cache_stats,
+            "msa": msa_evidence,
             "effective_config": {
                 **config,
                 "mode": mode,
                 "external_msa_search": False,
-                "msa_max_depth": 1,
-                "msa_column_mask_rate": 0.1,
-                "msa_subsample_at_inference": False,
+                **msa_options,
             },
         }
         _atomic_json(confidence_path, confidence_record)
@@ -1123,6 +1139,154 @@ def _modification_from_payload(
             ) from error
 
 
+def _normalized_protein_msa(
+    parsed: Any, sequence: str, chain_id: str, msa_module: Any
+) -> Any:
+    """Normalize columns without discarding native headers or deletion counts."""
+
+    entries = []
+    for row in parsed.entries:
+        aligned = "".join(
+            ch for ch in row.sequence if not msa_module.is_a3m_insertion(ch)
+        )
+        if len(aligned) != len(sequence):
+            raise ValueError("MSA aligned column count differs from final sequence")
+        entries.append(row._replace(sequence=aligned))
+    if not entries or entries[0].sequence != sequence:
+        raise ValueError(f"MSA query differs from final protein sequence for chain {chain_id}")
+    np = importlib.import_module("numpy")
+    deletions = parsed.deletions
+    if deletions is None:
+        deletions = np.stack([
+            msa_module.a3m_deletion_counts(row.sequence) for row in parsed.entries
+        ]).astype(np.float32)
+    if (
+        deletions.shape != (len(entries), len(sequence))
+        or not np.all(np.isfinite(deletions))
+        or np.any(deletions < 0)
+    ):
+        raise ValueError("MSA deletion counts are not finite nonnegative aligned rows")
+    # Native from_a3m computes deletions before stripping insertions. Strip
+    # lowercase AND dots before clean_input/select_positions crops columns.
+    return replace(parsed, entries=entries, deletions=deletions)
+
+
+def _protein_msa_from_payload(
+    entry: dict[str, Any],
+    types: Any,
+    cache: dict[tuple[str, str | None], _LoadedProteinMSA],
+) -> _LoadedProteinMSA:
+    raw = entry["msa"]
+    if not isinstance(raw, dict):
+        raise RuntimeError("ESMFold2 protein MSA input is malformed")
+    msa_module = importlib.import_module("esm.utils.msa.msa")
+    if "sequences" in raw:
+        # Preserve native serialized headers/deletions. The generic SPI
+        # deserializer reconstructs from sequences alone and loses both.
+        sequences = raw["sequences"]
+        headers = raw.get("headers")
+        if (
+            set(raw) - {"sequences", "headers", "deletions"}
+            or not isinstance(sequences, list)
+            or not sequences
+            or any(not isinstance(row, str) for row in sequences)
+            or (
+                headers not in (None, [])
+                and (
+                    not isinstance(headers, list)
+                    or len(headers) != len(sequences)
+                    or any(not isinstance(header, str) for header in headers)
+                )
+            )
+        ):
+            raise RuntimeError("ESMFold2 native protein MSA rows/headers are malformed")
+        try:
+            parsed = types.MSA.from_state_dict(raw)
+            msa = _normalized_protein_msa(
+                parsed, entry["sequence"], entry["chain_id"], msa_module
+            )
+        except (TypeError, ValueError, UnicodeError) as error:
+            raise RuntimeError(f"Invalid ESMFold2 native protein MSA: {error}") from error
+        return _LoadedProteinMSA(msa, unpaired_rows=None, paired_rows=None)
+    if (
+        "unpaired_msa_path" not in raw
+        or set(raw) - {"unpaired_msa_path", "paired_msa_path"}
+    ):
+        raise RuntimeError("ESMFold2 protein MSA reference is malformed")
+    for value in raw.values():
+        if not isinstance(value, str) or not value or not Path(value).is_absolute():
+            raise RuntimeError("ESMFold2 protein MSA paths must be absolute")
+    key = (raw["unpaired_msa_path"], raw.get("paired_msa_path"))
+    cached = cache.get(key)
+    if cached is None:
+        def load(path: str) -> Any:
+            safe_path = _safe_existing_file(Path(path), "ESMFold2 protein MSA")
+            try:
+                parsed = types.MSA.from_a3m(safe_path)
+                return _normalized_protein_msa(
+                    parsed, entry["sequence"], entry["chain_id"], msa_module
+                )
+            except (OSError, UnicodeError, ValueError) as error:
+                raise RuntimeError(
+                    f"Invalid ESMFold2 protein MSA for chain {entry['chain_id']}: {error}"
+                ) from error
+
+        unpaired = load(key[0])
+        paired = None if key[1] is None else load(key[1])
+        msa = (
+            unpaired if paired is None
+            else types.MSA.stack([unpaired, paired], remove_query_from_later_msas=True)
+        )
+        cached = _LoadedProteinMSA(
+            msa=msa,
+            unpaired_rows=unpaired.depth,
+            paired_rows=0 if paired is None else paired.depth,
+        )
+        cache[key] = cached
+    if cached.msa.query != entry["sequence"]:
+        raise RuntimeError(
+            f"ESMFold2 cached MSA query differs from final protein sequence for "
+            f"chain {entry['chain_id']}"
+        )
+    return cached
+
+
+def _msa_confidence_evidence(
+    spec: dict[str, Any],
+    features: dict[str, Any],
+    options: dict[str, Any],
+    msa_chains: dict[str, _LoadedProteinMSA],
+) -> dict[str, Any]:
+    msa = features.get("msa")
+    if msa is None or len(msa.shape) not in {2, 3} or int(msa.shape[-2]) < 1:
+        raise RuntimeError("ESMFold2 prepared MSA features have no rows")
+    depth = int(msa.shape[-2])
+    effective_depth = depth
+    if options["msa_subsample_at_inference"] and options["msa_max_depth"] is not None:
+        effective_depth = min(depth, options["msa_max_depth"])
+    chains = []
+    for entry in spec["sequences"]:
+        if entry["modality"] != "protein":
+            continue
+        loaded = msa_chains.get(entry["chain_id"])
+        chains.append({
+            "chain_id": entry["chain_id"],
+            "unpaired_rows": 0 if loaded is None else loaded.unpaired_rows,
+            "paired_rows": 0 if loaded is None else loaded.paired_rows,
+            "rows": 1 if loaded is None else loaded.msa.depth,
+        })
+    return {
+        "enabled": spec["msa_policy"] == "context",
+        "policy": spec["msa_policy"],
+        "max_depth": options["msa_max_depth"],
+        "column_mask_rate": options["msa_column_mask_rate"],
+        "subsample_at_inference": options["msa_subsample_at_inference"],
+        "feature_depth": depth,
+        "effective_depth": effective_depth,
+        "chains": chains,
+    }
+
+
 def _structure_input_from_payload(
     payload: dict[str, Any],
     types: Any,
@@ -1130,13 +1294,20 @@ def _structure_input_from_payload(
     *,
     seed: int,
     ccd_molecules: dict[str, Any] | None = None,
+    mode: str = "fast",
+    context_msa_cache: dict[tuple[str, str | None], _LoadedProteinMSA] | None = None,
+    msa_chains: dict[str, _LoadedProteinMSA] | None = None,
 ) -> tuple[Any, list[Any], list[tuple[int, int]]]:
     if (
         not isinstance(payload, dict)
         or payload.get("schema_version") != _INPUT_SCHEMA_VERSION
-        or payload.get("msa_policy") != "none"
+        or payload.get("msa_policy") not in {"none", "context"}
     ):
         raise RuntimeError("Invalid PipeTools ESMFold2 input schema")
+    if payload["msa_policy"] == "context" and mode != "standard":
+        raise RuntimeError("External protein MSA requires ESMFold2 standard")
+    if context_msa_cache is None:
+        context_msa_cache = {}
     raw_sequences = payload.get("sequences")
     if not isinstance(raw_sequences, list) or not raw_sequences:
         raise RuntimeError("ESMFold2 input has no sequences")
@@ -1184,16 +1355,24 @@ def _structure_input_from_payload(
             modifications.append(modification)
         modifications = modifications or None
         modality = entry.get("modality")
+        if entry.get("msa") is not None and (
+            payload["msa_policy"] != "context" or modality != "protein"
+        ):
+            raise RuntimeError("ESMFold2 external MSA is supported only for proteins")
         if modality == "protein":
             if not isinstance(entry.get("sequence"), str) or not entry["sequence"]:
                 raise RuntimeError(f"ESMFold2 chain {chain_id} sequence is malformed")
-            if entry.get("msa") is not None:
-                raise RuntimeError("External protein MSA is forbidden for ESMFold2")
+            loaded_msa = (
+                None if entry.get("msa") is None
+                else _protein_msa_from_payload(entry, types, context_msa_cache)
+            )
+            if loaded_msa is not None and msa_chains is not None:
+                msa_chains[chain_id] = loaded_msa
             sequence = types.ProteinInput(
                 id=chain_id,
                 sequence=entry["sequence"],
                 modifications=modifications,
-                msa=None,
+                msa=None if loaded_msa is None else loaded_msa.msa,
             )
         elif modality == "rna":
             if not isinstance(entry.get("sequence"), str) or not entry["sequence"]:
@@ -1241,6 +1420,10 @@ def _structure_input_from_payload(
                 f"ESMFold2 chain {chain_id} has unsupported modality {modality!r}"
             )
         sequences.append(sequence)
+    if payload["msa_policy"] == "context" and not any(
+        entry.get("msa") is not None for entry in raw_sequences
+    ):
+        raise RuntimeError("ESMFold2 context MSA policy has no MSA inputs")
     design_chains = payload.get("design_chains")
     if (
         not isinstance(design_chains, list)
@@ -2726,7 +2909,10 @@ def _validate_batch_payload(payload: Any) -> dict[str, Any]:
         "lm_dropout",
         "lm_mask_pct",
     }
-    optional_config = {"esmc_attention_backend", "context_embedding_cache", "optimization"}
+    optional_config = {
+        "esmc_attention_backend", "context_embedding_cache", "optimization",
+        "msa_max_depth", "msa_column_mask_rate", "msa_subsample_at_inference",
+    }
     if (
         not isinstance(config, dict)
         or not required_config <= set(config)
@@ -2739,6 +2925,7 @@ def _validate_batch_payload(payload: Any) -> dict[str, Any]:
         **config,
         "esmc_attention_backend": config.get("esmc_attention_backend", "sdpa"),
         "context_embedding_cache": config.get("context_embedding_cache", False),
+        **effective_esmfold2_msa_options(config, "context"),
     }
     if not all(
         isinstance(config[name], int) and not isinstance(config[name], bool)
@@ -2752,6 +2939,21 @@ def _validate_batch_payload(payload: Any) -> dict[str, Any]:
             raise RuntimeError(f"ESMFold2 {name} is malformed")
     if not 0 <= config["lm_dropout"] < 1 or not 0 <= config["lm_mask_pct"] <= 1:
         raise RuntimeError("ESMFold2 masking/dropout config is outside [0, 1]")
+    depth = config["msa_max_depth"]
+    if depth is not None and (
+        not isinstance(depth, int) or isinstance(depth, bool) or depth < 1
+    ):
+        raise RuntimeError("ESMFold2 msa_max_depth must be a positive integer or null")
+    mask_rate = config["msa_column_mask_rate"]
+    if (
+        not isinstance(mask_rate, (int, float))
+        or isinstance(mask_rate, bool)
+        or not math.isfinite(mask_rate)
+        or not 0 <= mask_rate <= 1
+    ):
+        raise RuntimeError("ESMFold2 msa_column_mask_rate must be in [0, 1]")
+    if not isinstance(config["msa_subsample_at_inference"], bool):
+        raise RuntimeError("ESMFold2 msa_subsample_at_inference must be boolean")
     if config["esmc_attention_backend"] not in {"sdpa", "flash_attention_2", "eager"}:
         raise RuntimeError("ESMFold2 attention backend is malformed")
     if config["context_embedding_cache"] not in {None, True, False}:

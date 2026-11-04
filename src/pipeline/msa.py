@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from .state import atomic_json, write_csv
+from src.validate.methods import REFOLD_METHODS
 
 
 def prepare_run(cfg, repo, work):
@@ -16,7 +17,10 @@ def prepare_run(cfg, repo, work):
 
     stages = [stage for task in cfg['tasks'].values()
               for stage in [*task['rounds'], *task['final'].get('validators', [task['final']])]]
-    if not any(stage['method'] in {'af3', 'mol1'} for stage in stages):
+    if not any(REFOLD_METHODS[stage['method']].msa and (
+            REFOLD_METHODS[stage['method']].family != 'esmfold2'
+            or stage['validation']['esmfold2'].get('msa', {}).get('mode', 'off') != 'off')
+            for stage in stages):
         return [], []
     state = Path(work) / 'msa.json'
     if state.is_file():
@@ -51,8 +55,31 @@ def prepare_run(cfg, repo, work):
             requests[key] = (AF3MSACache(repo, merged), previous[1], previous[2], merged)
         row['_request'] = key
 
+    # A template-on search also supplies template-off consumers' alignments.
+    # Only an automatic template-on consumer authorizes that superset search.
+    donors, aliases = {}, {}
+    def alignment_key(settings, modality, sequence):
+        return query_identity(dict(settings, templates=False, max_template_date=None), modality, sequence)
+    for key, (_, modality, sequence, settings) in requests.items():
+        if (modality == 'protein' and settings['templates'] and settings['mode'] == 'auto'
+                and settings['cache_profile'] is None):
+            donors.setdefault(alignment_key(settings, modality, sequence), key)
+    for key, (_, modality, sequence, settings) in requests.items():
+        if modality != 'protein' or settings['templates'] or settings['cache_profile'] is not None:
+            continue
+        donor = donors.get(alignment_key(settings, modality, sequence))
+        if donor is None:
+            continue
+        aliases[key] = donor
+        _, donor_modality, donor_sequence, donor_settings = requests[donor]
+        if settings['refresh'] and not donor_settings['refresh']:
+            merged = dict(donor_settings, refresh=True)
+            requests[donor] = (AF3MSACache(repo, merged), donor_modality, donor_sequence, merged)
+
     ready, pending = {}, {}
     for key, request in requests.items():
+        if key in aliases:
+            continue
         cache, modality, sequence, settings = request
         hit = cache.lookup(modality, sequence)
         if hit is not None and not settings['refresh']:
@@ -78,6 +105,11 @@ def prepare_run(cfg, repo, work):
         with ThreadPoolExecutor(max_workers=workers) as pool:
             for key, ref in pool.map(search, pending.items()):
                 ready[key] = ref, False
+    for key, donor in aliases.items():
+        ref, hit = ready[donor]
+        cache = requests[key][0]
+        ready[key] = (None if ref is None else cache.reference(
+            ref['entry_id'], ref['profile_id'], ref['generation_id'])), hit
     for key, (cache, modality, sequence, settings) in requests.items():
         ref, _ = ready[key]
         if ref is None:

@@ -52,8 +52,18 @@ def _paths(authored, base):
         antigen["input"] = _path(antigen["input"], base, "antigen.input")
     antibody = authored.get("antibody")
     scaffold = antibody.get("scaffold") if isinstance(antibody, dict) else None
-    if isinstance(scaffold, dict) and "path" in scaffold:
-        scaffold["path"] = _path(scaffold["path"], base, "antibody.scaffold.path")
+    _scaffold_paths(scaffold, base)
+
+
+def _scaffold_paths(scaffold, base):
+    if isinstance(scaffold, list):
+        for item in scaffold:
+            _scaffold_paths(item, base)
+    elif isinstance(scaffold, dict):
+        if "scaffold" in scaffold:
+            _scaffold_paths(scaffold["scaffold"], base)
+        elif "path" in scaffold:
+            scaffold["path"] = _path(scaffold["path"], base, "antibody.scaffold.path")
 
 
 def validation_payload(row):

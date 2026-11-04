@@ -17,6 +17,7 @@ from .planning import (
     expected_keys, prediction_metadata_valid, sequence_slot_count, sequence_sources_by_sample,
 )
 from .storage import (
+    _esmfold2_msa_context_identity,
     _msa_context_identity,
     atomic_json,
     begin_sequence,
@@ -544,7 +545,7 @@ class ValidationWorker:
             pass  # Missing inputs are reported by the normal input loader.
         else:
             context.update(input_size=stat.st_size, input_mtime_ns=stat.st_mtime_ns)
-        if self.method in {"af3", "af3-la", "mol1"} and self._msa_context is not None:
+        if self.method in {"af3", "af3-la", "mol1", "esmfold2-standard"} and self._msa_context is not None:
             context["msa_context"] = self._msa_context
         if self.method == "mol1":
             from .mol1 import ADAPTER_REVISION
@@ -638,13 +639,21 @@ class ValidationWorker:
         path = output / f"seq{variant['seq_index']}.json"
         expected = expected_keys(self.method, self.cfg)
         sequence = _compact_sequence(variant)
+        if self.method == "esmfold2-standard":
+            if prepared_inputs is None and variant.get("status") != "failed":
+                from .esmfold2_msa import prepare_esmfold2_input
+                prepared_inputs = prepare_esmfold2_input(input, variant, self.cfg["esmfold2"], self.repo)
+            self._msa_context = (prepared_inputs.get("msa_context", {"mode": "off"})
+                                 if prepared_inputs is not None else {"mode": "off"})
         context = self._context(plan, sample, entry)
         previous = read_json(path)
-        if self.method in {"af3", "af3-la", "mol1"} and previous and previous.get("predictions"):
+        if self.method in {"af3", "af3-la", "mol1", "esmfold2-standard"} and previous and previous.get("predictions"):
             previous_msa = previous.get("msa_context") or {"mode": "off"}
             current_msa = context.get("msa_context", {"mode": "off"})
-            if _msa_context_identity(previous_msa) != _msa_context_identity(current_msa) and not (self.cfg.get("rerun") or self.cfg.get("rerun_refold")):
-                raise AF3MSAResumeError("Saved AF3 predictions use a different MSA cache/profile/generation. Use --rerun-refold to keep sequences and replace refolds, or --rerun to regenerate everything")
+            identity = _esmfold2_msa_context_identity if self.method == "esmfold2-standard" else _msa_context_identity
+            if identity(previous_msa) != identity(current_msa) and not (self.cfg.get("rerun") or self.cfg.get("rerun_refold")):
+                label = "ESMFold2" if self.method == "esmfold2-standard" else "AF3"
+                raise AF3MSAResumeError(f"Saved {label} predictions use a different MSA cache/profile/generation or native MSA settings. Use --rerun-refold to keep sequences and replace refolds, or --rerun to regenerate everything")
         record = begin_sequence(path, context, sequence, expected,
                                 force=bool(self.cfg.get("rerun") or self.cfg.get("rerun_refold")))
         if record.get("status") == "complete":
@@ -810,15 +819,24 @@ class ValidationWorker:
             sources = self._sources_for_input(input)
             slots = list(sequence_slots(sources))
             variants, queries = [], {}
-            group = "mol1" if self.method == "mol1" else "af3"
-            msa_settings = self.cfg[group]["msa"]
+            group = "esmfold2" if self.method == "esmfold2-standard" else ("mol1" if self.method == "mol1" else "af3")
+            if group == "esmfold2":
+                from .esmfold2_msa import msa_settings as esm_msa_settings, msa_queries as esm_msa_queries
+                msa_settings = esm_msa_settings(self.cfg[group])
+            else:
+                msa_settings = self.cfg[group]["msa"]
             for variant in self._variants(input, plan, sample, root, sources):
                 index = variant["seq_index"]
                 if type(index) is not int or not 0 <= index < len(slots) or any(v["variant"]["seq_index"] == index for v in variants):
                     raise ValueError("Invalid or duplicate prepared sequence index")
                 if any(variant.get(key) != slots[index][key] for key in ("source", "source_index")):
                     raise ValueError("Prepared sequence differs from requested source slot")
-                if self.method == "mol1":
+                if self.method == "esmfold2-standard":
+                    from .esmfold2_msa import prepare_esmfold2_input
+                    bare = dict(self.cfg[group], msa={**msa_settings, "mode": "off", "refresh": False, "cache_profile": None})
+                    payloads = {} if variant.get("status") == "failed" else {
+                        "complex": prepare_esmfold2_input(input, variant, bare, self.repo, references=[])}
+                elif self.method == "mol1":
                     from .mol1 import prepare_mol1_inputs
                     settings = self.cfg["mol1"]
                     bare = dict(settings, msa={**settings["msa"], "mode": "off"})
@@ -826,13 +844,15 @@ class ValidationWorker:
                 else:
                     payloads = {} if variant.get("status") == "failed" else prepare_af3_inputs(input, variant, self.cfg["af3"], self.repo)
                 for payload in payloads.values():
-                    for query in msa_queries(payload, input.design_chains, settings=msa_settings):
+                    payload_queries = (esm_msa_queries(payload, settings=msa_settings) if group == "esmfold2"
+                                       else msa_queries(payload, input.design_chains, settings=msa_settings))
+                    for query in payload_queries:
                         queries[(query["modality"], query["sequence"])] = {key: query[key] for key in ("modality", "sequence")}
                 variants.append({"variant": variant, "payloads": payloads})
             if len(variants) != len(slots):
                 raise ValueError("Missing prepared sequence variants")
             from .af3_msa import resolve_msa_settings
-            cache_root = Path(resolve_msa_settings(self.cfg[group]["msa"], self.repo)["cache_dir"])
+            cache_root = Path(resolve_msa_settings(msa_settings, self.repo)["cache_dir"])
             prepared_dir = ensure_directory(cache_root / "prepared")
             fd, filename = tempfile.mkstemp(prefix="sample-", suffix=".json", dir=prepared_dir)
             os.close(fd)
@@ -849,7 +869,8 @@ class ValidationWorker:
                 Path(filename).unlink(missing_ok=True)
                 self._prepared_tickets.discard(filename)
                 raise
-            self._log("af3_input_prepared", variants=len(variants), unique_queries=len(queries))
+            self._log("esmfold2_input_prepared" if group == "esmfold2" else "af3_input_prepared",
+                      variants=len(variants), unique_queries=len(queries))
             return {"ticket": filename, "queries": list(queries.values())}
 
     def refold_prepared(self, plan: dict, sample: str, ticket_path: str, references: list[dict], search_error=None):
@@ -865,8 +886,13 @@ class ValidationWorker:
         from src.design.rewards.af3_input import attach_msa_references, msa_queries
 
         root = Path(plan["task_dir"]) / "validate" / self.method
-        group = "mol1" if self.method == "mol1" else "af3"
-        msa_settings = self.cfg[group]["msa"]
+        group = "esmfold2" if self.method == "esmfold2-standard" else ("mol1" if self.method == "mol1" else "af3")
+        if group == "esmfold2":
+            from .esmfold2_msa import (msa_settings as esm_msa_settings, msa_queries as esm_msa_queries,
+                                      attach_msa_references as attach_esm_msa_references)
+            msa_settings = esm_msa_settings(self.cfg[group])
+        else:
+            msa_settings = self.cfg[group]["msa"]
         entry = plan["samples"][sample]
         self.log_dir = root / "logs"
         self.log_context = {"task": str(plan["task_dir"]), "method": self.method, "sample": sample}
@@ -894,9 +920,11 @@ class ValidationWorker:
             processed = 0
             for item in ticket["variants"]:
                 variant = item["variant"]
-                required = {(query["modality"], query["sequence"])
-                            for payload in item["payloads"].values()
-                            for query in msa_queries(payload, ticket["design_chains"], settings=msa_settings)}
+                required = set()
+                for payload in item["payloads"].values():
+                    payload_queries = (esm_msa_queries(payload, settings=msa_settings) if group == "esmfold2"
+                                       else msa_queries(payload, ticket["design_chains"], settings=msa_settings))
+                    required.update((query["modality"], query["sequence"]) for query in payload_queries)
                 failures = ([search_error] if isinstance(search_error, str) else
                             [failure["error"] for failure in (search_error or [])
                              if (failure["modality"], failure["sequence"]) in required])
@@ -909,14 +937,19 @@ class ValidationWorker:
                         self._log("msa_search_failed_preserved", seq_index=variant["seq_index"], error="; ".join(failures))
                     else:
                         record = record or begin_sequence(sequence_path, self._context(plan, sample, entry), _compact_sequence(variant), expected_keys(self.method, self.cfg))
-                        record.update(status="failed", error="AF3 MSA search failed: " + "; ".join(failures), failure_stage="msa_search")
+                        label = "ESMFold2" if group == "esmfold2" else "AF3"
+                        record.update(status="failed", error=f"{label} MSA search failed: " + "; ".join(failures), failure_stage="msa_search")
                         self._save(sequence_path, record)
                 else:
-                    payloads = {protocol: attach_msa_references(payload, ticket["design_chains"], references, settings=msa_settings)
+                    payloads = {protocol: (attach_esm_msa_references(payload, references, settings=msa_settings)
+                                           if group == "esmfold2" else attach_msa_references(
+                                               payload, ticket["design_chains"], references, settings=msa_settings))
                                 for protocol, payload in item["payloads"].items()}
                     contexts = {protocol: payload["msa_context"] for protocol, payload in payloads.items()}
-                    self._msa_context = {"protocols": contexts} if contexts else None
-                    self._run_variant(input, variant, plan, sample, entry, root, prepared_inputs=payloads)
+                    self._msa_context = (contexts.get("complex", {"mode": "off"}) if group == "esmfold2"
+                                         else ({"protocols": contexts} if contexts else None))
+                    backend_inputs = payloads.get("complex") if group == "esmfold2" else payloads
+                    self._run_variant(input, variant, plan, sample, entry, root, prepared_inputs=backend_inputs)
                 processed += 1
             self._log("sample_finished", processed_sequences=processed)
             return {"task": plan["task_dir"], "sample": sample, "processed_sequences": processed,

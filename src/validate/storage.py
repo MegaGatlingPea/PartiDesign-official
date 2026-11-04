@@ -208,8 +208,30 @@ def _msa_context_identity(value):
     return value
 
 
+def _esmfold2_msa_context_identity(value):
+    """Missing legacy ESMFold2 context and inactive native controls mean off."""
+    if not value:
+        return {"mode": "off"}
+    if isinstance(value, Mapping):
+        if "protocols" in value:
+            protocols = {key: _esmfold2_msa_context_identity(item)
+                         for key, item in value["protocols"].items()}
+            if all(item == {"mode": "off"} for item in protocols.values()):
+                return {"mode": "off"}
+            return {"protocols": protocols}
+        if value.get("mode") == "off" or not value.get("chains"):
+            return {"mode": "off"}
+    return _msa_context_identity(value)
+
+
 def _context_matches(record: Mapping[str, Any], context: Mapping[str, Any]) -> bool:
+    if context.get("method") == "esmfold2-standard":
+        if (_esmfold2_msa_context_identity(record.get("msa_context"))
+                != _esmfold2_msa_context_identity(context.get("msa_context"))):
+            return False
     for key, value in context.items():
+        if key == "msa_context" and context.get("method") == "esmfold2-standard":
+            continue
         if key == "msa_context" and context.get("method") in {"af3", "af3-la", "mol1"}:
             if _msa_context_identity(record.get(key)) != _msa_context_identity(value):
                 return False

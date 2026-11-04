@@ -203,3 +203,103 @@ glp1r_vhh_bindcraft2:
   score: false
   postprocess: false
   override: true
+
+# TNFR1 mature extracellular domain; de novo VHH design.
+tnfr1_vhh_bindcraft2:
+  format: antibody
+  sample_num: 400
+  antibody:
+    scaffold: bindcraft2_vhh
+    chains: {VHH: B}
+    template: true
+    design:
+      VHH:
+        cdrs: [CDR1, CDR2, CDR3]
+        lengths:
+          CDR1: 7
+          CDR2: {min: 5, max: 7}
+          CDR3: {min: 8, max: 20}
+        framework: "35/37/45/47/50/59/97-99/115-116"
+    paratope:
+      VHH:
+        cdrs: [CDR1, CDR2, CDR3]
+        framework: "26/34/51/58-59/95-96/115-116"
+  antigen:
+    input: ./configs/examples/structures/antibody_design/tnfr1.pdb
+    crop:
+      include: [A]
+  score: false
+  postprocess: false
+  override: true
+
+# Sample counts are totals across the selected compatible scaffolds.
+tnfr1_vhh_random_scaffolds:
+  format: antibody
+  sample_num: 32
+  antibody:
+    scaffold:
+    - 7eow
+    - 7xl0
+    - 8coh
+    chains:
+      VHH: B
+    template: true
+    design:
+      VHH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: official
+          CDR2: official
+          CDR3: official
+        framework: false
+  antigen:
+    input: ./configs/examples/structures/antibody_design/tnfr1.pdb
+    crop:
+      include:
+      - A
+  score: false
+  postprocess: false
+  override: true
+pdl1_fv_random_scaffolds:
+  format: antibody
+  sample_num: 32
+  antibody:
+    scaffold:
+    - adalimumab.6cr1
+    - belimumab.5y9k
+    chains:
+      VH: H
+      VL: L
+    template: true
+    design:
+      VH:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: official
+          CDR2: official
+          CDR3: official
+        framework: false
+      VL:
+        cdrs:
+        - CDR1
+        - CDR2
+        - CDR3
+        lengths:
+          CDR1: official
+          CDR2: official
+          CDR3: official
+        framework: false
+  antigen:
+    input: ./configs/examples/structures/antibody_design/7uxq.cif
+    crop:
+      include:
+      - A
+  score: false
+  postprocess: false
+  override: true

@@ -183,13 +183,28 @@ contains five fixed full complexes with binder `B` and antigen `A`; it starts
 with four partial children per seed and retains the five parents. Both use three
 rounds, GT1+MPNN1 in the first round, GT1+MPNN4 later, ESMFold2-fast iteration,
 partial fraction 0.625, four replicas, parent retention and `relax: false`.
+Antibody tasks default to ProteinMPNN with sampling temperature 0.1 and no
+backbone noise, including with an explicit alternative profile. Explicit
+sequence-source and MPNN settings override these defaults.
 Final validation runs only ESMFold2-standard, with five samples of each selected
 candidate’s current sequence and no further MPNN redesign. It selects the best
 prediction by 0.8 ipTM + 0.2 pTM before filtering; a lower-ranked passing
 prediction does not replace a failing winner. Prepare generation, MPNN,
 ESMFold2-fast and ESMFold2-standard assets before execution.
-ESMFold2 currently uses query-only inputs; the shared ColabFold MSA cache is
-not yet passed into this backend.
+Standard final validation uses shared fixed antigen protein MSA without
+templates. Fast iteration stays query-only; designed VHH/VH/VL chains are not
+automatically searched.
+
+De novo antibody tasks can list compatible scaffolds. Each initial sample
+makes one seeded draw and uses that source's own lengths and permissions.
+The sample count is a total and all origins share the task selection pool.
+Descendants retain their selected source through partial, MPNN, refold and
+resume. See [random scaffold authoring](task_schema.md#random-scaffold-selection)
+for template-specific framework and paratope settings. Existing-structure
+annotation rows use each seed's concrete scaffold.
+
+Ranking remains whole antibody-chain design pLDDT, including framework and
+CDRs and excluding antigen.
 
 For an antibody annotation, use these columns:
 
@@ -229,7 +244,8 @@ intended contact residues. Keep actual CDR counts per seed. VHH uses one role;
 paired antibodies keep both VH/VL roles and are evaluated as one binder.
 
 Every antibody pipeline, including an explicit alternative preset, conjoins
-`antibody_contacts` with the selected criteria on the same prediction. At least
+`antibody_contacts` with the selected criteria on the same prediction during
+filtered iteration rounds and final validation. At least
 seven unique antibody residues must contact antigen by a heavy-atom distance
 ≤4 Å, and at most 0.20 of contacting antibody residues may lie outside the
 intended paratope. VH–VL internal contacts are excluded. The antibody profile
@@ -248,7 +264,7 @@ step. Selected refold structures supply the reference for partial diffusion,
 so subsequent rounds explore structures around the accepted candidates.
 
 All presets use relaxed pipeline screening during iteration by default.
-Original-reference motif geometry remains checked strictly at round 1 and final.
+By default, original-reference motif geometry is checked strictly at round 1 and final.
 
 The default is three rounds, including the first validation round (`recycle: 3`):
 
@@ -335,26 +351,76 @@ Native AF2-IG is deterministic with its default settings; changing only the seed
 does not add prediction diversity. One matched pair per model avoids redundant
 repeats.
 Use `final.method` to override the preset with a single method, or
-`final.methods` to choose a method list.
+`final.methods` to choose a method list. Both iteration and final accept all
+six existing refold backends:
+
+| Method | Native settings section | Context MSA/templates |
+| --- | --- | --- |
+| `esmfold2-fast` | `esmfold2` | Query-only |
+| `esmfold2-standard` | `esmfold2` | Shared fixed protein-context MSA; no templates |
+| `af2_ig` | `af2` | Existing initial-guess protocol |
+| `af3` | `af3` | Shared context cache |
+| `af3-la` | `af3` | Shared context cache |
+| `mol1` | `mol1` | Shared context cache |
+
+```yaml
+iteration:
+  refold: esmfold2-standard
+rounds:
+  3:
+    refold: mol1
+final:
+  methods: [esmfold2-fast, af3-la]
+  esmfold2: {samples: 5}
+  af3: {samples: 5}
+```
+
+Only configured methods run. AF3-LA uses its own weights and prediction
+identity while sharing context searches with AF3 and Mol-1. Native model
+chemistry and criteria still apply. AF2 supports eligible VHH binders, with
+models 1 and 2 by default, but not paired VH/VL design. Its paired criteria
+are combined with antibody contact rules and target-aligned binder RMSD
+(3 Angstrom during screening, 2 Angstrom at final). AF2 confidence thresholds
+remain the native protein thresholds. Standalone validate still defaults to
+AF2 model 1; the two-model default is pipeline-specific. Iteration preserves the existing
+ESMFold2 fallback for unsupported explicit polymer links; final retains the
+configured method and its native chemistry limits.
+
 ESMFold2-standard selects its best sample by `0.8 * ipTM + 0.2 * pTM`, then
 applies the requested criteria. It uses the standard checkpoint and query-only
-inputs; external MSA and templates are not supplied.
+input for designed chains, plus shared MSA for fixed protein context. Templates
+are never supplied to ESMFold2; Fast remains entirely query-only.
 Prediction selection precedes criteria; a lower-ranked passing sample
 does not replace a selected failing sample. All final structures remain in
 `predictions/`. For each accepted candidate, `success/` contains every executed
 method's best-ranked complex, including both AF2 model winners; matching monomers
 remain in prediction evidence.
 
-For example, keep the protein profile's iteration settings and change only final
-validation in a workflow YAML:
+For example, use standard at both iteration and final validation in a workflow
+YAML:
 
 ```yaml
 preset: protein
+msa: {mode: auto, source: colabfold}
+iteration:
+  refold: esmfold2-standard
 final:
   method: esmfold2-standard
-  esmfold2: {samples: 5}
+  esmfold2:
+    samples: 5
+    msa_max_depth: 1024
+    msa_column_mask_rate: 0.1
+    msa_subsample_at_inference: true
   criteria: [af3_basic]
 ```
+
+These native MSA defaults can be set under `iteration.refold.esmfold2` or
+`final.esmfold2`. `msa_max_depth` accepts a positive integer or `null`; `null`
+removes the row limit subject to native feature caps. `msa_column_mask_rate` is
+finite and between 0 and 1; `msa_subsample_at_inference` is boolean. An
+`esmfold2.msa` mapping accepts the existing shared MSA schema and overrides
+shared YAML settings. Common `--msa` and `--msa-source` options apply to both
+stages; `--msa off` restores the query-only path.
 
 ESMFold2-standard is included in the default `final.methods` for union filtering.
 Each executed method still publishes its own best complex for accepted candidates.
@@ -422,12 +488,17 @@ not mean that all its published structures passed.
 
 ## Shared MSA and templates
 
-Before GPU work starts, the workflow prepares the fixed-context MSA and protein
-templates required by AF3/Mol-1. Protein searches default to ColabFold; designed
-chains stay query-only. `--msa off` disables both MSA and templates. ColabFold
-does not search RNA or DNA; use `source: af3` when fixed RNA context needs the
-local RNA MSA search route. Structural templates apply only to fixed protein
-chains. AF2-IG keeps its existing initial-guess protocol.
+Before GPU work starts, the workflow prepares fixed-context MSA for
+ESMFold2-standard and MSA/templates for AF3/AF3-LA/Mol-1. Protein searches
+default to ColabFold. ESMFold2-standard consumes only protein MSA, with templates
+disabled; Fast stays query-only. Designed GT and MPNN sequences, including
+VHH/VH/VL chains, are never automatically searched. `--msa off` disables both
+MSA and templates.
+
+ColabFold does not search RNA or DNA. For AF3/AF3-LA/Mol-1, `source: af3` also
+enables the local fixed-RNA MSA route; ESMFold2 keeps RNA/DNA query-only with
+either source. Structural templates apply only to fixed protein chains in
+AF3/AF3-LA/Mol-1. AF2-IG keeps its existing initial-guess protocol.
 
 ```yaml
 msa:
@@ -450,11 +521,19 @@ final methods. The chosen cache generations stay pinned for the run and its
 resumes. `--msa-refresh` refreshes each required query/profile once for a new
 run; it does not repeat the search for each candidate or model.
 
+A compatible template-on generation supplies ESMFold2's template-off view while
+preserving AF3/Mol-1 templates. A pipeline resumed from a saved configuration
+without ESMFold2 MSA keeps its query-only policy; start a new run to enable it.
+
 The run's compact `msa.csv` lists chain/source, cache references, MSA depths and
 template counts. Round and final directories do not contain duplicate search
 caches. Each shared generation's `manifest.json` holds its template mappings and
 provenance. See [MSA and templates](msa.md) for cache-only use, refresh, custom
 service endpoints and local search resources.
+
+Each prediction's existing `confidence.msa` metadata reports actual MSA features
+and effective depth after native selection and featurization; it adds no new
+output directories.
 
 ## Results
 
@@ -657,10 +736,15 @@ same fields in `rounds.N` to change a particular round:
 | `mpnn` | A proposal count, or `{source: auto, count: 4, settings: {...}}` with native MPNN settings. |
 | `include_gt` | Boolean: propose the current sequence as well as MPNN sequences. |
 | `refold` | A method string, or a mapping with `method`, `conformers`, native `af2`/`esmfold2`/`af3`/`mol1` settings and `worker_gpus`. |
-| `filter` | A list of existing validation criterion names, or `{criteria: [...], criteria_route: auto, criteria_mode: all}`. |
+| `filter` | Boolean, a list of existing validation criterion names, or `{criteria: [...], criteria_route: auto, criteria_mode: all}`. |
 | `selection` | `mode: cluster` or `top`, plus the limits described below. |
 | `partial` | Boolean, or `{enabled: true, fraction: 0.625, replicas: 4, include_parent: true}`. |
 | `relax` | Boolean: run whole-complex OpenMM before partial diffusion. |
+
+Select standard iteration with `iteration: {refold: esmfold2-standard}` or
+`--method esmfold2-standard`. It uses the same automatic screen routes as fast
+iteration, with one conformer by default. An explicit standard screen route
+can override the shared criteria.
 
 Set `partial: false` to disable partial diffusion or `relax: true` to enable
 whole-complex relaxation. The default fraction 0.625 runs the last 250 intervals
@@ -842,6 +926,15 @@ deduplication, ranking and selection budgets remain active. Final validation
 keeps the selected pipeline preset's criteria unless explicitly changed with
 `--final-criteria` or `final.criteria`.
 
+To bypass all iteration quality filters, set `iteration: {filter: false}`.
+This skips confidence/RMSD criteria, antibody contacts and coordinate-motif
+gates in those rounds. Predictions and metrics must still complete with finite
+native confidence. Identity and bond constraints, infrastructure errors,
+ranking, deduplication and selection limits remain enforced. Set `filter: true`
+in a round override to restore its configured filters; explicit `--criteria`
+takes precedence and re-enables filtering. Final criteria, contacts and motif
+gates are unaffected.
+
 The pipeline normally requires all requested criteria on the same prediction.
 Use `criteria_mode: any` in a filter mapping for a union. Additional native
 `presets:` definitions can be supplied with `--presets FILE.yaml`. The PPI
@@ -849,8 +942,8 @@ protein AF2 final route preserves its intentional `all_and_mean` reduction for
 `af2_ig_protdbench`; it is not an exact copy of every standalone reduction.
 
 For coordinate motifs, new runs require the original-reference motif RMSD to
-pass at **round 1 and final only**, against the original motif rather than the
-current refold. Protein/peptide uses validate `af3_ame`'s
+pass at **round 1 when filtering is enabled, and always at final**, against the
+original motif rather than the current refold. Protein/peptide uses validate `af3_ame`'s
 `motif_rmsd_reference <= 1.5 Å` rule; RNA/DNA uses validate `af3_na_motif`'s
 `motif_rmsd_reference <= 3 Å` rule, selected by the design modality.
 The gate remains mandatory with `criteria_mode: any`. If a task overrides

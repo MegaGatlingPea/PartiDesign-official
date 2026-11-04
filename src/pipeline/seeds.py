@@ -29,21 +29,32 @@ def configuration_task(seed):
 
 def candidate_authoring(cfg, candidate):
     if not cfg.get("seed_input"):
-        return cfg["task_payload"][candidate.task]
-    import yaml
+        authored = cfg["task_payload"][candidate.task]
+    else:
+        import yaml
 
-    registry = cfg.get("_seed_authored")
-    if registry is None:
-        registry = {}
-        for seed in cfg["seed_input"]["rows"]:
-            metadata = seed_metadata(cfg, seed["task"], seed["sample_id"])
-            path = metadata / "resolved_config.yaml"
-            if path.is_file():
-                registry[(seed["task"], seed["sample_id"])] = yaml.safe_load(path.read_text())["tasks"][seed["task"]]
-            else:
-                registry[(seed["task"], seed["sample_id"])] = seed["authored"]
-        cfg["_seed_authored"] = registry
-    return registry[(candidate.task, candidate.origin_id)]
+        registry = cfg.get("_seed_authored")
+        if registry is None:
+            registry = {}
+            for seed in cfg["seed_input"]["rows"]:
+                metadata = seed_metadata(cfg, seed["task"], seed["sample_id"])
+                path = metadata / "resolved_config.yaml"
+                if path.is_file():
+                    registry[(seed["task"], seed["sample_id"])] = yaml.safe_load(path.read_text())["tasks"][seed["task"]]
+                else:
+                    registry[(seed["task"], seed["sample_id"])] = seed["authored"]
+            cfg["_seed_authored"] = registry
+        authored = registry[(candidate.task, candidate.origin_id)]
+    if (authored.get("format") == "antibody"
+            and isinstance(authored["antibody"].get("scaffold"), list)):
+        from src.design.antibody.schema import resolve_antibody_authoring
+
+        resolved = cfg.setdefault("_antibody_authored", {})
+        key = (candidate.task, candidate.origin_id)
+        if key not in resolved:
+            resolved[key] = resolve_antibody_authoring(authored, candidate.row)
+        return resolved[key]
+    return authored
 
 
 def seed_metadata(cfg, task, sample_id):

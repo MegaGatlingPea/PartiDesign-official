@@ -159,8 +159,10 @@ def run_gpu_jobs(repo, plans, cfg, criteria, presets, on_task_finished=None):
     actor_count = min(actor_capacity, len(jobs))
     from .config import config_for_method
     method_cfg = config_for_method(cfg, plans[0]["method"])
-    msa_group = "mol1" if plans[0]["method"] == "mol1" else "af3"
-    msa_enabled = plans[0]["method"] in {"af3", "af3-la", "mol1"} and method_cfg.get(msa_group, {}).get("msa", {}).get("mode", "off") != "off"
+    from .methods import REFOLD_METHODS
+    spec = REFOLD_METHODS.get(plans[0]["method"])
+    msa_group = spec.group if spec is not None else None
+    msa_enabled = spec is not None and spec.msa and method_cfg.get(msa_group, {}).get("msa", {}).get("mode", "off") != "off"
     resources = None
     num_cpus = math.ceil(actor_count * worker_cpus)
     if msa_enabled:

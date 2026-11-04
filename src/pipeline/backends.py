@@ -21,7 +21,9 @@ import zlib
 
 import numpy as np
 
-_METHODS = {"esmfold2-fast", "esmfold2-standard", "af2_ig", "af3", "mol1"}
+from src.validate.methods import REFOLD_METHODS
+
+_METHODS = frozenset(REFOLD_METHODS)
 _ARTIFACT_FIELDS = (
     "structure_path", "cif_path", "native_cif_path", "pdb_path",
     "confidence_path", "raw_confidence_path",
@@ -305,16 +307,19 @@ def _restoration_identity(input_record):
             "cyclic_offset_chains": list(_get(input_record, "cyclic_offset_chains", ()))}
 
 
-def _model_settings(config, method):
+def _model_settings(config, method, payload=None):
     """Search policy is resolved into inputs before the resident model runs."""
-    section = {"af2_ig": "af2", "esmfold2-fast": "esmfold2", "esmfold2-standard": "esmfold2",
-               "af3": "af3", "mol1": "mol1"}[method]
-    settings = config[section]
-    return {key: value for key, value in settings.items() if key != "msa"} if method in {"af3", "mol1"} else settings
+    spec = REFOLD_METHODS[method]
+    settings = {key: value for key, value in config[spec.group].items() if key != "msa"}
+    if spec.family == "esmfold2" and payload is not None and payload.get("msa_policy") == "none":
+        # Preserve the historical query-only request identity and RNG contract.
+        for key in ("msa_max_depth", "msa_column_mask_rate", "msa_subsample_at_inference"):
+            settings.pop(key, None)
+    return settings
 
 
 def _model_payload_identity(payload, method):
-    if method in {"af3", "mol1"}:
+    if REFOLD_METHODS[method].family in {"af3", "mol1"}:
         # Source atom ledgers/old design sequences are restoration carriers,
         # not AF3 conditioning. Stable occurrence identity is kept separately.
         fields = ("protocol", "chains", "rng_seeds", "bonded_atom_pairs", "user_ccd",
@@ -336,8 +341,14 @@ def _model_payload_identity(payload, method):
                 identity[protocol]["covalent_bonds"] = mol1_covalent_bonds(value)
         return identity
     if method in {"esmfold2-fast", "esmfold2-standard"}:
-        return {name: value for name, value in payload.items()
-                if name not in {"sample_id", "variant_id", "name", "partidesign_receptor_segments"}}
+        identity = {name: value for name, value in payload.items()
+                    if name not in {"sample_id", "variant_id", "name", "partidesign_receptor_segments"}}
+        if payload.get("msa_policy") == "none":
+            identity.pop("msa_context", None)
+        elif isinstance(identity.get("msa_context"), Mapping):
+            identity["msa_context"] = {key: value for key, value in identity["msa_context"].items()
+                                       if key != "policy"}
+        return identity
     return payload
 
 
@@ -367,7 +378,7 @@ def _alias_variant(variant):
 def _rebind_af3_sources(input_record, variant, config, predictions, repo_root, method="af3"):
     """Restore each parent's source evidence without changing shared raw data."""
     from src.design.rewards.af3_backend import prepare_af3_inputs
-    section = copy.deepcopy(config["mol1" if method == "mol1" else "af3"])
+    section = copy.deepcopy(config[REFOLD_METHODS[method].group])
     section["msa"]["mode"] = "off"
     if method == "mol1":
         from src.validate.mol1 import prepare_mol1_inputs
@@ -450,7 +461,7 @@ def design_score(input_record, method, raw_prediction):
             # Native AF2 extract_confidence explicitly reduces the design slice.
             return _score_fraction(confidence["plddt"], native_percent=True)
         raise ValueError("AF2 prediction lacks native design-chain pLDDT")
-    if method in {"af3", "mol1"}:
+    if method in REFOLD_METHODS and REFOLD_METHODS[method].family in {"af3", "mol1"}:
         from src.design.rewards.af3_runner import _chain_plddt
         values = [_chain_plddt(raw_prediction, chain) for chain in design]
         if any(value is None for value in values):
@@ -579,15 +590,33 @@ class NativeOwner:
                 self._asset_cache[key] = [_stat(checkpoint), _stat(root / "common/components.cif"),
                                           _stat(root / "common/components.cif.rdkit_mol.pkl")]
         else:
-            section = config["af3"]
-            root = af3_asset("af3", self.repo)
-            checkpoint = Path(section.get("checkpoint") or root / "checkpoints/af3.bin.zst")
+            section = config[REFOLD_METHODS[method].group]
+            root = af3_asset(method, self.repo)
+            weight_name = "af3_leaving_atom.bin.zst" if method == "af3-la" else "af3.bin.zst"
+            checkpoint = Path(section.get("checkpoint") or root / "checkpoints" / weight_name).expanduser()
             checkpoint = checkpoint if checkpoint.is_absolute() else self.repo / checkpoint
-            key = _canonical([method, str(checkpoint), str(root)])
+            # Both AF3 targets use the same native CCD. Honor the same explicit
+            # directory/pickle choices as the native worker without scanning it.
+            configured_ccd = section.get("externalccd_dir", section.get(
+                "externalccd_pickle_path", section.get("ccd_pickle_path")))
+            ccd = (af3_asset("af3", self.repo) / "ccd" if configured_ccd is None
+                   else Path(configured_ccd).expanduser())
+            ccd = ccd if ccd.is_absolute() else self.repo / ccd
+            configured_pickle = section.get("externalccd_pickle_path", section.get("ccd_pickle_path"))
+            key = _canonical([method, str(checkpoint), str(ccd), configured_pickle])
             if key not in self._asset_cache:
-                weight = checkpoint / "af3.bin.zst" if checkpoint.is_dir() else checkpoint
-                files = [weight, *(root / "ccd" / name for name in
-                                    ("ccd.pickle", "chemical_component_sets.pickle", "components.cif"))]
+                weight = checkpoint / weight_name if checkpoint.is_dir() else checkpoint
+                ccd_root = (ccd if configured_ccd is None or section.get("externalccd_dir") is not None
+                            or ccd.is_dir() else ccd.parent)
+                pickle_path = (Path(configured_pickle).expanduser() if configured_pickle is not None
+                               else ccd_root / "ccd.pickle")
+                pickle_path = pickle_path if pickle_path.is_absolute() else self.repo / pickle_path
+                if pickle_path.is_dir():
+                    pickle_path = next((pickle_path / name for name in
+                                        ("ccd.pkl", "ccd.pickle", "chemical_components.pkl")
+                                        if (pickle_path / name).is_file()), pickle_path / "ccd.pickle")
+                files = [weight, pickle_path, *(ccd_root / name for name in
+                                    ("chemical_component_sets.pickle", "components.cif"))]
                 self._asset_cache[key] = [_stat(path) for path in files]
         return self._asset_cache[key]
 
@@ -644,8 +673,26 @@ class NativeOwner:
 
     def _payload(self, input_record, variant, method, config):
         if method in {"esmfold2-fast", "esmfold2-standard"}:
-            from src.validate.esmfold2 import _build_payload
-            return _build_payload(input_record, variant), None
+            from src.validate.esmfold2_msa import (
+                msa_queries, attach_msa_references, msa_settings, prepare_esmfold2_input,
+            )
+            from src.validate.af3_msa import AF3MSACache
+            section = config["esmfold2"]
+            settings = msa_settings(section)
+            bare = dict(section, msa={**settings, "mode": "off", "refresh": False, "cache_profile": None})
+            payload = prepare_esmfold2_input(input_record, variant, bare, self.repo, references=[])
+            queries = {(query["modality"], query["sequence"])
+                       for query in msa_queries(payload, settings=settings)}
+            references = []
+            if queries:
+                key = _canonical(settings)
+                if key not in self._msa_caches:
+                    self._msa_caches[key] = AF3MSACache(self.repo, settings)
+                cache = self._msa_caches[key]
+                references = [self._msa_reference(cache, modality, sequence)
+                              for modality, sequence in sorted(queries)]
+            payload = attach_msa_references(payload, references, settings=settings)
+            return payload, payload
         if method == "af2_ig":
             from src.validate.af2 import _source_atoms
             override = variant.get("private_pdb", variant.get("pdb_path"))
@@ -671,7 +718,7 @@ class NativeOwner:
         from src.design.rewards.af3_backend import prepare_af3_inputs
         from src.design.rewards.af3_input import attach_msa_references, msa_queries
         from src.validate.af3_msa import AF3MSACache, validate_msa_settings
-        section = config["mol1" if method == "mol1" else "af3"]
+        section = config[REFOLD_METHODS[method].group]
         if method == "mol1":
             from src.validate.mol1 import prepare_mol1_inputs
             # Search below through the same owner-local cache as AF3.
@@ -829,11 +876,11 @@ class NativeOwner:
         config = _validation_config(validation_config, method)
         _design_arrays(input_record)
         if method in {"esmfold2-fast", "esmfold2-standard"} and set(getattr(input_record,"cyclic_offset_chains",()))-set(getattr(input_record,"cyclic_chains",())):
-            raise ValueError("ESMFold2 uses explicit ring bonds; offset-only inputs require af2_ig or af3")
+            raise ValueError("ESMFold2 uses explicit ring bonds; offset-only inputs require af2_ig, af3 or af3-la")
         canonical_input, canonical_variant = _alias_input(input_record), _alias_variant(variant)
         payload, prepared = self._payload(canonical_input, canonical_variant, method, config)
         assets = self._assets(method, config)
-        model_settings = _model_settings(config, method)
+        model_settings = _model_settings(config, method, payload)
         conditioning = _model_payload_identity(payload, method)
         occurrences = (_occurrence_identity(canonical_input)
                        if method == "af2_ig" else _restoration_identity(canonical_input))
@@ -985,13 +1032,13 @@ class NativeOwner:
         predictions = [copy.deepcopy({key: value for key, value in prediction.items()
                                       if key != "_parsed_atoms"})
                        for prediction in raw_predictions]
-        if method in {"af3", "mol1"}:
+        if REFOLD_METHODS[method].family in {"af3", "mol1"}:
             _rebind_af3_sources(input_record, variant, config, predictions, self.repo, method)
         with self._execution:
             worker = self._worker(method, config, self._assets(method, config))
             worker.log_dir = self.cache.parent / "logs"
             for prediction in predictions:
-                if method in {"af3", "mol1"}:
+                if REFOLD_METHODS[method].family in {"af3", "mol1"}:
                     native_ranking = prediction.get("metadata", {}).get("ranking_score")
                     if native_ranking is not None:
                         prediction.setdefault("confidence", {})["ranking_score"] = float(native_ranking)

@@ -2,7 +2,7 @@
 
 This vendored compatibility layer intentionally supports only the two pieces
 PartiDesign calls: one-sequence MPNN and ESMFold2.  General PipeTools task,
-Protenix, RF3, Ray, and MSA configuration do not belong in this release.
+Protenix, RF3, Ray, and MSA search configuration do not belong in this release.
 """
 
 from __future__ import annotations
@@ -38,6 +38,9 @@ class ESMFold2Config:
     steps: int = 100
     lm_dropout: float = 0.3
     lm_mask_pct: float | None = None
+    msa_max_depth: int | None = 1024
+    msa_column_mask_rate: float = 0.1
+    msa_subsample_at_inference: bool = True
     esmc_attention_backend: str = "sdpa"
     context_embedding_cache: bool | None = None
     timeout_seconds: int = 7200
@@ -50,8 +53,29 @@ def effective_esmfold2_lm_mask_pct(config: ESMFold2Config) -> float:
     return 0.0 if config.lm_mask_pct is None else config.lm_mask_pct
 
 
+def effective_esmfold2_msa_options(
+    config: dict[str, Any], msa_policy: str
+) -> dict[str, Any]:
+    """Keep requests without external MSA on their original sampling path."""
+
+    if msa_policy == "none":
+        return {
+            "msa_max_depth": 1,
+            "msa_column_mask_rate": 0.1,
+            "msa_subsample_at_inference": False,
+        }
+    if msa_policy != "context":
+        raise ValueError(f"Unsupported ESMFold2 MSA policy: {msa_policy!r}")
+    return {
+        "msa_max_depth": config.get("msa_max_depth", 1024),
+        "msa_column_mask_rate": config.get("msa_column_mask_rate", 0.1),
+        "msa_subsample_at_inference": config.get("msa_subsample_at_inference", True),
+    }
+
+
 __all__ = [
     "ESMFold2Config",
     "SequenceConfig",
     "effective_esmfold2_lm_mask_pct",
+    "effective_esmfold2_msa_options",
 ]

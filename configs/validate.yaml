@@ -27,6 +27,9 @@ esmfold2:
   steps: 100
   lm_dropout: 0.3
   seed: 101
+  msa_max_depth: 1024
+  msa_column_mask_rate: 0.1
+  msa_subsample_at_inference: true
 af3:
   samples: 1
   recycles: 10
@@ -47,5 +50,6 @@ scorer:
 structure_stage: base
 criteria: []
 msa:
+  # ESMFold2 standard consumes protein MSA only; its templates are always disabled.
   mode: auto
   source: colabfold

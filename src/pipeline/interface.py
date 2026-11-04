@@ -46,7 +46,8 @@ def iteration_overlay(value, label="iteration"):
         result["refold"] = {"method": refold} if isinstance(refold, str) else _validation(refold, f"{label}.refold")
     if "filter" in result:
         filtering = result["filter"]
-        if isinstance(filtering, str): result["filter"] = {"criteria": [filtering]}
+        if type(filtering) is bool: result["filter"] = {"enabled": filtering}
+        elif isinstance(filtering, str): result["filter"] = {"criteria": [filtering]}
         elif isinstance(filtering, list): result["filter"] = {"criteria": filtering}
     return result
 

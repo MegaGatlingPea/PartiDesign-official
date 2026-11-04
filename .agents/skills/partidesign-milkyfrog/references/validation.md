@@ -1,7 +1,8 @@
 # Validate saved PartiDesign designs
 
-Use this reference for method/source/criteria choices, shared AF3/Mol-1 MSA policy, chemistry
-limits, result interpretation, and reuse. Read the active checkout's
+Use this reference for method/source/criteria choices, shared
+ESMFold2-standard/AF3/Mol-1 MSA policy, chemistry limits, result interpretation,
+and reuse. Read the active checkout's
 `docs/validate.md` for detailed flags, profiles, and custom metric rules; inspect
 `configs/criteria.yaml` for exact preset thresholds. Paths here are relative to
 the detected checkout, not this skill's installation directory.
@@ -36,7 +37,8 @@ and compatibility are checked.
 
 | Method | Use and main limits | Asset target |
 | --- | --- | --- |
-| `esmfold2-fast`, `esmfold2-standard` | Protein/RNA/DNA and ligand-containing refolding; check component/chemistry support | Matching method name |
+| `esmfold2-fast` | Protein/RNA/DNA and ligand-containing query-only refolding; check component/chemistry support | `esmfold2-fast` |
+| `esmfold2-standard` | The same input modalities, with shared fixed protein-context MSA and no templates | `esmfold2-standard` |
 | `af2_ig` | One standard-protein design chain with protein context; matched complex and isolated-chain predictions | `af2` |
 | `mol1` | Multimodal prediction with shared context MSA/template cache | `mol1` |
 | `af3`, `af3-la` | Multimodal complex prediction with the selected MSA policy | Matching method name |
@@ -214,13 +216,28 @@ Standalone repeated `--method` runs retain separate method reports/success
 folders. Pipeline `final.methods` instead uses one shared candidate pool and
 one union success directory; read partial-pipeline.md for that contract.
 
-AF3/AF3-LA/Mol-1 defaults are `--msa auto`, `--msa-source colabfold`, and maximum
-protein-template release date `2021-09-30`. ColabFold searches fixed protein
-context, providing MSA and templates together; it does not search nucleic acids.
-`source: af3` uses local databases for fixed protein/RNA context. Structural
-templates are protein-only. All designed chains, including antibody VH/VL/VHH,
-remain query-only. `off` disables both MSA and templates; do not expose a separate
-required template toggle. Generation and partial-reference coordinates do not
+ESMFold2-standard/AF3/AF3-LA/Mol-1 share `--msa auto` and `--msa-source colabfold`
+defaults. AF3/AF3-LA/Mol-1 also default to protein templates with maximum release
+date `2021-09-30`. ESMFold2-standard consumes fixed protein-context MSA without
+templates; Fast remains query-only even with shared `auto`. `esmfold2.msa`
+accepts the same shared MSA schema, with model-specific YAML values overriding
+shared YAML and common CLI options overriding both.
+
+ESMFold2 native defaults are `msa_max_depth: 1024`,
+`msa_column_mask_rate: 0.1`, and `msa_subsample_at_inference: true`. Depth is a
+positive integer or `null`; `null` removes the row limit subject to native
+feature caps. The mask rate must be finite and between 0 and 1; subsampling is
+boolean. The existing prediction `confidence.msa` reports actual features and
+effective depth after native selection and featurization, without new output
+directories.
+
+ColabFold searches fixed protein context and does not search nucleic acids.
+`source: af3` also uses local databases for fixed RNA context in AF3/AF3-LA/Mol-1;
+ESMFold2 keeps RNA/DNA query-only with either source. Structural templates are
+protein-only and never consumed by ESMFold2. All designed GT/MPNN/VH/VL/VHH
+chains remain query-only and are not automatically searched. `--msa off`
+restores standard's historical query-only path and disables both MSA and
+templates for AF3/Mol-1. Generation and partial-reference coordinates do not
 become prediction templates.
 
 Use the same task selection as design/pipeline to prepare fixed-context inputs:
@@ -235,13 +252,18 @@ or load prediction models. Its shared cache is
 `<model_dir>/.cache/af3_msa/`, retaining source/profile/generation identity.
 Different sources are not interchangeable. Pipeline `msa.csv` records which
 entries its predictions used; do not duplicate the cache under every model/run.
-A ready generation can be used by both AF3 and Mol-1.
+A ready generation can be used by AF3 and Mol-1. A compatible template-on
+generation also supplies ESMFold2's template-off view while retaining templates
+for the other consumers.
 
 `auto` searches misses, `cache-only` requires ready entries without searching,
 and `off` stays query-only. `--msa-profile` needs `cache-only`; independent
 `partidesign msa --refresh` and prediction `--msa-refresh` create a new generation.
-Changed prediction evidence requires an intentional refold/full rerun. The
-ColabFold route uses its service and HHsearch from `colabfold-binaries`; the local
+Changed standard prediction evidence requires `--rerun-refold` to preserve saved
+sequence slots, or a full `--rerun` to regenerate them. A saved pipeline without
+ESMFold2 MSA retains query-only standard on resume; use a new pipeline run to
+enable MSA. The ColabFold route uses its service and HHsearch from
+`colabfold-binaries`; the local
 AF3 route needs its existing databases/HMMER tools. Public service requests are
 serialized; never substitute another source after a failure. See `docs/msa.md`
 for commands, endpoints, cache paths, date filtering and search resources.
@@ -299,7 +321,7 @@ passing does not establish experimental binding or activity.
 | Repeat original command | Reuse sequences/complete predictions, finish incomplete work, rebuild reports |
 | `--refilter` | Apply criteria to saved metrics; no models or new metrics |
 | `--recompute-metrics` | Recalculate available metrics from saved structures/confidence; no new samples or PartiScore rerun |
-| `--rerun-refold` | AF3/AF3-LA/Mol-1: reuse all requested saved sequence slots and replace predictions; no missing MPNN generation |
+| `--rerun-refold` | ESMFold2-standard/AF3/AF3-LA/Mol-1: reuse all requested saved sequence slots and replace predictions; no missing MPNN generation |
 | `--rerun` | Regenerate selected sequence/prediction slots from original design inputs |
 
 Keep source order/settings consistent for resume; intentionally changed sequence

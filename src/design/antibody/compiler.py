@@ -23,6 +23,14 @@ def compile_antibody_request(
         raise DesignSampleError("antibody task has no parsed antibody specification")
     if rng is None:
         rng = np.random
+    selected_from_list = bool(spec.alternatives)
+    if selected_from_list:
+        if resolved_cdr_lengths is not None:
+            raise DesignSampleError("partial antibody scaffold must be resolved before CDR lengths")
+        choice = (int(rng.integers(len(spec.alternatives))) if hasattr(rng, "integers")
+                  else int(rng.randint(len(spec.alternatives))))
+        spec = spec.alternatives[choice]
+        request = replace(request, task=replace(request.task, antibody=spec))
     scaffold = load_scaffold(spec.scaffold_path, spec.source_roles)
     source_by_role = {chain.role: chain for chain in scaffold.chains}
     entries: list[dict[str, Any]] = []
@@ -100,9 +108,9 @@ def compile_antibody_request(
         condition={"sequence": sequence_conditions})
     lowered = replace(request, task=lowered_task, plan=LengthPlan(request.plan.index, actual_lengths))
     compiled = compile_normal(lowered, ccd_path=ccd_path, trusted_ccd_components=trusted_ccd_components, rng=rng)
-    compiled.request = (request if resolved_cdr_lengths is None else
+    compiled.request = (request if resolved_cdr_lengths is None and not selected_from_list else
                         replace(request, plan=LengthPlan(request.plan.index, actual_lengths)))
-    compiled.antibody_metadata = {"scaffold": scaffold.name, "source_numbering": "label_seq_id", "entries": entries,
+    compiled.antibody_metadata = {"scaffold": spec.selection_name or scaffold.name, "source_numbering": "label_seq_id", "entries": entries,
         "boundary_unresolved": {c.role: list(c.boundary_unresolved) for c in scaffold.chains}}
     attach_candidate_annotations(compiled, compiled.atoms)
     return compiled
