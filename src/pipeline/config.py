@@ -78,9 +78,9 @@ BUILTINS = {
     "openmm": {"force_field": "amber19sb", "charge_method": "gasteiger",
                "platform": "CUDA", "use_ray": False,
                "worker_gpus": 0.125, "worker_cpus": 1.0},
-    "final": {"methods": ["mol1", "af3", "esmfold2-standard"],
+    "final": {"method": "esmfold2-standard",
               "validation": {"mol1": {"samples": 5}, "af3": {"samples": 5},
-                             "esmfold2": {"samples": 5}}, "criteria": None,
+                              "esmfold2": {"samples": 5}}, "criteria": None,
               "prediction_selection": "best_ranked",
               "criteria_route": "auto", "criteria_mode": "all",
               "pool": {"source": "history_best", "max_pass": 200}},
@@ -1031,7 +1031,7 @@ def build_config(args: Any, repo_root: str | Path, *,
             final["criteria"] = list(args.final_criteria)
         _check_filter({key: value for key, value in final.items() if key in _FILTER_FIELDS},
                       f"task {name}.final")
-        methods = final.get("methods", [final.get("method", "mol1")])
+        methods = final.get("methods", [final.get("method", "esmfold2-standard")])
         if "af2_ig" in methods and "nuc" in modalities:
             raise ValueError(f"task {name}: af2_ig does not support nucleic-acid design")
         if "af2_ig" in methods and any(

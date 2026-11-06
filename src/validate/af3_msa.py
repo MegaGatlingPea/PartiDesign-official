@@ -27,7 +27,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 from urllib.parse import quote, urlsplit
 
-from partidesign.paths import af3_source, asset_root
+from partidesign.paths import af3_source, asset_root, native_bin_dir
 
 DEFAULT_MSA_CONFIG: dict[str, Any] = {
     "mode": "auto",
@@ -292,6 +292,9 @@ def _binaries_dir() -> Path | None:
     active = Path(sys.prefix) / "bin"
     if all((active / name).is_file() for name in _BINARIES):
         return active
+    native = native_bin_dir()
+    if all((native / name).is_file() for name in _BINARIES):
+        return native
     path = Path("/mnt/software/miniforge3/envs/Alphafold3/bin")
     return path if path.is_dir() else None
 

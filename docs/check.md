@@ -6,6 +6,18 @@ Check the environment, task inputs, model routing, and required assets before
 generation, or check individual model resources. The default check does not run
 model inference.
 
+## Overview
+
+```bash
+partidesign check
+```
+
+The default view has four sections: **Machine overview**, **PartiDesign models**,
+**Sequence design**, and **Structure prediction**. It shows CPU/GPU usage, memory,
+free model-disk space, and concise model size/status rows.
+Known project checkpoint hashes are verified; other resources are checked against
+available file metadata. No model inference is started.
+
 ## Check a task
 
 Run from the repository root with the `partidesign` environment active:
@@ -38,8 +50,8 @@ GPU execution.
 
 ## Check model resources
 
-Without a task file, select repeatable `--model NAME` or `--all`. With neither,
-the default resource is `partidesign`:
+Use repeatable `--model NAME` or `--all` for detailed resource checks.
+With `--load` or `--smoke` and no selector, the target remains `partidesign`:
 
 ```bash
 partidesign check --model chemistry --model partiscore
@@ -69,7 +81,8 @@ cache locations. A normal check does not submit online searches.
 | `--load` | The checks above plus strict model loading on CPU. This can require substantial host RAM and does not test GPU inference. |
 | `--smoke` | CPU loading followed by bounded, real model jobs with output readback. GPU backends require CUDA; PartiScore can run its check on CPU. |
 
-For a small real inference check using the bundled PartiScore weights:
+For a small real inference check, first prepare the PartiScore checkpoint with
+`partidesign download partiscore`, then run:
 
 ```bash
 partidesign check --model partiscore --smoke
@@ -102,8 +115,8 @@ requested check. Native-generation smoke checks require the generation bundle.
 | `--msa off` | Check explicit AF3/AF3-LA/Mol-1 resources without search tools or databases. |
 | `--msa-source colabfold\|af3` | Check resources for the selected search source; default ColabFold for protein context. |
 
-The terminal report shows `PASS`, `FAIL`, `SKIP`, and `NOT_RUN` entries. Unused
-optional models are skipped. A failed check returns a nonzero status; no
+Detailed task/model checks show `PASS`, `FAIL`, `SKIP`, and `NOT_RUN` entries.
+Unused optional models are skipped in those modes. A failed check returns a nonzero status; no
 generation result is produced unless a smoke job was requested. Repeat the
 check after correcting the reported issue. Passing a CPU check does not
 establish GPU availability or validate every possible stochastic length/crop.
@@ -115,9 +128,9 @@ environment, bundled resources, generation bundle, and CPU checks.
 
 | Symptom | Check |
 | --- | --- |
-| `partidesign: command not found` | Run `conda activate partidesign` and confirm environment creation completed successfully. |
-| A package or backend path fails during installation | Run the installer from the complete repository root so local source paths resolve. If Conda already finished, retry with `bash install.sh --cuda 12 --pip-only`; see [installation recovery](environments.md#resume-an-interrupted-install). Keep the supplied versions and bundled dependencies together. |
-| The native checkpoint is missing | Download the [release bundle](download.md#generation-weights-and-bundled-assets) to `ckpts/partidesign.ckpt` under the selected model root, or use `--ckpt` with a task check. The Drive release is downloaded separately from the CLI asset downloader. |
+| `partidesign: command not found` | Run `source .venv/bin/activate` (or activate your explicit Conda environment) and confirm installation completed successfully. |
+| A package or backend path fails during installation | Run the installer from the complete repository root so local source paths resolve. After the native stage, resume default uv with `bash install.sh --cuda 12 --pip-only`; for an existing Conda/pip installation use `bash install.sh --installer conda --cuda 12 --pip-only`. Repeat custom uv paths; see [installation recovery](environments.md#resume-an-interrupted-install). Keep the supplied versions and bundled dependencies together. |
+| The native checkpoint is missing | Run `partidesign download partidesign --model-dir PATH` to prepare the pinned [HF release bundle](download.md#generation-weights-and-bundled-assets) as `ckpts/partidesign.ckpt` under the intended model root, or use `--ckpt` with a task check. |
 | CUDA is unavailable | Check `nvidia-smi`, the activated Python/PyTorch environment, and `CUDA_VISIBLE_DEVICES`. CPU checks do not establish GPU availability. |
 | An example input cannot be found | Run from the repository root. Input paths resolve relative to the invocation directory; `--model-dir` does not change input/output resolution. |
 | An existing generation output is rejected | Choose a fresh `design --run-name` or `--out` directory. Generation does not resume a nonempty task directory. |

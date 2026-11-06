@@ -6,7 +6,8 @@ from pathlib import Path
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("paths", nargs="+", type=Path, metavar="RUN_TASK_OR_SUCCESS")
+    parser.add_argument("paths", nargs="+", type=Path, metavar="RUN_TASK_OR_SUCCESS",
+                        help="One or more run, task or validation-success directories containing passing designs")
     parser.add_argument("--task", action="append", help="Select task names (repeatable)")
     parser.add_argument("--method", action="append", help="Select existing validation methods (repeatable)")
     parser.add_argument("--criteria", action="append", help="Select passing criteria (repeatable; kept separate)")

@@ -422,11 +422,79 @@ def _native_smoke(runner, args) -> str:
 
 def run_check(args, root: Path) -> int:
     from .ui import CheckDisplay
-    with CheckDisplay(root) as display:
+    from .diagnostics import collect_system_report
+    from .download import list_targets
+    system = collect_system_report(root)
+    try:
+        resources = list_targets(root)
+    except Exception as error:
+        resources = []
+        system["sections"].append({"title": "Resource inventory", "rows": [
+            {"label": "Inventory probe", "value": f"{type(error).__name__}: {error}", "level": "WARN"}]})
+    with CheckDisplay(root, system=system, resources=resources, concise=_is_bare_check(args)) as display:
         return _run_check(args, root, Report(display))
 
 
+def _is_bare_check(args) -> bool:
+    return not any(getattr(args, name, None) for name in
+                   ("task_file", "model", "all", "load", "smoke"))
+
+
+def _run_bare_check(args, root: Path, report: Report) -> int:
+    """The ordinary command surveys everything without implicitly running models."""
+    from .diagnostics import format_bytes
+    from .download import TARGETS, list_targets
+    report.emit("model-dir", "PASS", str(root))
+    # Even a broken core environment must not hide hardware and all resource rows.
+    report.attempt("environment", _environment)
+    if report.display is not None:
+        report.display.begin("resource-integrity")
+    try:
+        records = list_targets(root, verify=True)
+    except Exception as error:
+        report.emit("resource-integrity", "FAIL", f"{type(error).__name__}: {error}")
+        try:
+            records = list_targets(root)
+        except Exception as secondary:
+            report.emit("resource-inventory", "FAIL", f"{type(secondary).__name__}: {secondary}")
+            return 1
+    records = {str(record["target"]): record for record in records}
+    if report.display is not None and hasattr(report.display, "update_resources"):
+        report.display.update_resources(list(records.values()))
+    for target in TARGETS:
+        record = records.get(target)
+        if record is None:
+            report.emit(target + "-assets", "FAIL", "catalog inspection did not return this target")
+            continue
+        integrity = str(record.get("integrity") or "unverified")
+        invalid = bool(record.get("invalid")) or integrity in {"invalid", "checksum_mismatch", "size_mismatch", "unsafe"}
+        installed = record.get("status") == "installed" and not invalid
+        status = "FAIL" if invalid else "PASS" if installed else "WARN"
+        detail = (f"files {record.get('present_count', 0)}/{record.get('file_count', len(record.get('paths', [])))}; "
+                  f"local {format_bytes(record.get('local_bytes'))}; "
+                  + str(record.get("integrity_detail") or integrity))
+        used_by = record.get("used_by") or []
+        if used_by:
+            detail += "; used by " + ", ".join(map(str, used_by))
+        if record.get("error"):
+            detail += "; " + str(record["error"])
+        if not installed:
+            detail += f"; prepare with: partidesign download {target} --model-dir {root}"
+        report.emit(target + "-assets", status, detail)
+        try:
+            source = _source_assets(target)
+        except Exception as error:
+            report.emit(target + "-source", "WARN", f"{type(error).__name__}: {error}; backend import/load not tested")
+        else:
+            report.emit(target + "-source", "PASS", source + "; backend import/load not tested")
+    report.emit("model-execution", "NOT_RUN", "No models or GPU kernels were executed. Resource checks are separate from strict CPU loading and real inference.")
+    report.emit("resource-summary", "INFO", "All registered targets are shown. Missing optional weights are warnings; damaged local files and broken core prerequisites fail. Published checksum verification was requested for available trusted files; see per-target results. Unregistered checksums remain unverified.")
+    return 1 if report.failed else 0
+
+
 def _run_check(args, root: Path, report: Report) -> int:
+    if _is_bare_check(args):
+        return _run_bare_check(args, root, report)
     from .download import TARGETS, list_targets
     report.emit("model-dir", "PASS", str(root))
     if not report.attempt("environment", _environment):

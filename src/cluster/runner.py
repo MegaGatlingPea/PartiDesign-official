@@ -17,6 +17,8 @@ import sys
 import tempfile
 import time
 
+from partidesign.paths import native_bin_dir
+
 from .inputs import ClusterJob, load_job, discover_jobs
 
 
@@ -96,9 +98,10 @@ def resolve_executable(path: Path | str | None) -> str:
         if not value.is_file() or not os.access(value, os.X_OK):
             raise ValueError(f"USalign is not executable: {value}")
         return str(value)
-    local = Path(sys.executable).parent / "USalign"
-    if local.is_file() and os.access(local, os.X_OK):
-        return str(local)
+    for directory in (Path(sys.executable).parent, native_bin_dir()):
+        local = directory / "USalign"
+        if local.is_file() and os.access(local, os.X_OK):
+            return str(local)
     found = shutil.which("USalign")
     if found:
         return str(Path(found).resolve())

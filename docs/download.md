@@ -20,23 +20,32 @@ partidesign check --model esmfold2-fast
 to download them. In an interactive terminal, `partidesign download` opens a
 model selector. Noninteractive jobs must specify targets, `--list`, or `--all`.
 
+The selector shows a short use, size and status for each model. A **✓** marks
+local files; the checkbox selects a download. Missing or damaged files are marked
+separately. Known project checkpoints are checked before reuse and replacement;
+a failed download keeps the existing file. `~` sizes are reference disk footprints,
+including shared files, rather than an additional-download budget.
+
 ## Generation weights and bundled assets
 
-PartiScore weights, CyclicMPNN weights, and native chemistry resources come with
-the clone. Download the PartiDesign generation bundle from
-**[Google Drive](https://drive.google.com/file/d/19j8aaysxeQlT0RI5URrQm3A9uWdqSE5e/view?usp=sharing)**
-(4,909,825,762 bytes, about 4.91 GB). In the browser, choose **Download** and
-save it as `ckpts/partidesign.ckpt`, beside the Git-supplied `partiscore.ckpt`.
+PartiDesign and PartiScore checkpoints are distributed from the
+[project Hugging Face model repository](https://huggingface.co/MegaGatlingPea/PartiDesign).
+The downloader pins both files to immutable revision `a0ccb3b7b2e775d1364314f8bf35644ba0719e71`;
+neither checkpoint is supplied by a new source clone.
 
-Alternatively, download from a terminal at the repository root:
+| Checkpoint | Purpose |
+| --- | --- |
+| [`partidesign.ckpt`](https://huggingface.co/MegaGatlingPea/PartiDesign/resolve/a0ccb3b7b2e775d1364314f8bf35644ba0719e71/ckpts/partidesign.ckpt?download=true) | Generation bundle: model, autoencoder and experiment configuration |
+| [`partiscore.ckpt`](https://huggingface.co/MegaGatlingPea/PartiDesign/resolve/a0ccb3b7b2e775d1364314f8bf35644ba0719e71/ckpts/partiscore.ckpt?download=true) | Molecular interface scoring |
+
+With the project environment active, download both unchanged `.ckpt` files:
 
 ```bash
-python -m pip install gdown
-gdown 'https://drive.google.com/file/d/19j8aaysxeQlT0RI5URrQm3A9uWdqSE5e/view?usp=sharing' \
-  -O ckpts/partidesign.ckpt
+partidesign download partidesign partiscore
+partidesign check --model partidesign --model partiscore
 ```
 
-The resulting directory should contain:
+The resulting model root contains:
 
 ```text
 ckpts/
@@ -44,16 +53,19 @@ ckpts/
 └── partiscore.ckpt
 ```
 
-Keep the `.ckpt` file intact rather than extracting it. The `partidesign download`
-CLI has no automatic source registered for this Drive release, so neither
-`download partidesign` nor `download --all` retrieves it yet. Use the link or
-`gdown` above. If Drive reports an access or download-quota error, use the browser
-link and retry after access is available; an HTML page is not a checkpoint.
+The generation bundle is 4,909,825,762 bytes; PartiScore is 25,350,931 bytes.
+Keep the existing binary formats and filenames intact. These project-owned
+weights use Apache-2.0; third-party backend weights retain their upstream terms.
+CyclicMPNN weights and native chemistry resources continue to come with the
+source checkout. The model files are not included in wheels or source archives.
 
-For a different location, select the file with `design --ckpt FILE` or use the
-[model directory](#use-a-separate-model-directory). A compatible release bundle
-includes the model, autoencoder, and experiment configuration; a flow-matching-only
-training checkpoint is insufficient.
+For a different location, pass `--model-dir` to download/check and runtime
+commands, or select the checkpoint with `design --ckpt FILE`. A compatible
+generation release includes the model, autoencoder and experiment configuration;
+a flow-matching-only training checkpoint is insufficient.
+
+ESMFold2-fast and ESMFold2-standard share the ESM-C safetensors under
+`community_models/esmfold2/checkpoint/esmc-6b/`; they are stored once.
 
 ## Optional evaluation models
 
@@ -62,12 +74,14 @@ model. Download only the backends used by your chosen validation workflow:
 
 | Workflow | Download command |
 | --- | --- |
+| Ordinary protein/nucleic-acid/antibody pipeline | `partidesign download esmfold2-fast esmfold2-standard` plus the selected MPNN |
+| Explicit PPI pipeline | `partidesign download esmfold2-fast af2` plus the selected MPNN |
 | Protein sequence redesign | `partidesign download proteinmpnn solublempnn ligandmpnn` |
 | Nucleic acid sequence redesign | `partidesign download nampnn` |
 | Fast ESMFold2 prediction | `partidesign download esmfold2-fast` |
 | Standard ESMFold2 evaluation | `partidesign download esmfold2-standard` |
 | AlphaFold2 initial-guess evaluation | `partidesign download af2` |
-| Mol-1 evaluation and default protein/nuc pipeline final | `partidesign download mol1` |
+| Explicit Mol-1 evaluation | `partidesign download mol1` |
 | AlphaFold3 / AF3-LA evaluation | `partidesign download af3 af3-la` |
 
 The target name for NA-MPNN is `nampnn`. CyclicMPNN is already included. Each
@@ -123,9 +137,10 @@ export PARTIDESIGN_MODEL_DIR=/path/to/partidesign-models
 partidesign download --list
 ```
 
-This root contains `ckpts/` and `community_models/`. Copy the generation bundle
-and any needed Git-supplied PartiScore/CyclicMPNN weights into their matching
-locations there; the downloader cannot fetch missing Git-supplied files.
+This root contains `ckpts/` and `community_models/`. Download the two project
+checkpoints into it with `partidesign download partidesign partiscore --model-dir PATH`.
+Copy any needed Git-supplied CyclicMPNN files into their matching locations;
+missing Git-supplied resources still cannot be fetched by the downloader.
 Bundled code and static chemistry resources stay with the installed package.
 Task inputs, explicit checkpoint paths, and outputs still resolve from the
 invocation directory. Selecting a model root does not change that directory.
@@ -150,7 +165,7 @@ unavailable; other independent targets can still complete.
 
 | Problem | Next step |
 | --- | --- |
-| A target is unavailable | Inspect `download --list`. Obtain the generation bundle from the [Drive link](#generation-weights-and-bundled-assets), or restore Git-supplied resources from a complete checkout. |
+| A target is unavailable | Inspect `download --list`. Download `partidesign`/`partiscore` explicitly from the pinned HF source, or restore remaining Git-supplied resources such as CyclicMPNN from a complete checkout. |
 | A download fails | Check the reported source and network access, then repeat the explicit target command. |
 | Files appear to be missing after using another disk | Check `--model-dir` and `PARTIDESIGN_MODEL_DIR`; copy needed Git-supplied weights into the selected root. |
 | AF3 reports missing MSA resources | Use `check --model af3 --msa off` for the weights-and-chemistry check, or prepare the intended MSA resources. |

@@ -19,25 +19,25 @@ issues, inspect
 
 ## 2. Where are the native generation weights?
 
-The manual release download is the
-[Google Drive checkpoint](https://drive.google.com/file/d/19j8aaysxeQlT0RI5URrQm3A9uWdqSE5e/view?usp=sharing)
-(4,909,825,762 bytes). Place it at `ckpts/partidesign.ckpt` in the selected
-model root, beside `ckpts/partiscore.ckpt`, or select a compatible bundle with
-`--ckpt`. The bundle needs model, autoencoder and experiment configuration;
-a flow-matching-only training checkpoint is insufficient. The current native
-`partidesign` download-registry entry has no automatic source, so
-`partidesign download --all` does not fetch this manual Drive release. Check the
-current inventory with `partidesign download --list`; see
-`<repo>/docs/download.md` for setup.
+PartiDesign and PartiScore checkpoints come from the pinned
+[project HF release](https://huggingface.co/MegaGatlingPea/PartiDesign).
+Run `partidesign download partidesign partiscore` to prepare
+`ckpts/partidesign.ckpt` (4,909,825,762 bytes) and `ckpts/partiscore.ckpt`
+(25,350,931 bytes) under the selected model root. A compatible generation bundle
+needs model, autoencoder and experiment configuration; a flow-matching-only
+training checkpoint is insufficient. Check the current inventory with
+`partidesign download --list`; see `<repo>/docs/download.md` for pinned sources
+and external-root setup.
 
 ## 3. Why are weights missing after I chose another model directory?
 
 Root priority is `--model-dir`, then `PARTIDESIGN_MODEL_DIR`, then the detected
-checkout. That root holds `ckpts/` and `community_models/`; copy required
-Git-supplied PartiScore/CyclicMPNN weights into matching locations as well as
-the generation bundle. Static chemistry and bundled source stay with the
-installed package. A model-root change does not relocate task inputs or
-outputs. See `<repo>/docs/download.md`, Use a separate model directory.
+checkout. That root holds `ckpts/` and `community_models/`. Download the project
+checkpoints into it with `partidesign download partidesign partiscore --model-dir PATH`;
+copy any required Git-supplied CyclicMPNN files into their matching locations.
+Static chemistry and bundled source stay with the installed package. A model-root
+change does not relocate task inputs or outputs. See `<repo>/docs/download.md`,
+Use a separate model directory.
 
 ## 4. Which preview or check should I use?
 

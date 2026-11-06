@@ -335,16 +335,13 @@ class AddAtomArrayAnnot:
         polymer_mask = np.isin(
             atom_array.label_entity_id, list(entity_poly_type.keys())
         )
-        bond_array = bonds._bonds
+        bond_array = bonds.as_array()
         atom_i = bond_array[:, 0]
         atom_j = bond_array[:, 1]
         polymer_polymer = polymer_mask[atom_i] & polymer_mask[atom_j]
         different_chain = atom_array.chain_id[atom_i] != atom_array.chain_id[atom_j]
         remove = polymer_polymer & different_chain
-        bonds._bonds = bond_array[~remove]
-        bonds._remove_redundant_bonds()
-        bonds._max_bonds_per_atom = bonds._get_max_bonds_per_atom()
-        return bonds
+        return struc.BondList(len(atom_array), bond_array[~remove])
 
     @staticmethod
     def find_equiv_mol_and_assign_ids(

@@ -32,11 +32,15 @@ find_package(
   COMPONENTS Interpreter Development NumPy
   REQUIRED)
 execute_process(
-  COMMAND "${Python3_EXECUTABLE}" -c "import sys; print(sys.prefix)"
-  OUTPUT_VARIABLE PYTHON_PREFIX
+  COMMAND "${Python3_EXECUTABLE}" -c "import sys; print(sys.prefix); print(sys.base_prefix)"
+  OUTPUT_VARIABLE PYTHON_PREFIX_OUTPUT
   OUTPUT_STRIP_TRAILING_WHITESPACE
   COMMAND_ERROR_IS_FATAL ANY)
-list(PREPEND CMAKE_PREFIX_PATH "${PYTHON_PREFIX}")
+string(REPLACE "\n" ";" PYTHON_PREFIXES "${PYTHON_PREFIX_OUTPUT}")
+list(GET PYTHON_PREFIXES 0 PYTHON_PREFIX)
+list(GET PYTHON_PREFIXES 1 PYTHON_BASE_PREFIX)
+list(REMOVE_DUPLICATES PYTHON_PREFIXES)
+list(PREPEND CMAKE_PREFIX_PATH ${PYTHON_PREFIXES})
 
 # Prefer the compiler shipped in the newly-created conda prefix when the
 # caller did not provide one explicitly.  This keeps the editable build
@@ -45,7 +49,7 @@ if(NOT CMAKE_CXX_COMPILER)
   find_program(
     CONDA_CXX_COMPILER
     NAMES x86_64-conda-linux-gnu-c++ c++ g++
-    HINTS "${PYTHON_PREFIX}/bin"
+    HINTS "${PYTHON_BASE_PREFIX}/bin" "${PYTHON_PREFIX}/bin"
     NO_DEFAULT_PATH)
   if(CONDA_CXX_COMPILER)
     set(CMAKE_CXX_COMPILER "${CONDA_CXX_COMPILER}" CACHE FILEPATH
@@ -57,6 +61,8 @@ project(
   "${SKBUILD_PROJECT_NAME}"
   LANGUAGES CXX
   VERSION "${SKBUILD_PROJECT_VERSION}")
+
+option(BUILD_TESTING "Build native dependency tests" OFF)
 
 include(FetchContent)
 set(CMAKE_CXX_STANDARD 20)
@@ -128,14 +134,14 @@ target_link_libraries(
 
 target_compile_definitions(cpp PRIVATE VERSION_INFO=${PROJECT_VERSION})
 # The extension is installed at
-# <prefix>/lib/python3.12/site-packages/alphafold3.  Resolve conda's shared
-# libraries relative to that location so normal activation needs no
-# LD_LIBRARY_PATH. Native extensions are built for the selected conda prefix;
-# full conda-prefix relocation is a separate deployment concern.
+# <prefix>/lib/python3.12/site-packages/alphafold3. Keep the relative library
+# path for Conda and the native base prefix for uv virtual environments.
+# A virtual environment and its native prefix are installed as one pair;
+# importing the SDK must not require activating a different environment.
 set_target_properties(
   cpp
   PROPERTIES
-    INSTALL_RPATH "$ORIGIN/../../..")
+    INSTALL_RPATH "$ORIGIN/../../..;${PYTHON_BASE_PREFIX}/lib")
 install(TARGETS cpp LIBRARY DESTINATION alphafold3)
 install(
   FILES LICENSE

@@ -13,6 +13,7 @@ from collections.abc import Callable, Iterable, Sequence
 from contextlib import contextmanager
 import contextvars
 import gzip
+import hashlib
 from dataclasses import dataclass
 import os
 from pathlib import Path, PurePosixPath
@@ -70,6 +71,8 @@ class _AssetSpec:
     url: str | None = None
     archive_member: str | None = None
     gzip: bool = False
+    expected_bytes: int | None = None
+    sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,8 +94,9 @@ class _TargetSpec:
         return self.archive_url is not None or any(asset.url for asset in self.assets)
 
 
-def _asset(relative: str, url: str | None = None) -> _AssetSpec:
-    return _AssetSpec(relative=relative, url=url)
+def _asset(relative: str, url: str | None = None, *, expected_bytes: int | None = None,
+           sha256: str | None = None) -> _AssetSpec:
+    return _AssetSpec(relative=relative, url=url, expected_bytes=expected_bytes, sha256=sha256)
 
 
 def _direct_assets(prefix: str, names: Iterable[str], base_url: str) -> tuple[_AssetSpec, ...]:
@@ -176,10 +180,21 @@ def _esmfold2_assets(mode: str) -> tuple[_AssetSpec, ...]:
     return tuple(assets)
 
 
+_PROJECT_CKPTS_BASE = "https://huggingface.co/MegaGatlingPea/PartiDesign/resolve/a0ccb3b7b2e775d1364314f8bf35644ba0719e71"
+
+
 _CATALOG: dict[str, _TargetSpec] = {
-    "partidesign": _TargetSpec("partidesign", (_asset("ckpts/partidesign.ckpt"),)),
+    "partidesign": _TargetSpec(
+        "partidesign",
+        (_asset("ckpts/partidesign.ckpt", f"{_PROJECT_CKPTS_BASE}/ckpts/partidesign.ckpt",
+                expected_bytes=4_909_825_762,
+                sha256="ade1da422f89c3817d616195380c68a77ba31a2f71f877803680c6ee09b54944"),),
+    ),
     "partiscore": _TargetSpec(
-        "partiscore", (_asset("ckpts/partiscore.ckpt"),), with_git_repo=True
+        "partiscore",
+        (_asset("ckpts/partiscore.ckpt", f"{_PROJECT_CKPTS_BASE}/ckpts/partiscore.ckpt",
+                expected_bytes=25_350_931,
+                sha256="8961ba6612883d0e8a30265cc643ab48ccc97abb24fa25684736327438587506"),),
     ),
     "proteinmpnn": _TargetSpec(
         "proteinmpnn",
@@ -295,18 +310,18 @@ def _relative_parts(relative: str) -> tuple[str, ...]:
 def _destination(root: Path, relative: str) -> Path:
     parts = _relative_parts(relative)
     root = _root_path(root)
-    resolved_root = root.resolve(strict=False)
-    if root.exists() and root.is_symlink():
+    if root.is_symlink():
         raise _DownloadError(f"model root is a symlink: {root}")
+    resolved_root = root.resolve(strict=False)
     cursor = root
     for part in parts[:-1]:
         cursor = cursor / part
-        if cursor.exists() and cursor.is_symlink():
+        if cursor.is_symlink():
             raise _DownloadError(f"catalog parent is a symlink: {cursor}")
     destination = root.joinpath(*parts)
+    if destination.is_symlink():
+        raise _DownloadError(f"catalog destination is a symlink: {destination}")
     if destination.exists():
-        if destination.is_symlink():
-            raise _DownloadError(f"catalog destination is a symlink: {destination}")
         if not destination.is_file():
             raise _DownloadError(f"catalog destination is not a file: {destination}")
     try:
@@ -323,6 +338,123 @@ def _safe_existing_file(path: Path) -> bool:
         return False
 
 
+def _inspect_file(path: Path, asset: _AssetSpec, *, verify: bool = False) -> dict[str, object]:
+    """Inspect a regular local file; hash only an explicitly trusted checksum."""
+    item: dict[str, object] = {
+        "path": str(path), "relative": asset.relative, "bytes": None,
+        "expected_bytes": asset.expected_bytes, "expected_sha256": asset.sha256,
+        "integrity": "missing", "detail": "missing expected file",
+    }
+    try:
+        if path.is_symlink():
+            item.update(integrity="invalid", detail="unsafe symlink; not followed")
+            return item
+        if not path.exists():
+            return item
+        if not path.is_file():
+            item.update(integrity="invalid", detail="not a regular file")
+            return item
+        size = path.stat().st_size
+        item["bytes"] = size
+        if size <= 0:
+            item.update(integrity="invalid", detail="empty file")
+        elif asset.expected_bytes is not None and size != asset.expected_bytes:
+            item.update(integrity="invalid", detail=f"size mismatch: {size:,} B; expected {asset.expected_bytes:,} B")
+        elif verify and asset.sha256:
+            digest = hashlib.sha256()
+            with path.open("rb") as stream:
+                while chunk := stream.read(_CHUNK_SIZE):
+                    digest.update(chunk)
+            if digest.hexdigest() != asset.sha256.lower():
+                item.update(integrity="invalid", detail="SHA256 mismatch against the registered release checksum")
+            else:
+                item.update(integrity="checksum_verified", detail="registered SHA256 verified")
+        elif asset.expected_bytes is not None:
+            item.update(integrity="size_verified", detail="registered size matches; SHA256 not checked" if asset.sha256
+                        else "registered size matches; no trusted SHA256 is registered")
+        else:
+            item.update(integrity="present", detail="nonempty local file; no trusted size/checksum reference is registered"
+                        if not asset.sha256 else "nonempty local file; SHA256 not checked")
+    except OSError as exc:
+        item.update(integrity="invalid", detail=f"cannot inspect file: {type(exc).__name__}: {exc}")
+    return item
+
+
+def _valid_file(item: dict[str, object]) -> bool:
+    return item["integrity"] in {"present", "size_verified", "checksum_verified"}
+
+
+def _inventory_fields(spec: _TargetSpec, root: Path, *, verify: bool = False,
+                      verified_checksums: bool = False) -> dict[str, object]:
+    from .resource_info import target_metadata
+    root = _target_root(root, spec)
+    assets = {asset.relative: asset for asset in spec.assets}
+    relatives = tuple(assets)
+    if spec.name in {"af3", "af3-la"}:
+        from .af3_assets import required_relatives
+        relatives = required_relatives(spec.name)
+    files: list[dict[str, object]] = []
+    for relative in relatives:
+        asset = assets.get(relative, _AssetSpec(relative))
+        try:
+            path = _destination(root, relative)
+        except (_DownloadError, OSError, RuntimeError) as exc:
+            files.append({"path": str(_root_path(root) / relative), "relative": relative,
+                          "bytes": None, "expected_bytes": asset.expected_bytes,
+                          "expected_sha256": asset.sha256, "integrity": "invalid", "detail": str(exc)})
+            continue
+        item = _inspect_file(path, asset, verify=verify)
+        if verified_checksums and asset.sha256 and _valid_file(item):
+            # The generic downloader verified all retained/staged checksum assets
+            # before returning success; avoid hashing the same large file twice.
+            item.update(integrity="checksum_verified", detail="registered SHA256 verified before skip/publication")
+        files.append(item)
+    missing = [str(item["relative"]) for item in files if item["integrity"] == "missing"]
+    invalid = [str(item["relative"]) for item in files if item["integrity"] == "invalid"]
+    present = sum(item["bytes"] is not None for item in files)
+    valid = sum(_valid_file(item) for item in files)
+    if invalid:
+        integrity = "invalid"
+    elif missing:
+        integrity = "partial" if present else "missing"
+    elif files and all(item["integrity"] == "checksum_verified" for item in files):
+        integrity = "checksum_verified"
+    elif files and all(item["integrity"] in {"size_verified", "checksum_verified"} for item in files):
+        integrity = "size_verified"
+    else:
+        integrity = "present"
+    checked_hashes = sum(item["integrity"] == "checksum_verified" for item in files)
+    expected_hashes = sum(bool(item["expected_sha256"]) for item in files)
+    detail = f"{present}/{len(files)} files present; {valid}/{len(files)} pass local file checks"
+    if invalid or missing:
+        detail += "; " + "; ".join(f"{item['relative']}: {item['detail']}" for item in files if not _valid_file(item))
+    elif integrity == "checksum_verified":
+        detail += "; all registered SHA256 checksums verified"
+    elif expected_hashes:
+        detail += f"; SHA256 verified {checked_hashes}/{expected_hashes}; run partidesign check for checksum verification"
+    else:
+        detail += "; presence only: upstream size/checksum references are not registered"
+    return {
+        **target_metadata(spec.name), "files": files, "file_count": len(files),
+        "present_count": present, "valid_count": valid,
+        "local_bytes": sum(int(item["bytes"] or 0) for item in files),
+        "expected_bytes": sum(int(item["expected_bytes"]) for item in files)
+            if files and all(item["expected_bytes"] is not None for item in files) else None,
+        "missing": missing, "invalid": invalid, "integrity": integrity,
+        "integrity_detail": detail, "checksums_expected": expected_hashes,
+        "checksums_verified": checked_hashes,
+    }
+
+
+def _enrich_record(spec: _TargetSpec, root: Path, record: dict[str, object], *,
+                   verify: bool = False, verified_checksums: bool = False) -> dict[str, object]:
+    fields = _inventory_fields(spec, root, verify=verify, verified_checksums=verified_checksums)
+    result = {**record, **fields}
+    if record["status"] in {"installed", "downloaded"} and fields["integrity"] in {"missing", "partial", "invalid"}:
+        result.update(status="unavailable", error=fields["integrity_detail"])
+    return result
+
+
 def _target_root(root: Path, spec: _TargetSpec) -> Path:
     if spec.packaged_resource:
         from .paths import resource_root
@@ -330,17 +462,17 @@ def _target_root(root: Path, spec: _TargetSpec) -> Path:
     return root
 
 
-def _missing_assets(root: Path, spec: _TargetSpec) -> tuple[list[_AssetSpec], str | None]:
+def _missing_assets(root: Path, spec: _TargetSpec, *, verify: bool = False) -> tuple[list[_AssetSpec], str | None]:
     root = _target_root(root, spec)
     missing: list[_AssetSpec] = []
     unsafe: list[str] = []
     for asset in spec.assets:
         try:
             destination = _destination(root, asset.relative)
-        except _DownloadError as exc:
+        except (_DownloadError, OSError, RuntimeError) as exc:
             unsafe.append(str(exc))
             continue
-        if not _safe_existing_file(destination):
+        if not _valid_file(_inspect_file(destination, asset, verify=verify)):
             missing.append(asset)
     if unsafe:
         return missing, "; ".join(unsafe)
@@ -353,7 +485,7 @@ def _record(spec: _TargetSpec, root: Path, status: str, error: str | None = None
     for asset in spec.assets:
         try:
             paths.append(str(_destination(root, asset.relative)))
-        except _DownloadError:
+        except (_DownloadError, OSError, RuntimeError):
             # Keep reporting the catalog text even when a caller supplied an
             # unsafe root or a future catalog entry needs review.
             paths.append(str(_root_path(root) / asset.relative))
@@ -383,7 +515,7 @@ def _af3_record(
     for relative in relatives:
         try:
             paths.append(str(_destination(root, relative)))
-        except _DownloadError:
+        except (_DownloadError, OSError, RuntimeError):
             paths.append(str(_root_path(root) / relative))
     sources = [spec.archive_url] if spec.archive_url else []
     sources.extend(asset.url for asset in spec.assets if asset.url)
@@ -407,7 +539,7 @@ def _af3_missing_assets(root: Path, target: str) -> tuple[list[str], str | None]
     for relative in required_relatives(target):
         try:
             destination = _destination(root, relative)
-        except _DownloadError as exc:
+        except (_DownloadError, OSError, RuntimeError) as exc:
             unsafe.append(str(exc))
             continue
         if not _safe_existing_file(destination):
@@ -422,26 +554,17 @@ def _format_error(error: BaseException) -> str:
     return f"{type(error).__name__}: {message}" if message else type(error).__name__
 
 
-def list_targets(root: Path) -> list[dict[str, object]]:
+def list_targets(root: Path, *, verify: bool = False) -> list[dict[str, object]]:
     """Return local status for every catalog target without network access."""
     records: list[dict[str, object]] = []
     for name in TARGETS:
         spec = _CATALOG[name]
         af3 = name in {"af3", "af3-la"}
-        missing, unsafe = _af3_missing_assets(root, name) if af3 else _missing_assets(root, spec)
         record = _af3_record if af3 else _record
-        if unsafe:
-            records.append(record(spec, root, "unavailable", unsafe))
-        elif not missing:
-            records.append(record(spec, root, "installed"))
-        else:
-            joined = ", ".join(
-                asset if isinstance(asset, str) else asset.relative for asset in missing
-            )
-            detail = f"missing expected assets: {joined}"
-            if spec.with_git_repo:
-                detail += "; supplied with git repo; copy or restore these files from a PartiDesign checkout"
-            records.append(record(spec, root, "unavailable", detail))
+        item = _enrich_record(spec, root, record(spec, root, "installed"), verify=verify)
+        if item["status"] == "unavailable" and spec.with_git_repo:
+            item["error"] = str(item["error"]) + "; supplied with git repo; copy or restore these files from a PartiDesign checkout"
+        records.append(item)
     return records
 
 
@@ -889,6 +1012,9 @@ def _stage_direct(root: Path, asset: _AssetSpec) -> tuple[Path, Path]:
         if compressed is not None:
             with gzip.open(compressed, "rb") as stream:
                 _copy_response(stream, temporary, emit_progress=False)
+        inspected = _inspect_file(temporary, asset, verify=True)
+        if not _valid_file(inspected):
+            raise _DownloadError(f"invalid downloaded asset {asset.relative}: {inspected['detail']}")
     except (Exception, KeyboardInterrupt):
         temporary.unlink(missing_ok=True)
         raise
@@ -937,6 +1063,9 @@ def _stage_archive(root: Path, spec: _TargetSpec, assets: Sequence[_AssetSpec]) 
                         raise _DownloadError(f"archive member is not readable: {member_name!r}")
                     with extracted:
                         _copy_response(extracted, temporary)
+                    inspected = _inspect_file(temporary, asset, verify=True)
+                    if not _valid_file(inspected):
+                        raise _DownloadError(f"invalid archive asset {asset.relative}: {inspected['detail']}")
                 except (Exception, KeyboardInterrupt):
                     temporary.unlink(missing_ok=True)
                     raise
@@ -1132,12 +1261,12 @@ def _download_one(root: Path, spec: _TargetSpec, *, force: bool) -> dict[str, ob
         return _download_esmfold2_one(root, spec, force=force)
     if spec.name in {"af3", "af3-la"}:
         return _download_af3_one(root, spec, force=force)
-    missing, unsafe = _missing_assets(root, spec)
+    missing, unsafe = _missing_assets(root, spec, verify=not force)
     if unsafe:
         return _record(spec, root, "failed", unsafe)
     complete = not missing
     if complete and not force:
-        return _record(spec, root, "installed")
+        return _enrich_record(spec, root, _record(spec, root, "installed"), verified_checksums=True)
     if not spec.has_source:
         if spec.with_git_repo:
             detail = "files are supplied with git repo; copy or restore the required files from a PartiDesign checkout"
@@ -1175,7 +1304,7 @@ def _download_one(root: Path, spec: _TargetSpec, *, force: bool) -> dict[str, ob
         if not staged:
             raise _DownloadError("target has no downloadable assets")
         _publish(staged)
-        return _record(spec, root, "downloaded")
+        return _enrich_record(spec, root, _record(spec, root, "downloaded"), verified_checksums=True)
     except Exception as exc:
         return _record(spec, root, "failed", _format_error(exc))
     finally:
@@ -1214,6 +1343,8 @@ def download_targets(
                 }
             else:
                 record = _download_one(_root_path(root), spec, force=bool(force))
+                if "integrity" not in record:
+                    record = _enrich_record(spec, _root_path(root), record)
             records.append(record)
             _emit({"event": "target_done", "target": name, "record": record})
         return records

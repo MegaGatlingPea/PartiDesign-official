@@ -1,8 +1,8 @@
-# Protein/peptide binders: paired AF2-IG, Mol-1, AF3 and ESMFold2-standard final validation.
-# A candidate passes any method; AF2-IG requires both selected model pairs.
+# Protein/peptide binders: ESMFold2-fast iteration and paired AF2-IG final validation.
+# Both selected AF2-IG model pairs must pass.
 preset: ppi
 final:
-  methods: [af2_ig, mol1, af3, esmfold2-standard]
+  method: af2_ig
   validation:
     af2:
       models:
@@ -10,9 +10,6 @@ final:
       - 2
       samples: 1
       mode: both
-    mol1: {samples: 5}
-    af3: {samples: 5}
-    esmfold2: {samples: 5}
 criteria_routes:
   protein:
     screen:

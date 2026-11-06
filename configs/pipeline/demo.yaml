@@ -1,4 +1,4 @@
-# PPI demo with relaxed iteration screening and Mol-1 final validation.
+# PPI demo with relaxed ESMFold2-fast iteration screening and paired AF2-IG final validation.
 preset: ppi
 recycle: 3
 iteration:
@@ -21,5 +21,5 @@ rounds:
 final:
   max_pass: 200
   worker_gpus: 1.0
-  method: mol1
-  mol1: {samples: 5}
+  method: af2_ig
+  af2: {models: [1, 2], samples: 1, mode: both}

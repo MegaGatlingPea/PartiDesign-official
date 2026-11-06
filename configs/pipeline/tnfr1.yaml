@@ -1,4 +1,4 @@
-# TNFR1 VHH: three standard-MSA rounds, then union filtering with three methods.
+# TNFR1 VHH: three ESMFold2-fast rounds, then ESMFold2-standard with antigen MSA.
 # GPU worker allocations use each method default.
 preset: antibody
 recycle: 3
@@ -12,7 +12,7 @@ iteration:
     settings:
       temperature: 0.1
   refold:
-    method: esmfold2-standard
+    method: esmfold2-fast
     conformers: 1
   filter: false
   selection:
@@ -32,14 +32,7 @@ rounds:
     selection:
       num_clusters: 250
 final:
-  methods:
-  - esmfold2-standard
-  - mol1
-  - af3
+  method: esmfold2-standard
   max_pass: 250
   esmfold2:
-    samples: 5
-  mol1:
-    samples: 5
-  af3:
     samples: 5

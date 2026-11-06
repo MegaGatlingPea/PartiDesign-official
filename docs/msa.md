@@ -19,8 +19,12 @@ partidesign msa configs/examples/pipeline_tasks.yaml \
 ```
 
 The first command previews queries and cache reuse. The second prepares missing
-results. Add `--config configs/pipeline/demo.yaml` to use that workflow's search
-settings. `--task` is repeatable; without it, all tasks in the input are selected.
+results. Use the same ordinary workflow settings as the pipeline. The explicit
+PPI preset has no default MSA consumer, so it needs no separate pre-search.
+The standalone `msa` command is an explicit pre-search request: invoking it
+with a PPI workflow still uses its shared MSA policy, including the shared
+template default. Use `--plan` to inspect such optional pre-searches first.
+`--task` is repeatable; without it, all tasks in the input are selected.
 YAML task paths resolve from the invocation directory, as they do for `design`.
 
 For an optimization directory, use the same annotation input and task groups:
@@ -36,14 +40,17 @@ settings share the cache. Annotation paths resolve relative to `annotation.csv`.
 
 ## Defaults and search scope
 
-Protein context uses **ColabFold by default**, including MSA and structural
-templates. Turn both off with `--msa off`; no separate template switch is needed.
-The default maximum template release date is **2021-09-30**.
+Ordinary pipeline final uses ESMFold2-standard and **ColabFold by default** for
+fixed protein-context MSA, without templates. Fast iterations and designed
+chains remain query-only. Explicit AF3/AF3-LA/Mol-1 can also request protein
+templates; their default maximum template release date is **2021-09-30**.
+`--msa off` disables MSA and templates. Without eligible fixed protein context,
+standard naturally has no MSA query.
 
 | Source | Fixed protein context | Fixed RNA context | DNA |
 | --- | --- | --- | --- |
-| `colabfold` (default) | Search MSA and templates | Query-only | Query-only |
-| `af3` | Search MSA and templates with local databases | Search RNA MSA with local databases; no structural templates | Query-only |
+| `colabfold` (default) | Search MSA; templates only for template-enabled consumers | Query-only | Query-only |
+| `af3` | Local protein MSA; templates only for template-enabled consumers | AF3/Mol-1 can search RNA locally; standard remains query-only | Query-only |
 
 Designed chains remain query-only for every source, including peptides,
 antibody heavy/light chains, RNA and DNA. Ligands are not MSA queries. Original
@@ -69,13 +76,14 @@ msa:
   max_template_date: "2021-09-30"
 ```
 
-Shared settings apply to AF3 and Mol-1. Existing model-specific MSA settings
+Shared settings apply to ESMFold2-standard, AF3/AF3-LA and Mol-1. Standard
+consumes fixed protein-context MSA without templates. Model-specific MSA settings
 remain supported and can override the shared workflow settings. Corresponding
 CLI options take precedence. Use `--show-config` to inspect the resolved values.
 
 ```bash
 partidesign pipeline configs/examples/pipeline_tasks.yaml \
-  --task protdbench_insulin_receptor --preset ppi --config configs/pipeline/demo.yaml \
+  --task protdbench_insulin_receptor --preset protein \
   --msa-source colabfold
 
 partidesign validate inference/RUN --method mol1 --source gt:1 \
@@ -96,7 +104,7 @@ or pass:
 
 ```bash
 partidesign pipeline configs/examples/optimization \
-  --preset ppi --config configs/pipeline/optimize.yaml --msa auto --msa-templates false
+  --preset protein --config configs/pipeline/optimize.yaml --msa auto --msa-templates false
 ```
 
 This requests alignments only: no HHsearch or structural-template preparation

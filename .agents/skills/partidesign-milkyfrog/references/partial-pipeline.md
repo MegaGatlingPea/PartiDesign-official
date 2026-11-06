@@ -85,9 +85,9 @@ with the seeds. Recycle=1 still includes that configured initial step.
 Use configs/pipeline/optimize.yaml; it inherits the selected preset's final
 methods and validation criteria. The bundled
 configs/examples/optimization/annotation.csv lists real linear and cyclic
-complexes. Use --preset ppi for eligible AF2-IG, Mol-1, AF3 and
-ESMFold2-standard final validation, or omit it for automatic protein/nuc profiles
-with Mol-1, AF3 and ESMFold2-standard. Native antibody rows automatically select
+complexes. Use --preset ppi for eligible paired AF2-IG as the only final
+backend, or omit it for automatic protein/nuc profiles with ESMFold2-standard
+final validation. Native antibody rows automatically select
 the antibody profile; use `--preset antibody` explicitly for clarity.
 
 The fixed five-seed GLP1R example is `configs/examples/antibody_opt`. Its columns
@@ -136,9 +136,9 @@ whole-complex relaxation before partial.
 
 | Profile | Final validation |
 | --- | --- |
-| protein, nuc | Mol-1, AF3 and ESMFold2-standard, five samples per model; each selects its native best-ranked prediction before applying its criteria. |
+| protein, nuc | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by 0.8 ipTM + 0.2 pTM, then apply final criteria. |
 | antibody | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by 0.8 ipTM + 0.2 pTM, then apply final criteria. |
-| ppi, explicitly selected | AF2-IG, Mol-1, AF3 and ESMFold2-standard. Mol-1, AF3 and ESMFold2-standard each use five samples; AF2-IG models `[1, 2]` each use one matched complex/monomer pair. Each AF2 model chooses its best complex by 0.8ipTM+0.2pTM and its same-sample monomer; both model pairs must pass AF2's internal filter. |
+| ppi, explicitly selected | AF2-IG only: models `[1, 2]` each use one matched complex/monomer pair. Each AF2 model chooses its best complex by 0.8ipTM+0.2pTM and its same-sample monomer; both model pairs must pass. No standard, AF3 or Mol-1 prediction is added by this preset. |
 
 Auto selects antibody for native antibody tasks, otherwise protein/nuc, never
 ppi. PPI requires eligible standard
@@ -206,10 +206,12 @@ Standard uses its own checkpoint, shared fixed protein-context MSA without
 templates, and native `0.8*ipTM+0.2*pTM` best-sample ordering before filtering.
 Designed chains remain query-only. Its default five samples are configured by
 `esmfold2: {samples: 5}` under `final`. ESMFold2-fast remains the default iteration
-model. The default final lists are `methods: [mol1, af3, esmfold2-standard]` for
-protein/nuc and `methods: [af2_ig, mol1, af3, esmfold2-standard]` for ppi.
+model. Protein/nuc/antibody default to only standard final validation; PPI
+defaults to only paired AF2-IG. AF3, Mol-1 and multi-method finals are explicitly
+optional. With no fixed protein context, standard still uses standard weights
+and query-only input instead of claiming a context MSA search.
 
-Both iteration and final may use standard. Native defaults are
+Explicit overrides may use standard in iteration as well as final. Native defaults are
 `msa_max_depth: 1024`, `msa_column_mask_rate: 0.1`, and
 `msa_subsample_at_inference: true`, under `iteration.refold.esmfold2` or
 `final.esmfold2`. A `null` depth removes the row limit subject to native feature
@@ -217,7 +219,8 @@ caps. `esmfold2.msa` accepts the shared MSA schema; common `--msa` and
 `--msa-source` flags apply to standard. Fast remains query-only with any shared
 policy.
 
-A candidate passes when any method passes its own criteria; AF2 still requires
+With explicit `final.methods`, a candidate passes when any method passes its
+own criteria; AF2 still requires
 both configured model pairs internally. Do not turn this into an intersection
 or stop after the first method passes. Per-method criteria use `criteria_routes`
 in workflow YAML.
@@ -361,12 +364,14 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insu
 partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor --preset ppi --config configs/pipeline/demo.yaml --run-name insulin_receptor_demo
 ```
 
-The lighter demo uses ESMFold2-fast iteration with relaxed
+The bundled PPI demo uses ESMFold2-fast iteration with relaxed
 `pipeline_protein_binder` / `pipeline_peptide_binder` screening, 200 initial
 clusters, a 200-candidate limit in later rounds and the final pool, and the preset
-worker budgets. Its final validation uses only Mol-1 with five samples and native
-ranking before criteria. Prepare ESMFold2-fast and Mol-1 alongside generation and
-auto MPNN. Standard `ppi` final validation runs all four configured methods.
+worker budgets. Its final validation uses only AF2-IG models `[1, 2]`, one
+matched complex/monomer pair each, and both pairs must pass. Prepare
+ESMFold2-fast and AF2 alongside generation and auto MPNN. Ordinary
+protein/nuc/antibody final validation instead uses only ESMFold2-standard,
+with five samples and shared fixed protein-context MSA without templates.
 
 YAML output begins at `inference/<run>/<task>/design/`; directory input uses
 `start/` for copied seeds, resolved result.csv and initial partial/<sample_id>/

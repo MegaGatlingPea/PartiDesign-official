@@ -27,43 +27,68 @@ Use the matching `README.md` and `docs/environments.md` for setup and tested
 versions. `partidesign_cu12.yaml` creates `partidesign`;
 `partidesign_cu13.yaml` creates `partidesign_cu13` with the optional BioIR provider.
 Both target Linux/NVIDIA and support PyRosetta, DSSP, and DAlphaBall for CPU
-postfiltering; a source checkout provides DAlphaBall.
+postfiltering; a source checkout provides DAlphaBall. The default uv route uses
+`bash install.sh`, followed by `source .venv/bin/activate`. Select
+`--installer conda` explicitly for the named Conda/pip route.
+It pairs a locked virtual environment with native Conda dependencies. Keep the
+pair intact, use separate paths for CUDA 13, and follow `docs/environments.md`
+for `--plan`, updates and `--pip-only` recovery. Do not substitute
+`pip install .[full]` for the uv installer.
 Create or change an environment only when that is part of the requested work;
 do not install dependencies merely to answer a usage question. For requested
 execution, inspect `nvidia-smi` and the active PyTorch/CUDA build if readiness is
 uncertain. A CPU asset check does not establish GPU readiness.
+
+Interactive help uses centered bordered tables and left-aligned section titles.
+Its small MilkyFrog header displays original bundled PNG/JPEG images only when the terminal
+supports native images: root `--help` uses the standing image; other human views
+choose from six images once per process, independently of model seeds. Unsupported terminals use
+text only. Redirected help, `NO_COLOR`, and `TERM=dumb` stay plain; do not treat
+terminal styling as a change to command flags, JSON plans, or scientific output.
+See `docs/commands.md#terminal-appearance` for SSH and terminal support.
 
 Read `docs/download.md` and `docs/check.md` for asset setup. Begin with inventory
 and ordinary checks, which do not download or run model inference:
 
 ```bash
 partidesign download --list
-partidesign check --model chemistry --model partiscore
+partidesign check
 ```
 
-The public generation release is
-[partidesign.ckpt](https://drive.google.com/file/d/19j8aaysxeQlT0RI5URrQm3A9uWdqSE5e/view?usp=sharing)
-(4,909,825,762 bytes). Place it at `ckpts/partidesign.ckpt` under the selected
-model root, beside the Git-supplied `ckpts/partiscore.ckpt`, or pass its path with
-`design --ckpt FILE` and the matching task check. The generation bundle includes
-the model, autoencoder, and experiment configuration; a flow-matching-only
-training checkpoint is insufficient. The native downloader currently has no
-automatic source registered for this bundle, so `download --all` cannot obtain
-it by itself. Do not describe the public release link as unavailable.
+Bare `check` shows four compact sections: Machine overview, PartiDesign models,
+Sequence design, and Structure prediction. The machine rows show CPU/GPU usage,
+RAM and free model-disk space; model rows show Usage, Size and Status.
+In interactive `download`, a checkbox selects a download and a separate ✓ marks
+existing files. Fast and standard share the same ESM-C safetensors.
+
+The PartiDesign and PartiScore checkpoints are available from the pinned
+[project HF release](https://huggingface.co/MegaGatlingPea/PartiDesign):
+
+```bash
+partidesign download partidesign partiscore
+```
+
+They are stored as `ckpts/partidesign.ckpt` (4,909,825,762 bytes) and
+`ckpts/partiscore.ckpt` (25,350,931 bytes) under the selected model root.
+The generation bundle includes the model, autoencoder and experiment configuration;
+a flow-matching-only training checkpoint is insufficient. An explicit compatible
+path remains available through `design --ckpt FILE` and the matching task check.
 
 Model-root priority is `--model-dir`, `PARTIDESIGN_MODEL_DIR`, then the detected
-checkout. An external root contains `ckpts/` and `community_models/`; copy needed
-Git-supplied PartiScore/CyclicMPNN weights into their matching locations there.
+checkout. An external root contains `ckpts/` and `community_models/`; use
+`partidesign download partidesign partiscore --model-dir PATH` for project weights,
+and copy any needed Git-supplied CyclicMPNN files into their matching locations.
 Code and static chemistry resources stay with the installed package. Selecting
 a model root does not change where task inputs and outputs resolve.
 
-For the default antibody pipeline final, download the standard ESMFold2 model:
+For ordinary protein, nucleic-acid and antibody pipelines, download both ESMFold2 variants:
 
 ```bash
-partidesign download esmfold2-standard
+partidesign download esmfold2-fast esmfold2-standard
 ```
 
-For Mol-1 validation or protein/nuc pipeline final, use:
+The PPI preset uses fast iteration and AF2-IG final; prepare `esmfold2-fast`,
+`af2`, and the selected MPNN. For explicitly selected Mol-1 validation, use:
 
 ```bash
 partidesign download mol1

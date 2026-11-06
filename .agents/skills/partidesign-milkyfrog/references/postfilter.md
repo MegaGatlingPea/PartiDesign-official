@@ -62,8 +62,8 @@ same requested scope.
 
 Both `partidesign_cu12.yaml` / `partidesign` and
 `partidesign_cu13.yaml` / `partidesign_cu13` install Ray, CPU PyRosetta, and
-DSSP. The checkout provides DAlphaBall; wheel-only users must provision its
-executable. Use the maintained guide for pinned manual SDK/DSSP/libmcfp
+DSSP. The Git checkout provides DAlphaBall; wheel or Python-source-archive
+users must provision its executable. Use the maintained guide for pinned manual SDK/DSSP/libmcfp
 installation and tool resolution. Do not install tools for a usage question.
 
 Runtime overlays accept exactly `seed`, `workers`, `threads`, `timeout`,

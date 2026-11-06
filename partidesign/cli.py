@@ -11,7 +11,32 @@ from ._lightning_notices import configure_lightning_notices
 from .paths import model_dir, using_model_dir
 
 
+class CompleteHelpFormatter(argparse.HelpFormatter):
+    """Keep supported values visible even when the invocation uses a short metavar."""
+    def _get_help_string(self, action):
+        text = action.help or ""
+        if action.choices is not None and action.dest not in {"targets", "model"}:
+            text += " Choices: " + ", ".join(map(str, action.choices)) + "."
+        if (action.nargs != 0 and action.default is not None
+                and action.default != argparse.SUPPRESS
+                and "default" not in text.lower()
+                and not isinstance(action, argparse._SubParsersAction)):
+            text += " Default: " + str(action.default) + "."
+        return text
+
+
 class CLIParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("formatter_class", CompleteHelpFormatter)
+        super().__init__(*args, **kwargs)
+
+    def format_help(self):
+        text = super().format_help()
+        if self.prog.rsplit(" ", 1)[-1] in {"download", "check"}:
+            from .ui import _resource_catalog_text
+            text += _resource_catalog_text()
+        return text
+
     def print_help(self, file=None):
         from .ui import print_help
         print_help(self, file)
@@ -62,7 +87,7 @@ def _task_options(parser, *, generation=False):
 def _msa_options(parser, *, source_alias=False):
     """Add the shared context MSA policy flags for validate/check."""
     _single(parser, "--msa", choices=("auto", "off", "cache-only"),
-            help="AF3/AF3-LA/Mol-1 target/context MSA policy")
+            help="Fixed-context MSA policy for structure prediction")
     _single(parser, *(('--msa-source', '--source') if source_alias else ('--msa-source',)),
             choices=('colabfold', 'af3'), help="Shared MSA/template search source: ColabFold service or local AF3 databases")
     _single(parser, '--msa-server-url', help="ColabFold MSA service URL")
@@ -83,7 +108,7 @@ def _msa_options(parser, *, source_alias=False):
     parser.add_argument("--msa-refresh", action="store_true",
                         help="Refresh matching shared MSA/template cache generations")
     _single(parser, "--msa-templates", choices=("true", "false"),
-            help="Include protein templates with MSA search (default: true)")
+            help="Include protein templates with MSA search (default: active configuration)")
     _single(parser, "--msa-template-date",
             help="Maximum template release date (YYYY-MM-DD)")
 
@@ -94,19 +119,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
     download = commands.add_parser("download", help="Download model weights and required resources",
-                                   description="Download explicit resource targets, or select interactively in a terminal when no targets are given.")
+        description='Choose and prepare model resources for your workflow.')
     download.add_argument("targets", nargs="*", choices=TARGETS, metavar="TARGET",
-                          help="Resource targets; omit to select interactively")
+                          help="Models to download; omit for the interactive selector")
     _model_location(download)
     download.add_argument("--all", action="store_true", help="Prepare every registered target")
     download.add_argument("--list", action="store_true", help="List local status and sources without network")
     download.add_argument("--force", action="store_true", help="Replace only after a complete new download succeeds")
-    design = commands.add_parser("design", help="Generate molecular designs from task YAML")
-    design.add_argument("task_file", type=Path, metavar="TASK_FILE.yaml")
+    design = commands.add_parser("design", help="Generate molecular designs from task YAML",
+        description='Generate molecular identities and structures from task YAML.')
+    design.add_argument("task_file", type=Path, metavar="TASK_FILE.yaml",
+                        help="Task YAML defining molecules, conditions, design chains and sample counts")
     _model_location(design)
     _task_options(design, generation=True)
-    check = commands.add_parser("check", help="Check installation, model files, and task inputs")
-    check.add_argument("task_file", nargs="?", type=Path, metavar="TASK_FILE.yaml")
+    check = commands.add_parser("check", help="Inspect hardware, installation, all resources and task inputs",
+        description='Check machine usage and local model resources.')
+    check.add_argument("task_file", nargs="?", type=Path, metavar="TASK_FILE.yaml",
+                       help="Optional task YAML for configuration, input structure, routing and selected-backend preflight")
     _model_location(check)
     _task_options(check)
     choice = check.add_mutually_exclusive_group()
@@ -117,22 +146,27 @@ def build_parser() -> argparse.ArgumentParser:
     _single(check, "--out", type=Path, help="Keep smoke outputs here; otherwise use a temporary directory")
     _msa_options(check)
 
-    relax = commands.add_parser("relax", help="Optimize existing structures with OpenMM")
-    relax.add_argument("task_file", type=Path, metavar="TASK_FILE.yaml")
+    relax = commands.add_parser("relax", help="Optimize existing structures with OpenMM",
+        description='Relax existing generated structures with OpenMM.')
+    relax.add_argument("task_file", type=Path, metavar="TASK_FILE.yaml",
+                       help="Task YAML matching the existing run's tasks, molecules and structural conditions")
     _model_location(relax)
     _single(relax, "--config", type=Path, help="Closed main configuration overlay (.yaml)")
     relax.add_argument("--task", action="append", help="Select a task name (repeatable)")
     _single(relax, "--out", type=Path, required=True, help="Existing inference run root containing task result.csv files")
     _single(relax, "--limit", type=int, help="Positive maximum number of samples to relax per task")
     _single(relax, "--platform", choices=("CUDA", "CPU"), help="CUDA uses all visible GPUs; CPU is a sequential diagnostic")
-    _single(relax, "--charge-method", choices=("gasteiger", "am1bcc"))
+    _single(relax, "--charge-method", choices=("gasteiger", "am1bcc"),
+            help="Small-molecule partial charges: fast Gasteiger or AmberTools AM1-BCC (default: configured gasteiger)")
     relax.add_argument("--override", action="append", default=[], metavar="KEY=VALUE",
                        help="Existing Hydra configuration override (repeatable)")
     relax.add_argument("--rerun", action="store_true", help="Also reprocess completed relaxations and replace their refined files")
     relax.add_argument("--plan", action="store_true", help="Count selected existing samples without relaxation")
 
-    score = commands.add_parser("score", help="Score structures with PartiScore")
-    score.add_argument("input_dirs", nargs="+", type=Path, metavar="INPUT_DIR")
+    score = commands.add_parser("score", help="Score structures with PartiScore",
+        description='Score molecular interfaces in existing structures with PartiScore.')
+    score.add_argument("input_dirs", nargs="+", type=Path, metavar="INPUT_DIR",
+                       help="One or more directories containing direct-child CIF files or PDB files (one format per directory)")
     _model_location(score)
     _single(score, "--config", type=Path, help="Closed score configuration overlay (.yaml)")
     _single(score, "--ckpt", type=Path, help="Explicit PartiScore checkpoint")
@@ -146,20 +180,25 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_argument("--show-config", action="store_true",
                        help="Print resolved scoring configuration without scoring")
 
-    cluster = commands.add_parser("cluster", help="Cluster designs that pass validation by structural similarity")
+    cluster = commands.add_parser("cluster", help="Cluster designs that pass validation by structural similarity",
+        description='Group successful designs by structural similarity with USalign.')
     from src.cluster.cli import add_arguments as cluster_arguments
     cluster_arguments(cluster)
 
-    postfilter = commands.add_parser("postfilter", help="Relax and filter validated protein and peptide complexes")
+    postfilter = commands.add_parser("postfilter", help="Relax and filter validated protein and peptide complexes",
+        description='Relax and filter validated protein and peptide complexes.')
     from src.postfilter.cli import add_arguments as postfilter_arguments
     postfilter_arguments(postfilter)
 
-    pipeline = commands.add_parser("pipeline", help="Run design, refinement, and validation in one command")
+    pipeline = commands.add_parser("pipeline", help="Run design, refinement, and validation in one command",
+        description='Run design, iterative refinement and final validation together.')
     from src.pipeline.cli import add_arguments as pipeline_arguments
     pipeline_arguments(pipeline)
 
-    msa = commands.add_parser('msa', help='Prepare shared context MSAs and protein templates from task YAML')
-    msa.add_argument('task_file', type=Path, metavar='TASK_FILE.yaml')
+    msa = commands.add_parser('msa', help='Prepare shared context MSAs and protein templates from task YAML',
+        description='Prepare reusable context alignments and protein templates.')
+    msa.add_argument('task_file', type=Path, metavar='TASK_FILE.yaml',
+                     help='Task YAML whose fixed context chains define the shared MSA/template queries')
     _model_location(msa)
     _single(msa, '--config', type=Path, help='Pipeline workflow YAML')
     msa.add_argument('--task', action='append', help='Select task names (repeatable)')
@@ -169,15 +208,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Constants and configuration parsing in this package do not import models.
     from src.validate.config import METHODS
-    validate = commands.add_parser("validate", help="Evaluate designs and apply quality filters")
-    validate.add_argument("runs", nargs="+", metavar="RUN_OR_TASK_PATH")
+    validate = commands.add_parser("validate", help="Evaluate designs and apply quality filters",
+        description='Evaluate existing designs and apply selected quality filters.')
+    validate.add_argument("runs", nargs="+", metavar="RUN_OR_TASK_PATH",
+                          help="One or more existing generation run directories or individual task directories")
     _model_location(validate)
-    _single(validate, "--config", type=Path)
+    _single(validate, "--config", type=Path,
+            help="Validation YAML overlay for sequence sources, prediction methods, workers and filters")
     validate.add_argument("--task", action="append", help="Select task names (repeatable)")
     validate.add_argument("--method", action="append", choices=METHODS, help="Validation methods (repeatable)")
-    validate.add_argument("--source", action="append", help="SOURCE:COUNT slots; gt or proteinmpnn/solublempnn/ligandmpnn/cyclicmpnn/nampnn, each also accepts -fi (6 A); repeatable; fold default gt:1+solublempnn:1, nucleic sequence-design default gt:1+nampnn:1")
+    validate.add_argument("--source", action="append", help="SOURCE:COUNT slots: gt, proteinmpnn, solublempnn, ligandmpnn, cyclicmpnn, nampnn; add -fi for fixed identities")
     validate.add_argument("--criteria", action="append", help="Filter preset names (repeatable; default none)")
-    _single(validate, "--presets", type=Path)
+    _single(validate, "--presets", type=Path,
+            help="Additional native criteria-preset definitions YAML used by --criteria")
     _single(validate, "--worker-gpus", type=float, help="GPU fraction per worker in (0,1]")
     _single(validate, "--worker-cpus", type=float, help="Positive CPU allocation per worker")
     maintenance = validate.add_mutually_exclusive_group()
@@ -694,6 +737,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not can_prompt():
             parser.error("download needs TARGET(s), --all or --list outside an interactive terminal")
     try:
+        if (args.command in {"cluster", "postfilter", "pipeline"}
+                and not getattr(args, "plan", False) and not getattr(args, "show_config", False)):
+            from .ui import show_context
+            show_context(args.command.capitalize(), None)
         if args.command == "cluster":
             from src.cluster.cli import run as cluster_run
             return cluster_run(args)
@@ -730,6 +777,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             return int(any(item["status"] in {"failed", "unavailable"} for item in records))
         with using_model_dir(root):
             if args.command == 'msa':
+                if not args.plan:
+                    from .ui import show_context
+                    show_context("MSA", None)
                 from src.validate.msa_command import run
                 return run(args, root)
             if args.command == "design":
@@ -746,7 +796,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 from .ui import show_context
                 from src.design.postproc.resume import recover_postprocessing
                 runner = build_design_runner(args, root)
-                show_context("Relax", root, "Existing outputs: " + str(runner.config.output_dir))
+                show_context("Relax", root, "Existing outputs: " + str(runner.config.output_dir), mascot=not args.plan)
                 result = recover_postprocessing(
                     runner, limit=args.limit, rerun=args.rerun, plan=args.plan,
                     platform=args.platform, charge_method=args.charge_method)
@@ -764,6 +814,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     import yaml
                     print(yaml.safe_dump(config, sort_keys=False), end="")
                     return 0
+                from .ui import show_context
+                show_context("Score", None)
                 from src.scoring.cli import run as score_run
                 return int(score_run(config) or 0)
             from src.validate.__main__ import main as validate_main

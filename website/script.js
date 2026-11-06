@@ -1,3 +1,31 @@
+// One explicit theme choice for desktop and mobile; OS preferences do not override it.
+const themeButtons = [...document.querySelectorAll("[data-theme-toggle]")];
+function applyTheme(dark, persist = false) {
+  document.documentElement.dataset.theme = dark ? "partidesign-night" : "partidesign";
+  document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  document.querySelector('meta[name="theme-color"]').content = dark ? "#0c1120" : "#ffffff";
+  themeButtons.forEach((button) => {
+    const label = dark ? "Switch to light mode" : "Switch to dark mode";
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+    button.setAttribute("aria-pressed", String(dark));
+    button.classList.toggle("swap-active", dark);
+    button.hidden = false;
+  });
+  if (persist) {
+    try { localStorage.setItem("partidesign-theme", dark ? "dark" : "light"); } catch {}
+  }
+}
+applyTheme(document.documentElement.dataset.theme === "partidesign-night");
+themeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    applyTheme(document.documentElement.dataset.theme !== "partidesign-night", true);
+  });
+});
+window.addEventListener("storage", (event) => {
+  if (event.key === "partidesign-theme" || event.key === null) applyTheme(event.newValue === "dark");
+});
+
 // Keyboard-accessible example tabs.
 document.querySelectorAll("[data-tabs]").forEach((group) => {
   const tabs = [...group.querySelectorAll('[role="tab"]')];

@@ -4,6 +4,10 @@ Run environment commands from the repository root. Model assets stay in `ckpts/`
 and `community_models/`, or in `PARTIDESIGN_MODEL_DIR`; switching environments
 uses the same weights.
 
+`bash install.sh` defaults to full uv installation and CUDA 12. It automatically
+creates the native Conda prefix and paired `.venv`; uv and Mamba or Conda must
+already be installed. Use `--installer conda` for the named Conda/pip route.
+
 | Definition | Environment | Python | PyTorch | JAX GPU plugins | cuEquivariance | BioIR |
 | --- | --- | --- | --- | --- | --- | --- |
 | `partidesign_cu12.yaml` | `partidesign` | 3.12.6 | 2.9.1+cu128 | 0.10.2 / CUDA 12 | 0.10.0 / CUDA 12 | No |
@@ -25,23 +29,74 @@ PartiDesign, AF3 (`community_models/af3/source`), and Mol-1
 (`community_models/mol1/source`) packages. Relative install paths require the
 repository root. Do not use `--no-deps` or ignore resolver errors.
 
-## Install CUDA 12
+## Install with uv
+
+Use uv 0.11.17 or later and the same Linux/NVIDIA requirements as the selected
+CUDA profile. Conda or Mamba is still required for native dependencies.
+
+```bash
+bash install.sh --installer uv --cuda 12
+source .venv/bin/activate
+partidesign --help
+```
+
+The defaults are `.venv` and `.cache/environments/native-cu12`. For CUDA 13:
+
+```bash
+bash install.sh --installer uv --cuda 13 --venv .venv-cu13 \
+  --native-prefix .cache/environments/native-cu13
+source .venv-cu13/bin/activate
+```
+
+Use `--venv PATH` and `--native-prefix PATH` for explicit locations.
+The native prefix supplies Python 3.12.6, OpenMM 8.4.0, OpenFF, PDBFixer,
+AmberTools, force fields, and native build/search/postfilter tools. The `.venv`
+inherits these packages and uv manages Torch, JAX, the private ESM/Transformers
+forks, AF3, Mol-1, PyRosetta, and PartiDesign. `uv.lock` and the native YAML
+jointly define the complete environment. The native force-fields package is
+`openmmforcefields=0.15.1=pyhcf101f3_1`; the withdrawn PyPI release is not used.
+
+The installer selects one of the mutually exclusive `cu12` and `cu13` profiles,
+with `full`. Do not use `--all-extras`, mix CUDA profiles, or substitute
+`pip install .[full]`: pip does not read uv's private source mappings.
+Keep the native prefix and `.venv` as one installation. Activating the native
+prefix separately is unnecessary; do not relocate one without its partner.
+
+Preview without installing or writing files:
+
+```bash
+bash install.sh --installer uv --cuda 12 --plan
+```
+
+After the native stage completes, `--pip-only` resumes the uv Python stage:
+
+```bash
+bash install.sh --installer uv --cuda 12 --pip-only
+```
+
+Use `--update` to update native dependencies before syncing the `.venv`.
+Repeat custom path options on retries. Existing unrelated prefixes and incorrect
+CUDA/native/venv pairings are rejected. Retain `UV_CACHE_DIR`, `CONDA_PKGS_DIRS`
+and package caches across retries. These are installer commands; there is no
+`partidesign update` command.
+
+## Install CUDA 12 with Conda
 
 The CUDA 12 definition retains the environment name `partidesign`:
 
 ```bash
-bash install.sh --cuda 12
+bash install.sh --installer conda --cuda 12
 conda activate partidesign
 python -m pip check
 partidesign --help
 ```
 
-## Installation progress
+## Conda installation progress
 
-Run the installer from a complete checkout:
+For the explicit Conda/pip route, run from a complete checkout:
 
 ```bash
-bash install.sh --cuda 12
+bash install.sh --installer conda --cuda 12
 ```
 
 Use `--cuda 13` for the other profile. The Bash script uses Mamba when available
@@ -68,7 +123,7 @@ resolver transactions or disable dependency resolution.
 Preview the stages and commands without installing or creating files:
 
 ```bash
-bash install.sh --cuda 12 --plan
+bash install.sh --installer conda --cuda 12 --plan
 ```
 
 The original Conda entry point remains available:
@@ -83,6 +138,9 @@ when you want live pip progress.
 
 ## Resume an interrupted install
 
+For the default uv route, use the recovery commands in [Install with uv](#install-with-uv),
+repeating any custom native/venv paths. The commands below apply to an existing
+**Conda/pip** installation and therefore select `--installer conda` explicitly.
 Keep the environment and use the same CUDA profile, manager and cache settings.
 Use `--manager mamba` or `--manager conda` to keep that choice explicit.
 If Conda finished and the interruption happened during pip, rerun only that
@@ -90,10 +148,10 @@ stage from the repository root:
 
 ```bash
 # CUDA 12: existing environment partidesign
-bash install.sh --cuda 12 --pip-only
+bash install.sh --installer conda --cuda 12 --pip-only
 
 # CUDA 13: existing environment partidesign_cu13
-bash install.sh --cuda 13 --pip-only
+bash install.sh --installer conda --cuda 13 --pip-only
 ```
 
 This also works after the pip stage of a direct `conda env create` command
@@ -105,8 +163,8 @@ If the interruption happened during Mamba or Conda dependency installation,
 retry that stage and then pip:
 
 ```bash
-bash install.sh --cuda 12 --update
-# Or: bash install.sh --cuda 13 --update
+bash install.sh --installer conda --cuda 12 --update
+# Or: bash install.sh --installer conda --cuda 13 --update
 ```
 
 With the original Conda commands, the equivalent retry is:
@@ -137,7 +195,7 @@ On Linux the default is usually `~/.cache/pip`. To use another disk, set
 
 ```bash
 export PIP_CACHE_DIR=/path/to/package-cache
-bash install.sh --cuda 12
+bash install.sh --installer conda --cuda 12
 ```
 
 Leave caching enabled and keep the cache directory when retrying. Routine
@@ -156,8 +214,9 @@ environment is required. Each definition retains its own PyTorch/JAX CUDA stack.
 After creating either environment, check dependency metadata and CLI availability:
 
 ```bash
-conda activate partidesign
-# Or: conda activate partidesign_cu13
+source .venv/bin/activate
+# CUDA 13 uv: source .venv-cu13/bin/activate
+# Explicit Conda route: conda activate partidesign or partidesign_cu13
 python -m pip check
 partidesign postfilter --help
 ```
@@ -168,24 +227,26 @@ an existing run directory; see [selecting passing inputs](postfilter.md#select-p
 
 For an environment created before these dependencies were added, follow the
 [manual postfilter setup](postfilter.md#dependencies-and-execution-settings).
-Postfilter runs on CPU and needs no new folding predictions. A source checkout
-provides DAlphaBall; wheel-only users must provision that executable separately.
+Postfilter runs on CPU and needs no new folding predictions. A Git checkout
+provides DAlphaBall; wheel and Python-source-archive users must provision that
+executable separately; see the [native tool instructions](../community_models/rosetta/README.md).
 
-## Install CUDA 13
+## Install CUDA 13 with Conda
 
-Use Linux x86_64 with glibc >=2.34 and NVIDIA driver >=580. The YAML supplies the
+For uv, use the separate CUDA 13 pair in [Install with uv](#install-with-uv).
+For the explicit Conda route, use Linux x86_64 with glibc >=2.34 and NVIDIA driver >=580. The YAML supplies the
 CUDA runtime and compiler tools, including an explicit CUDA 13 OpenMM build.
 Do not override them with an older toolkit in `CUDA_ROOT` or `LD_LIBRARY_PATH`.
 
 ```bash
-bash install.sh --cuda 13
+bash install.sh --installer conda --cuda 13
 conda activate partidesign_cu13
 python -m pip check
 partidesign --help
 python -c "import torch, jax; print(torch.__version__, torch.version.cuda); print(torch.cuda.get_device_name()); print(jax.devices())"
 ```
 
-## Move from CUDA 12
+## Move from CUDA 12 with Conda
 
 Create `partidesign_cu13` alongside `partidesign`, then activate it for the same
 commands and model directory. This keeps the working CUDA 12 environment:

@@ -43,7 +43,6 @@ dist/
 # Downloaded model/chemistry state. Only curated Git assets are exceptions.
 /ckpts/*
 *.ckpt
-!/ckpts/partiscore.ckpt
 *.pt
 *.pth
 *.safetensors
@@ -76,3 +75,7 @@ dist/
 
 # Local acceptance tests are not part of the published repository.
 /tests/
+
+# Separate CUDA virtual environments shown in the installation guide.
+/.venv-cu12/
+/.venv-cu13/

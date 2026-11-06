@@ -34,6 +34,8 @@ dependencies:
   - scipy=1.17.1
   - ambertools=24.8
   - openmm=8.4.0=py312ha28768a_2
+  # Native force-field data; the PyPI 0.15.1 distribution was withdrawn.
+  - openmmforcefields=0.15.1=pyhcf101f3_1
   # Private standard-residue heavy-atom completion; preserves the public graph.
   - pdbfixer=1.12
   - openff-toolkit-base=0.18.0
@@ -85,7 +87,6 @@ dependencies:
       - rich==14.3.4
       # Keyboard-controlled model selection in the interactive download dialog.
       - prompt-toolkit==3.0.53
-      - openmmforcefields==0.15.1
       - ray==2.53.0
       - loguru==0.7.3
       # Audited Biohub fork copied with the ESMFold2 source; installing the

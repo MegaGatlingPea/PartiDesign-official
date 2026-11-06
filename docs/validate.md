@@ -46,7 +46,7 @@ These first commands collect metrics. To publish passing candidates, add criteri
 | `mol1` | Protein, RNA, DNA, and ligand-containing structures; shared context MSA/template cache | `mol1` |
 | `af3` | Protein, RNA, DNA, and ligand-containing structures; complex prediction by default | `af3` |
 | `af3-la` | The AF3-LA variant, with its own weights and the same validation interface | `af3-la` |
-| `partiscore` | Interface scoring of saved original structures; no refolding or sequence redesign | Git-supplied `partiscore` |
+| `partiscore` | Interface scoring of saved original structures; no refolding or sequence redesign | `download partiscore` |
 | `vina_dock` | CPU docking and chemical evaluation of eligible, refined small-molecule designs in protein pockets | Vina/Meeko/RDKit from the environment |
 
 With no `--method` or profile, the command selects **`esmfold2-fast`**. A profile passed through
@@ -462,8 +462,10 @@ mol1:
   msa: {mode: auto}
 ```
 
-Standalone validation defaults to one sample; the protein/nuc pipeline final
-uses five and filters its highest native `ranking_score` sample. `mode` accepts
+Standalone Mol-1 validation defaults to one sample. When Mol-1 is explicitly
+selected for pipeline final validation, its default remains five samples and
+filters the highest native `ranking_score` sample. Ordinary pipeline final
+validation instead uses ESMFold2-standard. `mode` accepts
 `complex`, `monomer`, or `both`. `dtype` accepts `bf16`, `fp32`, or `fp16`.
 `triangle_multiplicative` and `triangle_attention` accept `auto`, `torch`, or
 `cuequivariance`; `auto` uses available kernels. An explicit `checkpoint` path

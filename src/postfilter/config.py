@@ -24,9 +24,9 @@ def load_yaml(path):
 
 def resolve_tool(name,configured=None):
     if configured: return str(Path(configured).expanduser().absolute())
-    from partidesign.paths import resource_root
+    from partidesign.paths import native_bin_dir, resource_root
     names=("mkdssp","dssp") if name=="dssp" else ("DAlphaBall.gcc","DAlphaBall")
-    roots=[Path(sys.executable).parent]
+    roots=[Path(sys.executable).parent,native_bin_dir()]
     if platform.system()=="Linux" and platform.machine().lower() in {"x86_64","amd64"}:
         roots.insert(0,resource_root()/"community_models"/"rosetta"/"bin")
     for root in roots:

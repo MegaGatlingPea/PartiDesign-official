@@ -10,14 +10,29 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insu
 
 This insulin receptor binder task requests 32 initial backbones. The command
 uses the PPI workflow below. Add `--config configs/pipeline/demo.yaml`
-for a lighter final stage with five Mol-1 samples and the same production
-candidate limits.
+for the bundled PPI demo with explicit worker budgets and the same production
+candidate limits and paired AF2-IG final validation.
 
-For the default PPI profile, prepare generation, MPNN, ESMFold2-fast, AF2,
-Mol-1, AF3 and ESMFold2-standard assets; see
+For the default PPI profile, prepare generation, MPNN, ESMFold2-fast and AF2
+assets; see
 [model setup](download.md#optional-evaluation-models). Run from the repository root.
 Add `--plan` for a short task/workflow preview or `--show-config` for the full
 configuration used for diagnostics. Neither loads models nor creates run output.
+
+For the ordinary protein preset, prepare ESMFold2-fast and ESMFold2-standard
+with generation and MPNN assets, then select `--preset protein`:
+
+```bash
+partidesign download esmfold2-fast esmfold2-standard solublempnn
+partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor \
+  --preset protein --run-name insulin_receptor_standard
+```
+
+This route keeps fast iteration and uses only standard for final validation,
+with shared fixed protein-context MSA and no templates. AF3 and Mol-1 run only
+when explicitly selected. PPI requires a fixed protein partner for AF2-IG.
+For monomers or tasks without fixed protein context, use `auto` or the ordinary
+modality preset; standard remains the final model with query-only input.
 
 The pipeline supports protein, peptide, RNA, DNA, VHH and VH/VL antibody design within each
 backend's capabilities, including supported ligand context. Pure ligand design
@@ -140,9 +155,10 @@ permissions and soft template geometry keep their native meanings.
 ### Configure the initial step
 
 [optimize.yaml](../configs/pipeline/optimize.yaml) inherits the selected preset's
-native validation profiles and final methods. For protein and nucleic-acid tasks,
-auto uses Mol-1, AF3 and ESMFold2-standard; native antibody tasks use their
-ESMFold2-standard profile. The command above selects `ppi`, which also runs AF2-IG. It does not define a separate catalog of optimization thresholds.
+native validation profiles and final methods. Auto selects ESMFold2-standard
+for protein, nucleic-acid and native antibody tasks. The command above selects
+`ppi`, whose only final backend is paired AF2-IG. It does not define a separate
+catalog of optimization thresholds.
 
 ```yaml
 initial:
@@ -337,16 +353,17 @@ change this cap, or `final.pool.source: last` to use last-round survivors.
 
 | Profile | Final prediction and acceptance |
 | --- | --- |
-| `protein`, `nuc` | Mol-1, AF3 and ESMFold2-standard (`methods: [mol1, af3, esmfold2-standard]`), five samples per model. Each selects its native best-ranked prediction, then applies its final criteria. |
+| `protein`, `nuc` | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by `0.8 * ipTM + 0.2 * pTM`, then apply final criteria. |
 | `antibody` | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by 0.8 ipTM + 0.2 pTM before final criteria. |
-| `ppi` | AF2-IG, Mol-1, AF3 and ESMFold2-standard (`methods: [af2_ig, mol1, af3, esmfold2-standard]`). Mol-1, AF3 and ESMFold2-standard each use five samples; AF2 models `[1, 2]` each use one matched complex/monomer pair. AF2 selects each model's best complex by `0.8 * ipTM + 0.2 * pTM` with its same-sample monomer, and both model pairs must pass its internal filter. |
+| `ppi` | AF2-IG only. Models `[1, 2]` each use one matched complex/monomer pair. AF2 selects each model's best complex by `0.8 * ipTM + 0.2 * pTM` with its same-sample monomer, and both model pairs must pass its internal filter. |
 
-All configured methods run, and a candidate is accepted when **any method passes**.
+With an explicit multi-method final, all configured methods run and a candidate
+is accepted when **any method passes**.
 `preset: auto` chooses antibody for native antibody tasks, otherwise protein or nuc; select `ppi` explicitly
 for an eligible standard protein/peptide binder with protein context. Its AF2 final
 criteria are `af2_ig_protdbench` for proteins and `af2_ig_peptide` for peptides.
 AF2 produces two pairs (four structures) per candidate with its default two
-models, in addition to the Mol-1, AF3 and ESMFold2-standard predictions.
+models; the PPI preset does not add standard, AF3 or Mol-1 predictions.
 Native AF2-IG is deterministic with its default settings; changing only the seed
 does not add prediction diversity. One matched pair per model avoids redundant
 repeats.
@@ -389,21 +406,23 @@ configured method and its native chemistry limits.
 ESMFold2-standard selects its best sample by `0.8 * ipTM + 0.2 * pTM`, then
 applies the requested criteria. It uses the standard checkpoint and query-only
 input for designed chains, plus shared MSA for fixed protein context. Templates
-are never supplied to ESMFold2; Fast remains entirely query-only.
+are never supplied to ESMFold2; Fast remains entirely query-only. If a task has
+no fixed protein context, standard still uses its standard checkpoint with
+query-only input; RNA/DNA context does not trigger a protein MSA search.
 Prediction selection precedes criteria; a lower-ranked passing sample
 does not replace a selected failing sample. All final structures remain in
 `predictions/`. For each accepted candidate, `success/` contains every executed
 method's best-ranked complex, including both AF2 model winners; matching monomers
 remain in prediction evidence.
 
-For example, use standard at both iteration and final validation in a workflow
-YAML:
+For example, make the default fast-iteration/standard-final route explicit in
+a workflow YAML:
 
 ```yaml
 preset: protein
 msa: {mode: auto, source: colabfold}
 iteration:
-  refold: esmfold2-standard
+  refold: esmfold2-fast
 final:
   method: esmfold2-standard
   esmfold2:
@@ -422,9 +441,10 @@ finite and between 0 and 1; `msa_subsample_at_inference` is boolean. An
 shared YAML settings. Common `--msa` and `--msa-source` options apply to both
 stages; `--msa off` restores the query-only path.
 
-ESMFold2-standard is included in the default `final.methods` for union filtering.
-Each executed method still publishes its own best complex for accepted candidates.
-The default iteration backend remains ESMFold2-fast.
+ESMFold2-standard is the only default final backend for protein, nuc and
+antibody profiles. PPI uses only AF2-IG. Explicit multi-method finals remain
+available, with each executed method publishing its own best complex for
+accepted candidates. All bundled workflows use ESMFold2-fast iteration.
 
 The strict validation presets listed in [validate.md](validate.md) can be selected
 with `final.criteria`. Their `pipeline_` variants are available for iteration
@@ -446,7 +466,8 @@ new sidechains; see [validate.md](validate.md) for the recorded metric selection
 
 Set `final.methods` to run several independent final filters on the same pool.
 A candidate is accepted when **at least one method passes**. Each method keeps
-its own ranking and criteria, and all requested methods run. Use either
+its own ranking and criteria, and all requested methods run. This is an optional
+configuration, not the default PPI profile. Use either
 `method` for one backend or `methods` for several, never both:
 
 ```yaml
@@ -512,7 +533,7 @@ cache separately, run:
 
 ```bash
 partidesign msa configs/examples/pipeline_tasks.yaml \
-  --task protdbench_insulin_receptor --config configs/pipeline/demo.yaml
+  --task protdbench_insulin_receptor
 ```
 
 Search results are shared at `<model_dir>/.cache/af3_msa/`. Identical queries
@@ -692,15 +713,16 @@ These tasks retain the native benchmark crops and hotspots and each request
 automatically routed iteration criteria, K=200 first selection, later
 max-pass=200 and final max-pass=200.
 
-The optional [demo workflow](../configs/pipeline/demo.yaml) keeps production
-candidate limits with a lighter final stage. Iteration uses ESMFold2-fast and
-relaxed `pipeline_protein_binder` / `pipeline_peptide_binder` screening. Final
-validation uses **only Mol-1 with five samples**, selected by native ranking
-before criteria. The workflow retains K=200 first selection, later max-pass=200
-and final max-pass=200, three rounds, partial fraction 0.625 with four replicas
-and parent retention, and relaxation off. Iteration and final prediction workers
-each request one GPU. Prepare ESMFold2-fast and Mol-1 alongside generation and
-auto MPNN. A task may end early or have no final pass.
+The optional [PPI demo workflow](../configs/pipeline/demo.yaml) keeps production
+candidate limits. Iteration uses ESMFold2-fast and relaxed
+`pipeline_protein_binder` / `pipeline_peptide_binder` screening. Final validation
+uses **only AF2-IG**, with models `[1, 2]` each producing one matched
+complex/monomer pair; both model pairs must pass. The workflow retains K=200
+first selection, later max-pass=200 and final max-pass=200, three rounds,
+partial fraction 0.625 with four replicas and parent retention, and relaxation
+off. Iteration and final prediction workers each request one GPU. Prepare
+ESMFold2-fast and AF2 alongside generation and auto MPNN. A task may end early
+or have no final pass.
 
 ```bash
 partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insulin_receptor \
@@ -716,8 +738,9 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml \
 
 Remove `--plan` to run. Select one MDM2 task with its individual `--task` flag.
 The cyclic task authors a real terminal C–N bond and cyclic offsets; the
-disulfide task fixes both cysteines and their SG–SG bond. Mol-1 uses the explicit
-C–N or SG–SG bond with its upstream positional encoding. The task's cyclic
+disulfide task fixes both cysteines and their SG–SG bond. If Mol-1 is explicitly
+selected, it uses the explicit C–N or SG–SG bond with its upstream positional
+encoding. The task's cyclic
 offset remains available to generation, AF2-IG and AF3.
 
 ## Advanced workflow configuration
@@ -904,7 +927,8 @@ native values. Identity, discrete and clash checks retain their native limits.
 Linear and cyclic peptide binders use `pipeline_peptide_binder`: the same
 `binder_iptm > 0.6` and `complex_design_rmsd < 4 Å`, plus
 `rfd4_min_ipae_angstrom < 3.5 Å`, with no binder pTM gate.
-Their AF3, Mol-1 and ESMFold2 final criterion is `af3_peptide`, which requires
+For ESMFold2-standard or explicitly selected AF3/Mol-1, the final criterion
+is `af3_peptide`, which requires
 min iPAE <1.5 Å; the PPI AF2 filter keeps `af2_ig_peptide`. Explicit peptide
 chain labels are respected regardless of length. The demo uses the same relaxed
 `pipeline_peptide_binder` iteration screen.

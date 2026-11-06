@@ -3,8 +3,9 @@
 [Command index](commands.md)
 
 Calculate PartiScore for existing structures. PartiScore is an MDN network for
-molecular interface scoring. This command uses the bundled PartiScore weights;
-it does not require the PartiDesign generation bundle.
+molecular interface scoring. Prepare its checkpoint with
+`partidesign download partiscore`; this command does not require the PartiDesign
+generation bundle. The downloader uses the pinned [project HF release](download.md#generation-weights-and-bundled-assets).
 
 ## Inputs and a minimal example
 
@@ -66,7 +67,7 @@ partidesign score inference/first_run/protein_fixture \
 | No input structures are found | Pass the task directory containing the CIF/PDB files, not its parent run directory. |
 | PDB and CIF files are mixed | Put the two formats in separate input directories. |
 | `score.csv` already exists | Keep the saved report, or explicitly recompute with `--overwrite true`. |
-| PartiScore weights are missing | Run `partidesign check --model partiscore`; for an external model root, copy its Git-supplied weights to the matching location. |
+| PartiScore weights are missing | Run `partidesign download partiscore --model-dir PATH`, then `partidesign check --model partiscore --model-dir PATH` for the intended model root. |
 | A structure fails or has no eligible interface | Inspect `status` and `error` in `score.csv`, then check the structure and chain composition. |
 | GPU scoring exhausts memory | Reduce `--batch-size`, or choose CPU execution with sufficient host RAM. |
 

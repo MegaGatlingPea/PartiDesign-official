@@ -131,5 +131,148 @@ docking = [
 ]
 
 
+# Complete, mutually exclusive Linux x86_64 CUDA profiles. The installer
+# supplies Python 3.12.6 and the native chemistry/toolchain prefix before uv.
+
+cu12 = [
+  "torch==2.9.1+cu128",
+  "cuequivariance==0.10.0",
+  "cuequivariance-torch==0.10.0",
+  "cuequivariance-ops-cu12==0.10.0",
+  "cuequivariance-ops-torch-cu12==0.10.0",
+  "jax[cuda12]==0.10.2",
+  "jax-cuda12-pjrt==0.10.2",
+  "jax-cuda12-plugin[with-cuda]==0.10.2",
+  "nvidia-cuda-nvcc-cu12==12.8.93",
+]
+
+cu13 = [
+  "torch==2.11.0+cu130",
+  "triton==3.6.0",
+  "cuequivariance==0.13.0",
+  "cuequivariance-torch==0.13.0",
+  "cuequivariance-ops-cu13==0.13.0",
+  "cuequivariance-ops-torch-cu13==0.13.0",
+  "jax[cuda13]==0.10.2",
+  "jax-cuda13-pjrt==0.10.2",
+  "jax-cuda13-plugin[with-cuda]==0.10.2",
+  "nvidia-cuda-nvcc==13.0.88",
+  "nvidia-nvvm==13.0.88",
+  "nvidia-cuda-crt==13.0.88",
+  "partidesign-bioir-kernels==0.2.0+partidesign.1",
+]
+
+full = [
+  "numpy==2.5.2",
+  "lightning==2.5.0",
+  "packaging==24.2",
+  "pyrosetta @ https://west.rosettacommons.org/pyrosetta/release/release/PyRosetta4.Release.python312.ubuntu.wheel/pyrosetta-2026.39%2Brelease.49e05e797c-cp312-cp312-linux_x86_64.whl",
+  "pytorch-lightning==2.5.0",
+  "jaxtyping==0.3.2",
+  "wadler-lindig==0.1.7",
+  "hydra-core==1.3.2",
+  "omegaconf==2.3.0",
+  "PyYAML==6.0.3",
+  "ipywidgets==8.1.9",
+  "ipymolstar==0.1.0",
+  "nbformat==5.10.4",
+  "biotite==1.7.1",
+  "colabfold-binaries==0.1.0",
+  "optree==0.17.0",
+  "modelcif==1.4",
+  "pdbeccdutils==1.0.0",
+  "rdkit==2026.3.4",
+  "openbabel-wheel==3.1.1.23",
+  "vina==1.2.7",
+  "meeko==0.8.0",
+  "gemmi==0.7.5",
+  "tqdm==4.70.1",
+  "rich==14.3.4",
+  "prompt-toolkit==3.0.53",
+  "ray==2.53.0",
+  "loguru==0.7.3",
+  "accelerate==1.14.0",
+  "huggingface-hub==0.36.2",
+  "tokenizers==0.22.2",
+  "safetensors==0.8.0",
+  "ProDy==2.6.1",
+  "biopython==1.85",
+  "rapidfuzz==3.14.6",
+  "joblib==1.5.3",
+  "ml-collections==1.1.0",
+  "dm-haiku==0.0.16",
+  "dm-tree==0.1.9",
+  "optax==0.2.5",
+  "chex==0.1.87",
+  "jaxlib==0.10.2",
+  "tokamax==0.0.12",
+  "natsort==8.4.0",
+  "einops==0.8.2",
+  "msgpack-numpy==0.4.8",
+  "pytest==8.4.2",
+  "pillow==12.0.0",
+  "mpmath==1.3.0",
+  "boto3==1.43.62",
+  "brotli==1.2.0",
+  "cloudpathlib==0.24.0",
+  "dna-features-viewer==3.1.5",
+  "httpx==0.28.1",
+  "pydssp==0.9.1",
+  "pygtrie==2.5.0",
+  "scikit-learn==1.9.0",
+  "tenacity==9.1.4",
+  "zstd==1.5.7.2",
+  "scipy==1.17.1",
+  "jax==0.10.2",
+  "transformers==4.57.6",
+  "esm==3.3.0",
+  "dockq==2.1.3",
+  "alphafold3==3.0.4",
+  "molence==1.0.0",
+]
+
 [project.scripts]
 partidesign = "partidesign.cli:main"
+
+# uv owns the model/Python stack; the paired Conda prefix owns native
+# chemistry interfaces and is visible through system-site-packages.
+[tool.uv]
+required-version = ">=0.11.17"
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+exclude-dependencies = [
+  "openmm",
+  "openmmforcefields",
+  "pdbfixer",
+  "openff-toolkit",
+  "openff-units",
+  "openff-utilities",
+  "openff-interchange",
+]
+conflicts = [
+  [{ extra = "cu12" }, { extra = "cu13" }],
+  [{ extra = "cu12" }, { extra = "community-cu13" }],
+  [{ extra = "cu13" }, { extra = "community-cuda" }],
+  [{ extra = "community-cuda" }, { extra = "community-cu13" }],
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu128", extra = "cu12" },
+  { index = "pytorch-cu130", extra = "cu13" },
+]
+transformers = { path = "community_models/esmfold2/source/transformers" }
+esm = { path = "community_models/esmfold2/source/esm" }
+dockq = { path = "community_models/esmfold2/source/dockq" }
+alphafold3 = { path = "community_models/af3/source", editable = true }
+molence = { path = "community_models/mol1/source", editable = true }
+partidesign-bioir-kernels = { path = "runtime/bioir-kernels" }

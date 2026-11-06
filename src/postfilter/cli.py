@@ -2,7 +2,8 @@
 from pathlib import Path
 
 def add_arguments(parser):
-    parser.add_argument("inputs",nargs="+",metavar="RUN_OR_TASK_OR_SUCCESS")
+    parser.add_argument("inputs",nargs="+",metavar="RUN_OR_TASK_OR_SUCCESS",
+                        help="One or more run, task or validation-success directories containing selected complexes")
     parser.add_argument("--out",type=Path,help="Independent output directory; multiple tasks use task-name subdirectories")
     parser.add_argument("--config",type=Path,help="Runtime YAML overlay for CPU resources, seed and tool paths")
     parser.add_argument("--task",action="append",help="Select task name; repeat for multiple tasks")

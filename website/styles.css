@@ -42,6 +42,42 @@
   --noise: 0;
 }
 
+
+@plugin "daisyui/theme" {
+  name: "partidesign-night";
+  default: false;
+  prefersdark: false;
+  color-scheme: dark;
+  --color-base-100: #0c1120;
+  --color-base-200: #121a2d;
+  --color-base-300: #29344e;
+  --color-base-content: #edf0fa;
+  --color-primary: #b1a0ff;
+  --color-primary-content: #17112d;
+  --color-secondary: #b8afff;
+  --color-secondary-content: #17112d;
+  --color-accent: #80d1de;
+  --color-accent-content: #0a2530;
+  --color-neutral: #090e1a;
+  --color-neutral-content: #dce7f8;
+  --color-info: #9ac4ff;
+  --color-info-content: #102842;
+  --color-success: #90d6af;
+  --color-success-content: #123225;
+  --color-warning: #f1cd88;
+  --color-warning-content: #38290e;
+  --color-error: #f5a2b1;
+  --color-error-content: #3d1222;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -58,6 +94,24 @@
     outline-offset: 4px;
   }
   a { text-underline-offset: 0.2em; }
+  ::selection {
+    background: color-mix(in oklab, var(--color-secondary) 25%, transparent);
+  }
+  html[data-theme="partidesign-night"] #top {
+    background-image: radial-gradient(ellipse at 50% 8%, color-mix(in oklab, var(--color-primary) 18%, transparent), transparent 65%);
+  }
+  html[data-theme="partidesign-night"] header {
+    box-shadow: 0 1px 28px color-mix(in oklab, var(--color-base-100) 65%, transparent);
+  }
+  html[data-theme="partidesign-night"] main figure > img,
+  html[data-theme="partidesign-night"] #figure-image {
+    background-color: #ffffff;
+    border-radius: 0.5rem;
+    outline: 1px solid var(--color-base-300);
+  }
+  [data-theme-toggle] {
+    transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+  }
   summary { list-style: none; }
   summary::-webkit-details-marker { display: none; }
   pre, code {

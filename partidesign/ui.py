@@ -24,8 +24,9 @@ def _text(value, style=None):
     return Text(str(value), style=style)
 
 
-_ACCENT = "cyan"
-_ACCENT_ALT = "bright_blue"
+from ._mascot import ACCENT as _ACCENT
+
+_ACCENT_ALT = _ACCENT
 
 
 def _status_style(status):
@@ -38,9 +39,15 @@ def status_badge(status):
     return _text(f"[{status}]", _status_style(status))
 
 
-def section_heading(title):
-    """Return the shared Rich section heading used by terminal views."""
-    return _text(title, f"bold {_ACCENT_ALT}")
+def section_heading(title, *, emoji=None):
+    """A warm label; native emoji keep default foreground and normal weight."""
+    from rich.style import Style
+    from rich.text import Text
+    text = Text()
+    if emoji:
+        text.append(emoji + " ", style=Style(color="default", bold=False))
+    text.append(str(title), style=f"bold {_ACCENT_ALT}")
+    return text
 
 
 def _append_status(value, status):
@@ -50,23 +57,69 @@ def _append_status(value, status):
     return value
 
 
-def _banner(console, command, root=None):
+def _banner(console, command, root=None, *, mascot=True, description=None):
     from rich.box import ROUNDED
     from rich.panel import Panel
     from rich.text import Text
-    title = Text("PartiDesign", style=f"bold {_ACCENT}")
+    if not mascot:
+        # Existing relax --plan text/layout is retained; only its hue changes.
+        title = Text("PartiDesign", style=f"bold {_ACCENT}")
+        title.append("  /  " + str(command), style=f"bold {_ACCENT_ALT}")
+        if root is not None:
+            title.append("\nModel root: ", style="dim")
+            title.append(str(root), style="dim")
+        console.print(Panel(title, box=ROUNDED, border_style=_ACCENT, padding=(0, 1), expand=True))
+        return False
+    from rich.console import Group
+    from rich.style import Style
+    from ._mascot import IMAGE_WIDTH, supports_unicode, native_image, place_native_image
+    key = str(command).lower().removesuffix(" help")
+    icons = {"cli": "✨", "design": "🧬", "download": "📦", "model inventory": "📦",
+             "pipeline": "🚀", "check": "🔎", "validate": "🔎", "cluster": "🧩",
+             "postfilter": "🔎", "score": "✨", "msa": "🧬", "relax": "✨"}
+    title = Text()
+    if console.width >= 60 and supports_unicode(console.file):
+        title.append(icons.get(key, "✨") + " ", style=Style(color="default", bold=False))
+    title.append("PartiDesign", style=f"bold {_ACCENT}")
     title.append("  /  " + str(command), style=f"bold {_ACCENT_ALT}")
-    if root is not None:
-        title.append("\nModel root: ", style="dim")
-        title.append(str(root), style="dim")
-    console.print(Panel(title, box=ROUNDED, border_style=_ACCENT, padding=(0, 1),
-                        expand=True))
+    intro = Text(str(description)) if description else Text("Model root: " + str(root), style="dim") if root is not None else Text("")
+    image = native_image(console, root_help=key == "cli")
+    text_width = max(1, console.width - 4 - (IMAGE_WIDTH + 2 if image else 0))
+    intro_rows = len(console.render_lines(intro, console.options.update(width=text_width), pad=False))
+    # Keep a wrapped introduction complete without increasing the compact frame.
+    text = Group(title, intro) if intro_rows > 1 else Group(title, Text(""), intro)
+    if image:
+        from rich.table import Table
+        content = Table.grid(padding=0, expand=True)
+        content.add_column(width=IMAGE_WIDTH, no_wrap=True, vertical="middle")
+        content.add_column(width=2)
+        content.add_column(ratio=1, vertical="middle")
+        artwork = Text("        \n        \n        ")
+        content.add_row(artwork, Text(""), text)
+    else:
+        content = text
+    panel = Panel(content, box=ROUNDED, border_style=_ACCENT, padding=(0, 1), expand=True)
+    height = len(console.render_lines(panel, console.options, pad=False)) if image else None
+    if image and console.height <= height:
+        image = None
+        panel = Panel(text, box=ROUNDED, border_style=_ACCENT, padding=(0, 1), expand=True)
+    console.print(panel)
+    if image:
+        place_native_image(console, image, height)
+    return bool(description)
 
 
 def _section(console, title, *, first=False):
     if not first:
         console.print()
-    console.print(section_heading(title))
+    from ._mascot import supports_unicode
+    icon = {"Commands": "🧭", "Options": "⚙️", "Positional arguments": "🧩",
+            "Machine overview": "🖥️", "PartiDesign models": "🧪",
+            "Sequence design": "🧬", "Structure prediction": "🔬"}.get(title)
+    heading = section_heading(title, emoji=icon if supports_unicode(console.file) else None)
+    from ._heading import print_section_heading
+    if not print_section_heading(console, heading, title):
+        console.print(heading, justify="left")
 
 
 def _help_metavar(action):
@@ -81,7 +134,7 @@ def _help_metavar(action):
             "route_ckpt": "MEMBER",
             "method": "METHOD",
             "route": "true|false",
-            "compile": "true|false",
+            "compile": "auto|true|false",
             "overwrite": "true|false",
         }
         if action.dest in compact:
@@ -119,16 +172,76 @@ def _help_invocation(action):
 def _command_hint(parser):
     command = str(parser.prog).rsplit(" ", 1)[-1]
     hints = {
-        "partidesign": "partidesign check --help",
+        "partidesign": "partidesign check",
         "download": "partidesign download --list",
         "design": "partidesign design TASK_FILE.yaml --show-config",
-        "check": "partidesign check --all --load",
+        "check": "partidesign check",
         "relax": "partidesign relax TASK_FILE.yaml --out RUN_DIR --plan",
         "score": "partidesign score RUN_DIR --show-config",
         "validate": "partidesign validate RUN_OR_TASK_PATH --plan",
         "cluster": "partidesign cluster RUN_OR_TASK_OR_SUCCESS --plan",
     }
     return hints.get(command)
+
+
+def _catalog_records():
+    try:
+        from .resource_info import target_catalog
+    except ImportError:
+        return []
+    return target_catalog()
+
+
+def _bytes(value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        return "unknown"
+    try:
+        from .resource_info import format_bytes
+    except ImportError:
+        amount = float(value)
+        for unit in ("B", "KiB", "MiB", "GiB", "TiB", "PiB"):
+            if amount < 1024 or unit == "PiB":
+                return f"{amount:.1f} {unit}"
+            amount /= 1024
+    return format_bytes(value)
+
+
+def _short_use(record):
+    return str(record.get("short_description") or " ".join(str(record.get("description") or "Model resource").split()[:5]))
+
+
+def _resource_catalog_text():
+    records = _catalog_records()
+    if not records:
+        return ""
+    return "\nResource targets\n\n" + "\n".join(
+        f"  {item['target']:<19} {_short_use(item)}" for item in records) + "\n"
+
+
+def _show_resource_catalog(console):
+    records = _catalog_records()
+    if not records:
+        return
+    from rich.box import ROUNDED
+    from rich.table import Table
+    _section(console, "Resource targets")
+    paired = console.width >= 100
+    table = Table(box=ROUNDED, show_lines=False, expand=True,
+                  border_style=_ACCENT, header_style=f"bold {_ACCENT}")
+    for _ in range(2 if paired else 1):
+        table.add_column("Model", ratio=2, justify="center", vertical="middle", overflow="fold")
+        table.add_column("Usage", ratio=3, justify="center", vertical="middle", overflow="fold")
+    if paired:
+        half = (len(records) + 1) // 2
+        for index, item in enumerate(records[:half]):
+            other = records[index+half] if index+half < len(records) else None
+            table.add_row(_text(item["target"], _ACCENT), _text(_short_use(item)),
+                          _text(other["target"], _ACCENT) if other else _text(""),
+                          _text(_short_use(other)) if other else _text(""))
+    else:
+        for item in records:
+            table.add_row(_text(item["target"], _ACCENT), _text(_short_use(item)))
+    console.print(table)
 
 
 def print_help(parser, file=None):
@@ -138,12 +251,19 @@ def print_help(parser, file=None):
         print(parser.format_help(), file=stream, end="")
         return
     from rich.table import Table
-    _banner(console, "CLI" if parser.prog == "partidesign" else parser.prog.rsplit(" ", 1)[-1] + " help")
-    if parser.description:
+    from rich.text import Text
+    summary, separator, remaining_description = str(parser.description or "").partition("\n\n")
+    description_shown = _banner(
+        console, "CLI" if parser.prog == "partidesign" else parser.prog.rsplit(" ", 1)[-1] + " help",
+        description=summary,
+    )
+    if parser.description and not description_shown:
         console.print(_text(parser.description))
+    elif separator and remaining_description:
+        console.print(_text(remaining_description))
     console.print(_text(parser.format_usage().strip(), "dim"))
     console.print()
-    formatter = argparse.HelpFormatter(parser.prog, width=console.width)
+    formatter = parser.formatter_class(parser.prog, width=console.width)
     first = True
     for group in parser._action_groups:
         actions = [a for a in group._group_actions if a.help != argparse.SUPPRESS]
@@ -152,34 +272,46 @@ def print_help(parser, file=None):
         subcommands = any(isinstance(a, argparse._SubParsersAction) for a in actions)
         _section(console, "Commands" if subcommands else group.title.capitalize(), first=first)
         first = False
+        from rich.box import ROUNDED
+        from rich.console import Group
         compact = console.width < 56
-        table = Table(box=None, show_edge=False, expand=True, pad_edge=False,
-                      collapse_padding=True, padding=(0, 1), show_header=not compact,
-                      header_style=f"bold {_ACCENT_ALT}")
+        table = Table(box=ROUNDED, show_edge=True, show_lines=True, expand=True,
+                      pad_edge=True, collapse_padding=True, padding=(0, 1),
+                      header_style=f"bold {_ACCENT_ALT}", border_style=_ACCENT)
         labels = [choice.dest for a in actions if isinstance(a, argparse._SubParsersAction)
                   for choice in a._get_subactions()] if subcommands else [_help_invocation(a) for a in actions]
-        argument_width = min(max(16, max(map(len, labels))), max(12, console.width // 3))
-        table.add_column("Command" if subcommands else "Argument", style=_ACCENT,
-                         width=argument_width, overflow="fold")
-        table.add_column("Description", ratio=1, overflow="fold")
+        if compact:
+            table.add_column(Text("Command / Description" if subcommands else "Argument / Description", justify="center"),
+                             justify="center", vertical="middle", overflow="fold")
+        else:
+            argument_width = min(max(16, max(map(len, labels))), max(12, console.width // 3))
+            table.add_column(Text("Command" if subcommands else "Argument", justify="center"), width=argument_width,
+                             justify="center", vertical="middle", overflow="fold")
+            table.add_column(Text("Description", justify="center"), ratio=1, justify="center",
+                             vertical="middle", overflow="fold")
+        def add_help_row(label, description, command=False):
+            left = _text(label, f"bold {_ACCENT}" if command else None)
+            right = _text(description)
+            table.add_row(Group(left, right)) if compact else table.add_row(left, right)
         for action in actions:
             if isinstance(action, argparse._SubParsersAction):
                 for choice in action._get_subactions():
-                    table.add_row(_text(choice.dest, _ACCENT), _text(choice.help or ""))
+                    add_help_row(choice.dest, choice.help or "", command=True)
             else:
-                # Keep argparse's help expansion (including %(default)s), but
-                # use a concise invocation in the Rich table.
                 description = formatter._expand_help(action) if action.help else ""
-                table.add_row(_text(_help_invocation(action), _ACCENT),
-                              _text(description))
+                add_help_row(_help_invocation(action), description)
         console.print(table)
     if parser.epilog:
         console.print()
         console.print(_text(parser.epilog))
+    if parser.prog.rsplit(" ", 1)[-1] in {"download", "check"}:
+        _show_resource_catalog(console)
     hint = _command_hint(parser)
     if hint:
         console.print()
-        console.print(_text("Example: " + hint, "dim"))
+        from ._mascot import supports_unicode
+        console.print(section_heading("Try next", emoji="💡" if supports_unicode(console.file) else None))
+        console.print(_text(hint))
 
 
 def show_error(message, file=None):
@@ -194,18 +326,18 @@ def show_error(message, file=None):
                         border_style="red", box=ROUNDED, padding=(0, 1), expand=True))
 
 
-def show_context(command, root, detail=None):
+def show_context(command, root, detail=None, *, mascot=True):
     console = _console()
     if console is not None:
-        _banner(console, command, root)
+        _banner(console, command, root, mascot=mascot)
         if detail:
             console.print(_text(detail, "dim"))
 
 
-_STATUS_STYLE = {"PASS": "green", "FAIL": "bold red", "SKIP": "dim", "NOT_RUN": "yellow",
-                 "RUN": "cyan", "installed": "green", "downloaded": "green",
+_STATUS_STYLE = {"PASS": "green", "FAIL": "bold red", "WARN": "yellow", "INFO": "white", "SKIP": "dim", "NOT_RUN": "yellow",
+                 "RUN": _ACCENT, "installed": "green", "downloaded": "green",
                  "unavailable": "yellow", "failed": "bold red",
-                 "pending": "yellow", "running": "cyan"}
+                 "pending": "yellow", "running": _ACCENT}
 
 _SOURCE_LABELS = {
     "git_repo": "with git repo",
@@ -236,80 +368,319 @@ def _asset_detail(record, root):
     return detail or "local resource"
 
 
+def _resource_metadata(record):
+    try:
+        from .resource_info import target_metadata
+        metadata = dict(target_metadata(str(record["target"])))
+    except (ImportError, KeyError):
+        metadata = {}
+    metadata.update(record)
+    return metadata
+
+
+def _resource_state(record):
+    status = str(record.get("status", "unavailable"))
+    integrity = str(record.get("integrity") or ("presence only" if status in {"installed", "downloaded"} else "not verified"))
+    lines = [status, "Integrity: " + integrity]
+    if record.get("file_count") is not None:
+        lines.append(f"Files: {record.get('present_count', 'unknown')}/{record['file_count']}")
+    lines.append("Local: " + _bytes(record.get("local_bytes")))
+    if record.get("size_hint_bytes") is not None:
+        lines.append("Reference: " + _bytes(record["size_hint_bytes"]))
+        lines.append(str(record.get("size_hint_label") or "installed footprint; varies"))
+    if record.get("integrity_detail"):
+        lines.append(str(record["integrity_detail"]))
+    return "\n".join(lines)
+
+
+def _resource_description(record, root, *, files=False):
+    lines = [str(record.get("description") or "Local model resource")]
+    lines.append("Used by: " + (", ".join(map(str, record.get("used_by") or [])) or "not specified"))
+    if record.get("notes"):
+        lines.append("Notes: " + str(record["notes"]))
+    lines.append("Source: " + _source_label(record))
+    if files:
+        lines.extend("  " + str(source) for source in record.get("sources") or [])
+    lines.append("Location: " + _asset_detail(record, root))
+    if record.get("missing"):
+        lines.append("Missing: " + ", ".join(map(str, record["missing"])))
+    if files:
+        for item in record.get("files") or []:
+            path = item.get("relative") or item.get("path") or "unknown file"
+            lines.append(f"{path}: {_bytes(item.get('bytes'))}; {item.get('integrity') or 'not verified'}")
+            if item.get("detail"):
+                lines.append("  " + str(item["detail"]))
+    return "\n".join(lines)
+
+
+def _short_status(record):
+    integrity = str(record.get("integrity") or "")
+    status = str(record.get("status") or "unavailable")
+    if integrity == "checksum_verified":
+        return "✓ Verified", "green"
+    if integrity == "invalid":
+        return "Corrupt", "bold red"
+    if integrity == "partial":
+        return "Incomplete", "yellow"
+    if integrity == "missing":
+        return "Missing", "yellow"
+    if status in {"installed", "downloaded"}:
+        return "✓ Installed", "green"
+    if status == "failed":
+        return "Failed", "bold red"
+    count, present = record.get("file_count"), record.get("present_count")
+    return ("Incomplete" if present and count else "Missing"), "yellow"
+
+
+def _short_size(record):
+    local = record.get("local_bytes")
+    if isinstance(local, (int, float)) and not isinstance(local, bool) and local > 0:
+        return _bytes(local)
+    expected = record.get("size_hint_bytes")
+    return "~" + _bytes(expected) if expected is not None else "—"
+
+
 def _asset_table(records, root, *, listing=False, width=None):
+    from rich.box import ROUNDED
     from rich.table import Table
-    width = max(int(width or 100), 35)
-    compact = width < 62
-    medium = width < 94
-    table = Table(box=None, show_edge=False, expand=True, pad_edge=False,
-                  collapse_padding=True, padding=(0, 1),
-                  show_header=not compact, header_style=f"bold {_ACCENT_ALT}")
-    if compact:
-        table.add_column("Model", ratio=3, overflow="fold")
-        table.add_column("State / detail", ratio=5, overflow="fold")
-    elif medium:
-        table.add_column("Model", style=_ACCENT, ratio=2, overflow="fold")
-        table.add_column("State", width=13, no_wrap=True)
-        table.add_column("Location / source", ratio=4, overflow="fold")
-    else:
-        table.add_column("Model", style=_ACCENT, ratio=2, overflow="fold")
-        table.add_column("State", width=13, no_wrap=True)
-        table.add_column("Location / detail", ratio=4, overflow="fold")
-        table.add_column("Download source" if listing else "Source", ratio=2, overflow="fold")
-    root = Path(root)
-    for record in records:
-        status = str(record["status"])
-        detail = _asset_detail(record, root)
-        source = _source_label(record)
-        if compact:
-            location = _text(detail)
-            location.append("\n" + source, style="dim")
-            cells = [_append_status(record["target"], status), location]
-        elif medium:
-            location = _text(detail)
-            location.append("\n" + source, style="dim")
-            cells = [_text(record["target"], _ACCENT), status_badge(status), location]
-        else:
-            cells = [_text(record["target"], _ACCENT), status_badge(status),
-                     _text(detail), _text(source, "dim")]
-        table.add_row(*cells)
+    table = Table(box=ROUNDED, show_lines=False, expand=True, padding=(0, 1),
+                  header_style=f"bold {_ACCENT}", border_style=_ACCENT)
+    table.add_column("Model", width=17, justify="center", vertical="middle", overflow="fold")
+    table.add_column("Usage", ratio=1, justify="center", vertical="middle", overflow="fold")
+    table.add_column("Size", width=10, justify="center", vertical="middle", overflow="fold")
+    table.add_column("Status", width=11, justify="center", vertical="middle", overflow="fold")
+    for original in records:
+        item = _resource_metadata(original)
+        status, style = _short_status(item)
+        table.add_row(_text(item["target"], _ACCENT), _text(_short_use(item)),
+                      _text(_short_size(item)), _text(status, style))
     return table
+
+
+_MODEL_GROUPS = (
+    ("PartiDesign models", {"partidesign", "partiscore"}),
+    ("Sequence design", {"proteinmpnn", "solublempnn", "ligandmpnn", "cyclicmpnn", "nampnn"}),
+    ("Structure prediction", {"esmfold2-fast", "esmfold2-standard", "af2", "mol1", "af3", "af3-la"}),
+)
+
+
+def _short_plain_table(records, *, usage_width=None):
+    items = [_resource_metadata(record) for record in records]
+    usage_width = usage_width or max([len("Usage"), *(len(_short_use(item)) for item in items)])
+    print(f"{'Model':<19} {'Usage':<{usage_width}} {'Size':>11}  Status")
+    for item in items:
+        status, _ = _short_status(item)
+        print(f"{str(item['target']):<19} {_short_use(item):<{usage_width}} {_short_size(item):>11}  {status}")
+
+
+def _inventory_plain(records, root, *, files=False, include_chemistry=True):
+    usage_width = max([len("Usage"), *(len(_short_use(_resource_metadata(item))) for item in records if item["target"] != "chemistry")])
+    for title, names in _MODEL_GROUPS:
+        selected = [item for item in records if item["target"] in names]
+        if selected:
+            print("\n" + title)
+            _short_plain_table(selected, usage_width=usage_width)
+    if include_chemistry:
+        for record in records:
+            if record["target"] == "chemistry":
+                item = _resource_metadata(record)
+                print("Chemistry: " + _short_status(item)[0] + " · " + _short_size(item))
+
+
+def _render_inventory(console, records, root, *, listing=False, include_chemistry=True):
+    for index, (title, names) in enumerate(_MODEL_GROUPS):
+        selected = [item for item in records if item["target"] in names]
+        if selected:
+            _section(console, title, first=index == 0)
+            console.print(_asset_table(selected, root, width=console.width))
+    if include_chemistry:
+        for record in records:
+            if record["target"] == "chemistry":
+                item = _resource_metadata(record)
+                console.print(_text("Chemistry: " + _short_status(item)[0] + " · " + _short_size(item), "dim"))
 
 
 def show_inventory(records, root):
     console = _console()
     if console is None:
-        for item in records:
-            print(f"{item['target']}: {item['status']} ({item.get('error') or 'local resource'}); "
-                  f"source: {_source_label(item)}")
+        _inventory_plain(records, root)
         return
     _banner(console, "Model inventory", root)
-    groups = (
-        ("PartiDesign models", {"partidesign", "partiscore"}),
-        ("Sequence design", {"proteinmpnn", "solublempnn", "ligandmpnn", "cyclicmpnn", "nampnn"}),
-        ("Structure prediction", {"esmfold2-fast", "esmfold2-standard", "af2", "af3", "af3-la"}),
-        ("Chemistry", {"chemistry"}),
-    )
-    known = set()
-    first = True
-    for title, targets in groups:
-        selected = [item for item in records if item["target"] in targets]
-        if selected:
-            known.update(item["target"] for item in selected)
-            _section(console, title, first=first)
-            first = False
-            console.print(_asset_table(selected, root, listing=True, width=console.width))
-    remaining = [item for item in records if item["target"] not in known]
-    if remaining:
-        _section(console, "Other resources", first=first)
-        console.print(_asset_table(remaining, root, listing=True, width=console.width))
+    _render_inventory(console, records, root)
+
+
+def _meter_values(meter):
+    def number(value):
+        import math
+        return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0 else None
+    total = number(meter.get("total_bytes"))
+    used = number(meter.get("used_bytes"))
+    available = number(meter.get("available_bytes"))
+    if used is None and total is not None and available is not None and available <= total:
+        used = total - available
+    valid = total is not None and total > 0 and used is not None and used <= total
+    return total, used, available, valid
+
+
+def _meter_caption(meter):
+    total, used, available, valid = _meter_values(meter)
+    values = f"Used {_bytes(used)} / {_bytes(total)}; available {_bytes(available)}"
+    values += f" ({used / total:.1%} used)" if valid else "; utilization unavailable"
+    if meter.get("scope"):
+        values += "\n" + str(meter["scope"])
+    return values
+
+
+def _render_system(console, system):
+    from rich.box import ROUNDED
+    from rich.console import Group
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich.bar import Bar
+    _section(console, "System overview", first=True)
+    for section in system.get("sections") or []:
+        table = Table.grid(expand=True, padding=(0, 1))
+        compact = console.width < 62
+        table.add_column(ratio=2, justify="center", vertical="middle", overflow="fold")
+        if not compact:
+            table.add_column(ratio=5, justify="center", vertical="middle", overflow="fold")
+        for row in section.get("rows") or []:
+            style = "yellow" if row.get("level") == "WARN" else None
+            label = _text(row.get("label", ""), _ACCENT)
+            value = _text(row.get("value", "unavailable"), style)
+            table.add_row(Group(label, value)) if compact else table.add_row(label, value)
+        console.print(Panel(table, title=_text(section.get("title", "System"), f"bold {_ACCENT}"),
+                            title_align="left", border_style=_ACCENT, box=ROUNDED, padding=(0, 1)))
+    for meter in system.get("meters") or []:
+        total, used, _, valid = _meter_values(meter)
+        content = []
+        if valid:
+            color = "red" if used / total >= .9 else _ACCENT
+            content.append(Bar(total, begin=0, end=used, color=color, bgcolor="grey23"))
+        content.append(_text(_meter_caption(meter)))
+        console.print(Panel(Group(*content), title=_text(meter.get("label", "Capacity"), f"bold {_ACCENT}"),
+                            title_align="left", border_style=_ACCENT, box=ROUNDED, padding=(0, 1)))
+
+
+def _system_plain(system):
+    for section in system.get("sections") or []:
+        print("\n" + str(section.get("title", "System")))
+        for row in section.get("rows") or []:
+            prefix = "WARN " if row.get("level") == "WARN" else ""
+            print("  " + prefix + str(row.get("label", "")) + ": " + str(row.get("value", "unavailable")))
+    for meter in system.get("meters") or []:
+        print("\n" + str(meter.get("label", "Capacity")) + ": " + _meter_caption(meter))
+
+
+def _machine_rows(system):
+    given = {str(item.get("label", "")).upper(): item for item in system.get("machine_overview") or []}
+    rows = []
+    for label in ("CPU", "GPU", "RAM", "Disk"):
+        item = given.get(label.upper()) or (given.get("MEMORY") if label == "RAM" else None)
+        if item:
+            rows.append({**item, "label": label})
+            continue
+        value = "unavailable"
+        used = total = None
+        unit = "%" if label in {"CPU", "GPU"} else "bytes"
+        if label in {"CPU", "GPU"}:
+            for section in system.get("sections") or []:
+                if label not in str(section.get("title", "")).upper():
+                    continue
+                preferred = [row for row in section.get("rows") or [] if any(
+                    key in str(row.get("label", "")).lower() for key in ("usable", "usage", "visible", "device", "model"))]
+                if preferred:
+                    value = "; ".join(str(row.get("value", "")) for row in preferred[:2])
+                break
+        else:
+            for meter in system.get("meters") or []:
+                title = str(meter.get("label", "")).lower()
+                matches = ("ram" in title or "memory" in title) if label == "RAM" else ("disk" in title or "filesystem" in title or "storage" in title)
+                if not matches:
+                    continue
+                total, used, available, _ = _meter_values(meter)
+                value = f"{_bytes(available)} free / {_bytes(total)} total"
+                break
+        rows.append({"label": label, "value": value, "used": used, "total": total, "unit": unit})
+    return rows
+
+
+def _capacity_bar(row, width=24):
+    from rich.bar import Bar
+    total, used = row.get("total"), row.get("used")
+    import math
+    valid = all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in (used, total))
+    if not valid or total <= 0 or used < 0 or used > total:
+        return _text("—", "dim")
+    return Bar(total, begin=0, end=used, width=width,
+               color="red" if used / total >= .9 else _ACCENT, bgcolor="grey23")
+
+
+def _render_machine_overview(console, system):
+    from rich.box import ROUNDED
+    from rich.table import Table
+    _section(console, "Machine overview", first=True)
+    table = Table(box=ROUNDED, show_header=False, show_lines=False, expand=True,
+                  border_style=_ACCENT, padding=(0, 1))
+    table.add_column(width=5, justify="center", vertical="middle")
+    table.add_column(ratio=1, justify="center", vertical="middle", overflow="fold")
+    bar_width = 24 if console.width >= 100 else 16
+    table.add_column(width=bar_width, justify="center", vertical="middle")
+    for row in _machine_rows(system):
+        table.add_row(_text(row["label"], _ACCENT), _text(row.get("value", "unavailable")), _capacity_bar(row, width=bar_width))
+    console.print(table)
+
+
+def _concise_failure(label, detail, resources):
+    for record in sorted(resources or [], key=lambda item: len(str(item.get("target", ""))), reverse=True):
+        target = str(record.get("target", ""))
+        if not target or not (label == target or label.startswith(target + "-")):
+            continue
+        files = record.get("files") or []
+        failed = [item for item in files if item.get("integrity") == "invalid"]
+        failed += [item for item in files if item.get("integrity") == "missing"]
+        if failed:
+            item = failed[0]
+            filename = Path(str(item.get("relative") or item.get("path") or target)).name
+            reason = str(item.get("detail") or item.get("integrity") or "integrity check failed")
+            lower = reason.lower()
+            if "mismatch" in lower and ("sha256" in lower or "checksum" in lower):
+                reason = "checksum mismatch"
+            elif "size mismatch" in lower or "incorrect size" in lower:
+                reason = "incorrect size"
+            elif "cannot inspect" in lower or "unreadable" in lower or "permissionerror" in lower:
+                reason = "unreadable"
+            elif "symlink" in lower or "unsafe" in lower:
+                reason = "unsafe path"
+            elif item.get("integrity") == "missing":
+                reason = "missing"
+            return filename + ": " + " ".join(reason.split())
+        return " ".join(str(record.get("error") or "resource integrity check failed").split())
+    return " ".join(detail.split())
+
+
+def _render_concise_check(console, system, resources, root, failures=()):
+    if console is None:
+        print("Machine overview")
+        for row in _machine_rows(system or {}):
+            print(f"{row['label']}: {row.get('value', 'unavailable')}")
+        _inventory_plain(resources or [], root, include_chemistry=False)
+        for label, _, detail in failures:
+            print("Failed: " + label + ": " + _concise_failure(label, detail, resources))
+        return
+    _render_machine_overview(console, system or {})
     console.print()
-    console.print(_text("Local presence is separate from strict model loading. Use check --load to verify weights.", "dim"))
+    _render_inventory(console, resources or [], root, include_chemistry=False)
+    for label, _, detail in failures:
+        console.print(_text("Failed: " + label + ": " + _concise_failure(label, detail, resources), "bold red"))
 
 
 class CheckDisplay:
-    def __init__(self, root):
+    def __init__(self, root, *, system=None, resources=None, concise=False):
         self.root = root
+        self.system = system
+        self.resources = resources
+        self.concise = concise
         self.console = _console()
         self.rows = []
         self.running = None
@@ -319,21 +690,17 @@ class CheckDisplay:
         from rich.table import Table
         width = max(int(self.console.width if self.console is not None else 100), 35)
         compact = width < 62
-        table = Table(box=None, show_edge=False, expand=True, pad_edge=False,
-                      collapse_padding=True, padding=(0, 1),
-                      show_header=not compact, header_style=f"bold {_ACCENT_ALT}")
+        from rich.box import ROUNDED
+        table = Table(box=ROUNDED, show_edge=True, show_lines=True, expand=True,
+                      padding=(0, 1), header_style=f"bold {_ACCENT_ALT}", border_style=_ACCENT)
         if compact:
-            table.add_column("Check / state", ratio=2, overflow="fold")
-            table.add_column("Detail", ratio=3, overflow="fold")
+            table.add_column("Check / state", ratio=2, justify="center", vertical="middle", overflow="fold")
+            table.add_column("Detail", ratio=3, justify="center", vertical="middle", overflow="fold")
         else:
-            table.add_column("Check", style=_ACCENT, ratio=2, overflow="fold")
-            table.add_column("State", width=13, no_wrap=True)
-            table.add_column("Detail", ratio=5, overflow="fold")
-        visible = [row for row in self.rows
-                   if not (row[1] == "SKIP" and row[2] == "unused optional model")]
-        optional = len(self.rows) - len(visible)
-        if optional:
-            visible.append(("Optional models", "SKIP", f"{optional} not selected; use --all to check them"))
+            table.add_column("Check", style=_ACCENT, ratio=2, justify="center", vertical="middle", overflow="fold")
+            table.add_column("State", ratio=1, justify="center", vertical="middle", overflow="fold")
+            table.add_column("Detail", ratio=5, justify="center", vertical="middle", overflow="fold")
+        visible = self.rows
         for label, status, detail in visible:
             if compact:
                 table.add_row(_append_status(label, status), _text(detail))
@@ -347,32 +714,62 @@ class CheckDisplay:
                               _text("checking...", "dim"))
         return table
 
+    def update_resources(self, records):
+        self.resources = list(records)
+
     def __enter__(self):
+        if self.concise:
+            if self.console is not None:
+                from rich.live import Live
+                self.live = Live(_text("Checking local resources…", "dim"), console=self.console,
+                                 refresh_per_second=2, transient=True)
+                self.live.start()
+            return self
         if self.console is not None:
             from rich.live import Live
             _banner(self.console, "Check", self.root)
-            self.live = Live(self._table(), console=self.console, refresh_per_second=4)
+            if self.system is not None:
+                _render_system(self.console, self.system)
+            if self.resources is not None:
+                _render_inventory(self.console, self.resources, self.root)
+            _section(self.console, "Check results")
+            self.live = Live(self._table(), console=self.console, refresh_per_second=4, vertical_overflow="visible")
             self.live.start()
+        else:
+            if self.system is not None:
+                print("System overview")
+                _system_plain(self.system)
+            if self.resources is not None:
+                print("\nAll model resources; model root: " + str(self.root))
+                _inventory_plain(self.resources, self.root, files=False)
         return self
 
     def begin(self, label):
         self.running = label
-        if self.live is not None:
+        if self.live is not None and not self.concise:
             self.live.update(self._table(), refresh=True)
 
     def emit(self, label, status, detail):
         self.rows.append((str(label), str(status), str(detail)))
         self.running = None
+        if self.concise:
+            return
         if self.live is None:
             print(f"{status} {label}: {detail}", flush=True)
         else:
             self.live.update(self._table(), refresh=True)
 
     def __exit__(self, exc_type, exc, tb):
+        if self.concise:
+            if self.live is not None:
+                self.live.stop()
+            failures = [row for row in self.rows if row[1] == "FAIL"]
+            _render_concise_check(self.console, self.system, self.resources, self.root, failures)
+            return False
         if self.live is not None:
             self.live.stop()
             if exc_type is None:
-                counts = {s: sum(row[1] == s for row in self.rows) for s in ("PASS", "FAIL", "SKIP", "NOT_RUN")}
+                counts = {s: sum(row[1] == s for row in self.rows) for s in ("PASS", "FAIL", "WARN", "INFO", "SKIP", "NOT_RUN")}
                 summary = _text("")
                 for index, status in enumerate(counts):
                     if index:
@@ -405,6 +802,10 @@ class DownloadDisplay:
             )
             from rich.table import Column
             _banner(self.console, "Download", self.root)
+            from .download import list_targets
+            selected = [item for item in list_targets(Path(self.root)) if item["target"] in self.targets]
+            if selected:
+                self.console.print(_asset_table(selected, self.root, width=self.console.width))
             backend = ("aria2c / up to 8 connections per file"
                        if shutil.which("aria2c")
                        else "Built-in HTTP / aria2c not found")
@@ -492,11 +893,7 @@ class DownloadDisplay:
         if self.console is not None:
             self.console.print(_asset_table(records, self.root, width=self.console.width))
         else:
-            for item in records:
-                detail = f"{item['target']}: {item['status']}; source: {_source_label(item)}"
-                if item.get("error"):
-                    detail += f" - {item['error']}"
-                print(detail)
+            _inventory_plain(records, self.root, files=False)
 
     def __exit__(self, exc_type, exc, tb):
         if self.progress is not None:

@@ -10,6 +10,7 @@
   <a href="https://megagatlingpea.github.io/PartiDesign-official/"><img src="https://img.shields.io/badge/Project_Website-Explore-4C3F91?style=flat-square" alt="Project Website"></a>
   <a href="https://github.com/MegaGatlingPea/PartiDesign-official"><img src="https://img.shields.io/badge/GitHub-Code-24292E?style=flat-square" alt="Official GitHub Repository"></a>
   <a href="https://cadd.zju.edu.cn/partidesign/"><img src="https://img.shields.io/badge/Web_Server-Access-5E81AC?style=flat-square" alt="Web Server"></a>
+  <a href="https://doi.org/10.64898/2026.11.03.763860"><img src="https://img.shields.io/badge/Paper-bioRxiv-B31B1B?style=flat-square" alt="Paper on bioRxiv"></a>
   <a href="docs/README.md"><img src="https://img.shields.io/badge/User_Guide-Read-B48EAD?style=flat-square" alt="User Guide"></a>
 </p>
 
@@ -35,8 +36,8 @@ use the [web server](https://cadd.zju.edu.cn/partidesign/) for visual task setup
 or start from the [runnable examples](configs/examples/README.md).
 
 [Capabilities](#capabilities) · [Agent Skill](#agent-skill) · [Installation](#installation) ·
-[Pipeline](#pipeline) · [Documentation](#documentation) ·
-[Acknowledgements](#acknowledgements) · [License](#license)
+[CLI](#cli) · [Pipeline](#pipeline) · [Documentation](#documentation) ·
+[Citation](#citation) · [Acknowledgements](#acknowledgements) · [License](#license)
 
 ## Capabilities
 
@@ -109,49 +110,93 @@ validation, relax, postfiltering, clustering and result interpretation.
 
 ## Installation
 
-Use Linux with an NVIDIA GPU and Mamba or Conda (for example, Miniforge).
+Use Linux with an NVIDIA GPU, [uv](https://docs.astral.sh/uv/getting-started/installation/)
+(version 0.11.17 or later), and Mamba or Conda (for example, Miniforge).
 From your working directory:
 
 ```bash
-git clone https://github.com/MegaGatlingPea/PartiDesign-official.git
+git clone --depth 1 --branch main https://github.com/MegaGatlingPea/PartiDesign-official.git
 cd PartiDesign-official
 bash install.sh
+source .venv/bin/activate
+```
+
+The Bash installer defaults to **uv and CUDA 12**. The Conda/pip route remains
+available explicitly:
+
+```bash
+bash install.sh --installer conda --cuda 12
 conda activate partidesign
 ```
 
-The Bash installer defaults to CUDA 12, uses Mamba when available or Conda
-otherwise, and creates the environment with its required Python version.
+The uv route creates a paired native Conda prefix for OpenMM/OpenFF, AmberTools
+and build tools, then installs the project and model Python packages into the
+locked `.venv`. Keep both directories together; activating the native prefix
+separately is unnecessary. See the [uv setup and recovery guide](docs/environments.md#install-with-uv)
+for CUDA 13, explicit paths and retries. `full` uses uv's private source mappings;
+`pip install .[full]` is not an equivalent installation command.
 
-The installer shows a stage table with elapsed time and streams pip's download,
-build and installation output. It reads the supplied environment YAML, keeping
-the same package versions. For CUDA 13, use `--cuda 13` and activate
-`partidesign_cu13`.
+The installer shows a stage table with elapsed time and streams Python-package
+download, build and installation output. It reads the supplied environment YAML, keeping
+the same package versions. For CUDA 13, use separate uv paths:
 
-If installation stops during pip, continue in the existing environment:
+```bash
+bash install.sh --cuda 13 --venv .venv-cu13 \
+  --native-prefix .cache/environments/native-cu13
+source .venv-cu13/bin/activate
+```
+
+If Python-package installation stops, resume with the same installer and profile:
 
 ```bash
 bash install.sh --cuda 12 --pip-only
+# Or, for an existing Conda/pip installation:
+bash install.sh --installer conda --cuda 12 --pip-only
 ```
 
-If environment creation was interrupted, use `--update` instead. Keep the environment
-and package caches: pip normally reuses completed cached downloads and skips
+Repeat custom uv paths on retries. If native environment creation was
+interrupted, use `--update` instead. Keep the environment
+and package caches: uv and pip can reuse completed cached downloads and skip
 satisfied packages, though an interrupted download or local source build may
 restart. See [installation recovery](docs/environments.md#resume-an-interrupted-install)
 for both CUDA profiles and cache settings.
 
-Download the **[PartiDesign generation bundle](https://drive.google.com/file/d/19j8aaysxeQlT0RI5URrQm3A9uWdqSE5e/view?usp=sharing)**
-and save it as `ckpts/partidesign.ckpt`. PartiScore, CyclicMPNN and native
-chemistry resources are included in the clone. Prepare the additional models
-for the lighter pipeline demo below:
+Update a checkout with no local code changes using `git pull --ff-only`, then
+update its environment with the same installer and CUDA profile. See the
+[environment guide](docs/environments.md) for recovery and CUDA profiles.
+
+## CLI
 
 ```bash
-partidesign download esmfold2-fast mol1 solublempnn
+partidesign check     # machine overview and model status
+partidesign download  # interactive model download
 ```
 
-See [model downloads](docs/download.md) for terminal downloads, model locations
-and the additional predictors used by full presets. The [environment guide](docs/environments.md)
-covers CUDA 13 and alternative setups; [installation troubleshooting](docs/check.md#installation-and-first-run-troubleshooting)
-covers setup problems.
+For scripts: `partidesign download partidesign partiscore`. Both checkpoints
+come from [Hugging Face](https://huggingface.co/MegaGatlingPea/PartiDesign).
+
+| Model | Usage | Model | Usage |
+| --- | --- | --- | --- |
+| `partidesign` | Generates molecular structures and sequences from tasks. | `partiscore` | Ranks molecular interfaces from supplied structures. |
+| `proteinmpnn` | Redesigns protein sequences for a fixed backbone. | `solublempnn` | Designs soluble-protein sequences for a fixed backbone. |
+| `ligandmpnn` | Designs protein sequences around ligand context. | `cyclicmpnn` | Redesigns sequences for cyclic peptide backbones. |
+| `nampnn` | Redesigns DNA and RNA sequences for fixed structures. | `chemistry` | Provides molecular definitions for structure workflows. |
+| `esmfold2-fast` | Iterates designs using shared ESM-C safetensors. | `esmfold2-standard` | Validates with MSA and shared ESM-C safetensors. |
+| `af2` | Runs AF2-IG final validation for PPI designs. | `mol1` | Optionally predicts molecular complex structures. |
+| `af3` | Optionally predicts full-complex structures. | `af3-la` | Optionally predicts complexes with AF3-LA. |
+
+Fast and standard share the same ESM-C safetensors.
+
+See [check](docs/check.md) and [downloads](docs/download.md) for details.
+
+<details>
+<summary>CLI previews</summary>
+
+<img src="docs/assets/cli/check.jpg" alt="PartiDesign machine and model overview" width="100%">
+
+<img src="docs/assets/cli/download.jpg" alt="PartiDesign interactive model download" width="100%">
+
+</details>
 
 ## Pipeline
 
@@ -164,7 +209,7 @@ or from existing complexes annotated with their design chains and conditions.
   <img src="docs/assets/capabilities/pipeline.png" alt="An initial binder is refined through three iterations and final structure validation" width="100%">
 </p>
 
-Start with your first **insulin receptor binder design** using the lighter demo:
+Start with your first **insulin receptor binder design** using the bundled PPI demo:
 
 ```bash
 partidesign pipeline configs/examples/pipeline_tasks.yaml \
@@ -173,8 +218,22 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml \
 ```
 
 The demo runs three rounds with ESMFold2-fast, relaxed pipeline screening and
-partial diffusion, followed by five Mol-1 samples for final validation.
+partial diffusion. Final validation uses only AF2-IG: models 1 and 2 each predict
+one matched complex/monomer pair, and both pairs must pass.
 Fixed identities, motifs and chemical connections remain part of the task.
+
+For ordinary final validation with **ESMFold2-standard and context MSA**, use
+the protein preset:
+
+```bash
+partidesign download esmfold2-fast esmfold2-standard solublempnn
+partidesign pipeline configs/examples/pipeline_tasks.yaml \
+  --task protdbench_insulin_receptor --preset protein \
+  --run-name insulin_receptor_standard
+```
+
+Standard retrieves or reuses MSA for fixed protein context without templates;
+designed chains remain query-only. AF3 and Mol-1 are explicitly optional.
 
 Or optimize the bundled **linear and cyclic peptide complexes**:
 
@@ -185,8 +244,8 @@ partidesign pipeline configs/examples/optimization \
 ```
 
 The directory's `annotation.csv` describes each starting complex. This workflow
-begins with partial diffusion and uses the full selected preset for final
-validation; prepare its [evaluation models](docs/download.md#optional-evaluation-models).
+begins with partial diffusion and uses the selected preset's final validator;
+prepare its [evaluation models](docs/download.md#optional-evaluation-models).
 Add `--plan` to preview either command without starting model jobs.
 
 For **GLP1R VHH design or optimization**, use the antibody preset:
@@ -208,18 +267,33 @@ per-round settings, annotation fields and resume.
 
 ## Documentation
 
-| Guide                                   | Contents                                                                  |
-| --------------------------------------- | ------------------------------------------------------------------------- |
-| [User guide](docs/README.md)             | Reading order and all documentation                                       |
-| [Generation](docs/design.md)            | First run, task selection, execution settings and outputs                 |
-| [Pipeline](docs/pipeline.md)             | De novo design, existing-structure optimization and final filters         |
-| [Task YAML](docs/task_schema.md)         | Molecules, sequences, motifs, secondary structure and chemistry           |
-| [Commands](docs/commands.md)             | Generation, MSA, scoring, relax, validation, postfiltering and clustering |
-| [Partial diffusion](docs/partial.md)     | Sampling around a reference structure                                     |
-| [Examples](configs/examples/README.md)   | Runnable tasks by modality and topology                                   |
-| [Performance](docs/performance.md)       | Computational budgets, evaluation protocols and task-level results        |
+| Guide                                 | Contents                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------- |
+| [User guide](docs/README.md)           | Reading order and all documentation                                       |
+| [Generation](docs/design.md)           | First run, task selection, execution settings and outputs                 |
+| [Pipeline](docs/pipeline.md)           | De novo design, existing-structure optimization and final filters         |
+| [Task YAML](docs/task_schema.md)       | Molecules, sequences, motifs, secondary structure and chemistry           |
+| [Commands](docs/commands.md)           | Generation, MSA, scoring, relax, validation, postfiltering and clustering |
+| [Partial diffusion](docs/partial.md)   | Sampling around a reference structure                                     |
+| [Examples](configs/examples/README.md) | Runnable tasks by modality and topology                                   |
+| [Performance](docs/performance.md)     | Computational budgets, evaluation protocols and task-level results        |
 
 The [interactive notebook](partidesign.ipynb) supports visual task editing.
+
+## Citation
+
+If you use PartiDesign in your research, please cite our [bioRxiv preprint](https://doi.org/10.64898/2026.11.03.763860):
+
+```bibtex
+@article{jin2026partidesign,
+  title = {{PartiDesign}: A structure-sequence co-design paradigm for practical all-to-all biomolecules design},
+  author = {Jin, Zichang and Zhang, Xujun and Kang, Yu and Hou, Tingjun},
+  journal = {bioRxiv},
+  year = {2026},
+  doi = {10.64898/2026.11.03.763860},
+  url = {https://doi.org/10.64898/2026.11.03.763860}
+}
+```
 
 ## Acknowledgements
 
@@ -250,5 +324,5 @@ Model weights remain subject to their upstream terms.
 
 **AlphaFold 3 model parameters and outputs are restricted to non-commercial use**
 under Google's [Model Parameters Terms of Use](https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md).
-These terms apply when AF3 is used, including the standard pipeline presets.
+These terms apply when AF3 is explicitly selected.
 Mol-1 has separate upstream source and parameter terms.

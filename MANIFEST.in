@@ -1,9 +1,17 @@
 include README.md
 include pyproject.toml
+include uv.lock
+include install.sh
 include setup.py
 recursive-include licenses *
 
 recursive-include partidesign *.py
+include partidesign/assets/milkyfrog/standing.png
+include partidesign/assets/milkyfrog/thinking.png
+include partidesign/assets/milkyfrog/peace.png
+include partidesign/assets/milkyfrog/shy.png
+include partidesign/assets/milkyfrog/horse.jpg
+include partidesign/assets/milkyfrog/pointing.jpg
 
 # The immutable runtime corpus copied into partidesign/_resources by setup.py.
 recursive-include configs *

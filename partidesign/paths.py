@@ -3,10 +3,16 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import os
+import sys
 from pathlib import Path
 from typing import Iterator
 
 ENV_MODEL_DIR = "PARTIDESIGN_MODEL_DIR"
+
+
+def native_bin_dir() -> Path:
+    """Native tools supplied by the Python installation underlying this environment."""
+    return (Path(sys.base_prefix) / "bin").resolve()
 
 
 def code_root() -> Path:

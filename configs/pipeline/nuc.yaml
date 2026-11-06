@@ -1,9 +1,7 @@
 preset: nuc
 final:
-  methods: [mol1, af3, esmfold2-standard]
+  method: esmfold2-standard
   validation:
-    mol1: {samples: 5}
-    af3: {samples: 5}
     esmfold2: {samples: 5}
 criteria_routes:
   monomer:

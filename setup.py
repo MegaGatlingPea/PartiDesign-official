@@ -277,7 +277,10 @@ setup(
     cmdclass={"build": Build, "egg_info": EggInfo, "build_py": BuildPy, "sdist": SourceDist},
     include_package_data=True,
     package_data={
-        "partidesign": ["_resources/**/*", "_resources/**"],
+        "partidesign": ["assets/milkyfrog/standing.png", "assets/milkyfrog/thinking.png",
+                       "assets/milkyfrog/peace.png", "assets/milkyfrog/shy.png",
+                       "assets/milkyfrog/horse.jpg", "assets/milkyfrog/pointing.jpg",
+                       "_resources/**/*", "_resources/**"],
         "src.design.utils": ["notebook_molstar.js", "notebook_command.js", "notebook_help.js", "notebook_preset_load.js", "notebook_action.js", "notebook_theme.css"],
     },
 )

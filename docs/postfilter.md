@@ -113,15 +113,17 @@ These commands target the tested Python 3.12 Linux x86-64 setup. PyRosetta's
 license terms apply. Its SDK, database, and downloaded wheel are not included
 in Git or the PartiDesign wheel.
 
-The backend also needs DAlphaBall. A source checkout provides the small Linux
+The backend also needs DAlphaBall. A Git checkout provides the small Linux
 x86-64 executable and full corresponding LGPL source in
 `community_models/rosetta/`; see its [tool guide](../community_models/rosetta/README.md)
-for rebuilding. A wheel-only installation ships the source and license;
+for rebuilding. The bundled executable requires glibc 2.34 or later.
+Wheels and Python source archives ship the source and license;
 provision the executable in the active environment or set `dalphaball`
 explicitly. Both environment definitions install DSSP automatically.
 
 Tool resolution checks an explicit config path, checkout/packaged
-`community_models/rosetta/bin`, the active interpreter's `bin`, then `PATH`.
+`community_models/rosetta/bin`, the active interpreter's `bin`, its matching
+native base prefix's `bin`, then `PATH`.
 Loading or scoring never downloads tools or models implicitly.
 
 Runtime settings have exactly six fields in

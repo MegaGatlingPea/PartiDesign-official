@@ -1,6 +1,6 @@
 # Optimize existing complexes with the same iteration and final-validation profiles.
 # Auto chooses the antibody, protein or nucleic-acid final profile per task.
-# Select --preset ppi to also run paired AF2-IG models 1 and 2 for eligible binders.
+# Select --preset ppi for paired AF2-IG models 1 and 2 as the only final backend.
 preset: auto
 recycle: 3
 

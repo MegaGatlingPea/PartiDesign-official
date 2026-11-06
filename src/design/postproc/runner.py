@@ -16,6 +16,8 @@ import biotite.structure as struc
 import numpy as np
 from rdkit import Chem
 
+from partidesign.paths import native_bin_dir
+
 from ..core.records import (
     DesignError,
     SearchCandidate,
@@ -973,7 +975,7 @@ def _build_parameterization_payload(
 
 
 def _ambertools_executable(name: str) -> Path:
-    path = Path(sys.executable).resolve().parent / name
+    path = native_bin_dir() / name
     if not path.is_file() or not os.access(path, os.X_OK):
         raise OpenMMPreflightError(
             f"required AmberTools executable is unavailable: {path}"
@@ -983,9 +985,9 @@ def _ambertools_executable(name: str) -> Path:
 
 @contextmanager
 def _ambertools_on_path() -> Iterator[None]:
-    """Expose tools beside the active absolute Python only for one operation."""
+    """Expose native tools from this Python installation for one operation."""
 
-    environment_bin = str(Path(sys.executable).resolve().parent)
+    environment_bin = str(native_bin_dir())
     original_path = os.environ.get("PATH")
     os.environ["PATH"] = os.pathsep.join(
         (environment_bin, "" if original_path is None else original_path)

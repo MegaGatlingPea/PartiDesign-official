@@ -42,7 +42,7 @@ and compatibility are checked.
 | `af2_ig` | One standard-protein design chain with protein context; matched complex and isolated-chain predictions | `af2` |
 | `mol1` | Multimodal prediction with shared context MSA/template cache | `mol1` |
 | `af3`, `af3-la` | Multimodal complex prediction with the selected MSA policy | Matching method name |
-| `partiscore` | Interface scoring on original saved structures; no refolding/redesign | Git-supplied `partiscore` |
+| `partiscore` | Interface scoring on original saved structures; no refolding/redesign | `download partiscore` |
 | `vina_dock` | CPU chemical evaluation/docking of eligible refined pocket-ligand designs; runs alone | Environment Vina/Meeko/RDKit |
 
 With no method/profile, runtime defaults to **`esmfold2-fast`**. A `--config`
@@ -207,8 +207,9 @@ upstream parameter terms separately from the source-code license.
 `--method mol1` uses the existing validation commands, sequence sources, criteria,
 reports and resume behavior. Native profile settings belong under `mol1`:
 `samples: 1`, `recycles: 20`, `steps: 200`, `seed: 101`, `dtype: bf16` by default.
-It supports `mode: complex|monomer|both`. Pipeline protein/nuc final requests
-five samples and filters the highest native ranking_score prediction. Explicit
+It supports `mode: complex|monomer|both`. When explicitly selected for pipeline
+final, Mol-1 retains five samples and filters the highest native ranking_score
+prediction. Ordinary pipeline final uses ESMFold2-standard. Explicit
 `checkpoint` overrides the default checkpoint path. See docs/validate.md for
 kernel and precision controls.
 
