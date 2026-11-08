@@ -54,19 +54,20 @@ Use repeatable `--model NAME` or `--all` for detailed resource checks.
 With `--load` or `--smoke` and no selector, the target remains `partidesign`:
 
 ```bash
-partidesign check --model chemistry --model partiscore
+partidesign check --model partidesign --model partiscore
 partidesign check --model esmfold2-fast --load
 partidesign check --model af3 --msa off
 partidesign check --model mol1 --msa off
+partidesign check --model boltz2 --msa off
 ```
 
-The AF3 and Mol-1 examples check their installations without requiring MSA databases. To
+The AF3, Mol-1 and Boltz-2 examples check their installations without requiring MSA databases. To
 check a different model root, add `--model-dir PATH`; see
 [model directories](download.md#use-a-separate-model-directory).
 
 Task-file checking cannot be combined with `--model` or `--all`. Task-specific
 options such as `--task` and `--ckpt` require a task file. Context MSA options require
-an explicit `--model af3`, `--model af3-la`, or `--model mol1`.
+an explicit `--model af3`, `--model af3-la`, `--model mol1`, or `--model boltz2`.
 
 ColabFold protein searches include templates and use the bundled HHsearch
 binary package; local AF3 database paths are needed only for `--msa-source af3`.
@@ -104,8 +105,8 @@ requested check. Native-generation smoke checks require the generation bundle.
 | --- | --- |
 | `TASK_FILE.yaml` | Check a generation task file; optional when checking model resources. |
 | `--task NAME` | Select a named task; repeatable. |
-| `--model NAME` | Select a registered model/resource; repeatable. See [download targets](download.md#optional-evaluation-models). |
-| `--all` | Check every registered resource, including optional models. |
+| `--model NAME` | Select a model; repeatable. See [download targets](download.md#optional-evaluation-models). |
+| `--all` | Check all models. |
 | `--model-dir PATH` | Select the model root. |
 | `--ckpt FILE` | Select a compatible generation checkpoint for a task check. |
 | `--config FILE`, `--override KEY=VALUE` | Use the intended runtime settings for a task check. |

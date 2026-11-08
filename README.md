@@ -36,7 +36,7 @@ use the [web server](https://cadd.zju.edu.cn/partidesign/) for visual task setup
 or start from the [runnable examples](configs/examples/README.md).
 
 [Capabilities](#capabilities) · [Agent Skill](#agent-skill) · [Installation](#installation) ·
-[CLI](#cli) · [Pipeline](#pipeline) · [Documentation](#documentation) ·
+[CLI](#cli) · [Screen](#screen) · [Pipeline](#pipeline) · [Documentation](#documentation) ·
 [Citation](#citation) · [Acknowledgements](#acknowledgements) · [License](#license)
 
 ## Capabilities
@@ -180,12 +180,14 @@ come from [Hugging Face](https://huggingface.co/MegaGatlingPea/PartiDesign).
 | `partidesign` | Generates molecular structures and sequences from tasks. | `partiscore` | Ranks molecular interfaces from supplied structures. |
 | `proteinmpnn` | Redesigns protein sequences for a fixed backbone. | `solublempnn` | Designs soluble-protein sequences for a fixed backbone. |
 | `ligandmpnn` | Designs protein sequences around ligand context. | `cyclicmpnn` | Redesigns sequences for cyclic peptide backbones. |
-| `nampnn` | Redesigns DNA and RNA sequences for fixed structures. | `chemistry` | Provides molecular definitions for structure workflows. |
+| `nampnn` | Redesigns DNA and RNA sequences for fixed structures. | `boltz2` | Predicts protein–ligand structures and binding affinity. |
 | `esmfold2-fast` | Iterates designs using shared ESM-C safetensors. | `esmfold2-standard` | Validates with MSA and shared ESM-C safetensors. |
 | `af2` | Runs AF2-IG final validation for PPI designs. | `mol1` | Optionally predicts molecular complex structures. |
 | `af3` | Optionally predicts full-complex structures. | `af3-la` | Optionally predicts complexes with AF3-LA. |
 
 Fast and standard share the same ESM-C safetensors.
+For Boltz-2 structure prediction and native ligand affinity, use the single
+`partidesign download boltz2` target; assets live under `community_models/boltz/`.
 
 See [check](docs/check.md) and [downloads](docs/download.md) for details.
 
@@ -197,6 +199,21 @@ See [check](docs/check.md) and [downloads](docs/download.md) for details.
 <img src="docs/assets/cli/download.jpg" alt="PartiDesign interactive model download" width="100%">
 
 </details>
+
+## Screen
+
+Predict supplied protein, peptide, RNA, DNA or ligand candidates against shared
+sequence contexts, then rank their native representatives:
+
+```bash
+partidesign screen configs/examples/screen.yaml --task ligand_screen \
+  --out screen_results/ligand --plan
+```
+
+The CSV uses `id,modality,seq`; ligand `seq` values are SMILES. Screen and pipeline
+share prediction backends and `--worker-cpus` / `--worker-gpus` controls.
+Remove `--plan` to run. See the [screen guide](docs/screen.md) for methods,
+context MSA/templates, pockets, native affinity and ranking.
 
 ## Pipeline
 
@@ -262,6 +279,15 @@ five times with ESMFold2-standard, then applies geometry and antigen-contact
 criteria to the best prediction ranked by 0.8 ipTM + 0.2 pTM. See [antibody pipelines](docs/pipeline.md#antibody-pipelines).
 
 Accepted candidates are in `inference/<run>/<task>/final/success/`.
+Ligand design automatically selects the ligand preset: one Boltz-2 round
+and Boltz-2 final structure validation with native affinity. Preview the bundled
+ligand task with:
+
+```bash
+partidesign pipeline configs/examples/ligand.yaml --task ligand_fixture \
+  --preset ligand --run-name ligand_pipeline --plan
+```
+
 See the [pipeline guide](docs/pipeline.md) for presets, candidate counts,
 per-round settings, annotation fields and resume.
 
@@ -271,6 +297,7 @@ per-round settings, annotation fields and resume.
 | ------------------------------------- | ------------------------------------------------------------------------- |
 | [User guide](docs/README.md)           | Reading order and all documentation                                       |
 | [Generation](docs/design.md)           | First run, task selection, execution settings and outputs                 |
+| [Screen](docs/screen.md)               | Rank supplied sequences and SMILES against shared contexts                |
 | [Pipeline](docs/pipeline.md)           | De novo design, existing-structure optimization and final filters         |
 | [Task YAML](docs/task_schema.md)       | Molecules, sequences, motifs, secondary structure and chemistry           |
 | [Commands](docs/commands.md)           | Generation, MSA, scoring, relax, validation, postfiltering and clustering |

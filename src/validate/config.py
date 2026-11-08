@@ -10,7 +10,7 @@ import os
 from partidesign.paths import asset_root, ENV_MODEL_DIR
 from typing import Any
 
-METHODS = ("af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "partiscore", "vina_dock")
+METHODS = ("af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "boltz2", "partiscore", "vina_dock")
 SOURCES = (
     "gt",
     "protein_mpnn",
@@ -72,6 +72,9 @@ DEFAULTS = {
              "seed": 101, "dtype": "bf16", "triangle_multiplicative": "auto",
              "triangle_attention": "auto", "checkpoint": None,
              "msa": copy.deepcopy(DEFAULT_MSA_CONFIG)},
+    "boltz2": {"samples": 1, "mode": "complex", "recycles": 3, "steps": 200,
+               "affinity": True, "affinity_samples": 5, "affinity_steps": 200,
+               "seed": 101, "msa": copy.deepcopy(DEFAULT_MSA_CONFIG)},
     "scorer": {"enabled": False, "original": True, "refold": True,
                "checkpoint": "ckpts/partiscore.ckpt", "weights": "raw",
                "batch_size": 32, "num_workers": 0},
@@ -341,6 +344,23 @@ def validate_mol1_settings(value):
     return value
 
 
+def validate_boltz2_settings(value):
+    """Closed native Boltz2 settings for standalone validation."""
+    if not isinstance(value, dict) or set(value) != set(DEFAULTS["boltz2"]):
+        raise ValueError("boltz2 must contain only the documented Boltz2 settings")
+    for key in ("samples", "recycles", "steps", "affinity_samples", "affinity_steps"):
+        if type(value[key]) is not int or value[key] < 1:
+            raise ValueError(f"boltz2.{key} must be a positive integer")
+    if type(value["seed"]) is not int or not 0 <= value["seed"] < 2**32:
+        raise ValueError("boltz2.seed must be a uint32 integer")
+    if value["mode"] != "complex":
+        raise ValueError("boltz2.mode currently supports complex only")
+    if type(value["affinity"]) is not bool:
+        raise ValueError("boltz2.affinity must be boolean")
+    value["msa"] = validate_msa_settings(value["msa"])
+    return value
+
+
 def _positive_int_arg(value: str) -> int:
     try:
         parsed = int(value)
@@ -486,7 +506,7 @@ def parse_args(argv=None):
     msa_cli_values = cli_settings(args)
     msa_cli_explicit = any(value is not None for value in msa_cli_values.values()) or args.msa_refresh
     if msa_cli_explicit:
-        for group in ("esmfold2", "af3", "mol1"):
+        for group in ("esmfold2", "af3", "mol1", "boltz2"):
             cfg[group]["msa"].update({
                 key: value for key, value in msa_cli_values.items() if value is not None
             })
@@ -511,16 +531,16 @@ def parse_args(argv=None):
     cfg["worker_cpus"] = float(worker_cpus)
     if not isinstance(cfg["methods"], list) or not cfg["methods"] or any(m not in METHODS for m in cfg["methods"]):
         raise ValueError(f"methods must be a nonempty subset of {METHODS}")
-    if msa_cli_explicit and not any(method in {"esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1"} for method in cfg["methods"]):
-        raise ValueError("MSA command options require ESMFold2, AF3, AF3-LA, or Mol-1")
+    if msa_cli_explicit and not any(method in {"esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "boltz2"} for method in cfg["methods"]):
+        raise ValueError("MSA command options require ESMFold2, AF3, AF3-LA, Mol-1, or Boltz2")
     if len(cfg["methods"]) != len(set(cfg["methods"])):
         raise ValueError("Duplicate validation methods")
     if type(cfg["rerun"]) is not bool or type(cfg["rerun_refold"]) is not bool:
         raise ValueError("rerun and rerun_refold must be boolean")
     if cfg["rerun"] and cfg["rerun_refold"]:
         raise ValueError("rerun and rerun_refold are mutually exclusive")
-    if cfg["rerun_refold"] and any(method not in {"esmfold2-standard", "af3", "af3-la", "mol1"} for method in cfg["methods"]):
-        raise ValueError("--rerun-refold requires ESMFold2-standard, AF3, AF3-LA, or Mol-1")
+    if cfg["rerun_refold"] and any(method not in {"esmfold2-standard", "af3", "af3-la", "mol1", "boltz2"} for method in cfg["methods"]):
+        raise ValueError("--rerun-refold requires ESMFold2-standard, AF3, AF3-LA, Mol-1, or Boltz2")
     if cfg["rerun_refold"] and (args.plan or args.refilter or args.recompute_metrics):
         raise ValueError("--rerun-refold cannot be combined with --plan, --refilter, or --recompute-metrics")
     if args.msa_refresh and (args.plan or args.refilter or args.recompute_metrics):
@@ -530,6 +550,7 @@ def parse_args(argv=None):
     _validate_vina(cfg.get("vina"))
     validate_af3_settings(cfg.get("af3"))
     validate_mol1_settings(cfg.get("mol1"))
+    validate_boltz2_settings(cfg.get("boltz2"))
     validate_esmfold2_settings(cfg.get("esmfold2"))
     validate_ipsae_settings(cfg.get("ipsae"))
     if "vina_dock" in cfg["methods"] and len(cfg["methods"]) != 1:

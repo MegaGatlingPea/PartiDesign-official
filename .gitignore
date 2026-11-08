@@ -75,7 +75,11 @@ dist/
 
 # Local acceptance tests are not part of the published repository.
 /tests/
+/scripts/acceptance_pipeline.py
 
 # Separate CUDA virtual environments shown in the installation guide.
 /.venv-cu12/
 /.venv-cu13/
+# Downloaded Boltz runtime assets (source remains versioned separately).
+/community_models/boltz/checkpoint/
+/community_models/boltz/common/

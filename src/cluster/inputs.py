@@ -255,6 +255,8 @@ def _design_chains(row: dict[str, str], *, context: str) -> tuple[dict, ...]:
             raise ValueError(f"{prefix} must be an object")
         missing = {"chain", "modality", "sequence", "residue_count"}.difference(item)
         if missing:
+            if item.get("modality") == "ligand" and "sequence" in missing:
+                raise ValueError(f"{prefix}.sequence must contain authoritative ligand SMILES")
             raise ValueError(f"{prefix} is missing {', '.join(sorted(missing))}")
         chain, modality = item["chain"], item["modality"]
         if not isinstance(chain, str) or not chain or chain != chain.strip():
@@ -265,6 +267,8 @@ def _design_chains(row: dict[str, str], *, context: str) -> tuple[dict, ...]:
         if not isinstance(modality, str) or modality not in {"protein", "rna", "dna", "ligand"}:
             raise ValueError(f"{prefix}.modality is invalid")
         if not isinstance(item["sequence"], str) or not item["sequence"]:
+            if modality == "ligand":
+                raise ValueError(f"{prefix}.sequence must contain authoritative ligand SMILES")
             raise ValueError(f"{prefix}.sequence must be a nonempty string")
         count = item["residue_count"]
         if type(count) is not int or count < 1:
@@ -279,7 +283,8 @@ def _design_chains(row: dict[str, str], *, context: str) -> tuple[dict, ...]:
     return tuple(chains)
 
 
-def _samples(task_dir: Path, selected: set[str]) -> dict[str, ClusterSample]:
+def _samples(task_dir: Path, selected: set[str], *,
+             require_structures: bool = True) -> dict[str, ClusterSample]:
     result_path = task_dir / "result.csv"
     _, rows = _read_csv(result_path)
     matched: dict[str, tuple[dict[str, str], int]] = {}
@@ -306,13 +311,14 @@ def _samples(task_dir: Path, selected: set[str]) -> dict[str, ClusterSample]:
             part in {"validate", "original", "refolds", "success"} for part in relative.parts
         ):
             raise ValueError(f"{context}: result filename does not identify an original task structure")
-        if not structure.is_file():
+        if require_structures and not structure.is_file():
             raise ValueError(f"{context}: generated structure is missing: {structure}")
         samples[sample] = ClusterSample(sample, structure, _design_chains(row, context=context))
     return samples
 
 
-def load_job(job: ClusterJob, *, criteria: Iterable[str] = ()) -> ClusterInput:
+def load_job(job: ClusterJob, *, criteria: Iterable[str] = (),
+             require_structures: bool = True) -> ClusterInput:
     """Load each selected successful backbone once, grouped by passed criterion.
 
     ``sources[criterion][sample]`` records its passing sequence branches.  Only
@@ -320,6 +326,8 @@ def load_job(job: ClusterJob, *, criteria: Iterable[str] = ()) -> ClusterInput:
     saved ``input_file`` and all refold files are deliberately non-authoritative.
     For an empty report without criterion columns, explicit criteria create empty
     groups; unknown names are rejected when rows or criterion columns exist.
+    Chemical grouping may set ``require_structures=False``: identities come
+    exclusively from result metadata and no structure content is needed.
     """
     job = ClusterJob(Path(job.task_dir).expanduser().resolve(), Path(job.method_dir).expanduser().resolve())
     if job.method_dir.parent != job.task_dir / "validate":
@@ -355,7 +363,8 @@ def load_job(job: ClusterJob, *, criteria: Iterable[str] = ()) -> ClusterInput:
         for name in chosen:
             grouped[name].setdefault(sample, set()).add(label)
     selected = {sample for values in grouped.values() for sample in values}
-    samples = _samples(job.task_dir, selected) if selected else {}
+    samples = _samples(job.task_dir, selected,
+                       require_structures=require_structures) if selected else {}
     groups = {name: tuple(sorted(values)) for name, values in grouped.items()}
     sources = {name: {sample: tuple(sorted(labels)) for sample, labels in sorted(values.items())}
                for name, values in grouped.items()}

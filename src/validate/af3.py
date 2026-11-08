@@ -69,7 +69,7 @@ def validate_af3_prediction(
     raise AF3ValidationError("AF3 prediction must be a mapping")
   result = dict(prediction)
   model = str(result.get("model", ""))
-  if model not in {"af3", "af3-la", "mol1"}:
+  if model not in {"af3", "af3-la", "mol1", "boltz2"}:
     raise AF3ValidationError(f"unsupported AF3 model label {model!r}")
   protocol = str(result.get("protocol", ""))
   if protocol not in {"complex", "monomer"}:
@@ -372,6 +372,19 @@ class AF3Validator:
     setter = getattr(self.backend, "set_log_dir", None)
     if setter is not None:
       setter(log_dir)
+
+  def predict_sequences(self, request, output, *, completed_keys=()):
+    """Native sequence mode bypasses source confidence projection."""
+    if self._closed:
+      raise AF3ValidationError("AF3 validator is closed")
+    seen = set()
+    for result in self.backend.predict_sequences(request, output, completed_keys=completed_keys):
+      result = validate_af3_prediction(result, expected_model=self.backend.method,
+                                       expected_protocol="complex", require_structure=self.require_structure)
+      if result["key"] in seen:
+        raise AF3ValidationError("AF3 sequence prediction keys must be unique")
+      seen.add(result["key"])
+      yield result
 
   def close(self) -> None:
     if self._closed:

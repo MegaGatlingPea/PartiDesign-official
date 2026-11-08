@@ -9,7 +9,7 @@ import re
 import tempfile
 from collections import Counter
 from collections.abc import Mapping
-from .selection import ChainSequence
+from .selection import ChainSequence, LigandIdentity
 
 _TOKEN = re.compile(r"\[[^\[\]]+\]|[A-Za-z]")
 
@@ -52,6 +52,13 @@ def write_csv(path, rows):
         for row in rows:
             writer.writerow({k:json.dumps(jsonable(v),separators=(",",":"))
                              if isinstance(v,(dict,tuple,list)) else v for k,v in row.items()})
+
+
+def failed_row(row):
+    """Explicit native failures may legitimately have no output filename."""
+    return bool(row.get("error")) or any(
+        str(row.get(field,"")).strip().lower() in {"failed","failure","error"}
+        for field in ("status","generation_status"))
 
 @dataclass(frozen=True)
 class Candidate:
@@ -155,7 +162,7 @@ def _bond_anchor(record,bond):
 @dataclass(frozen=True, slots=True)
 class _PreparedChainSequences:
     owner: object
-    chains: tuple[ChainSequence, ...]
+    chains: tuple[ChainSequence | LigandIdentity, ...]
     mutable_positions: tuple[tuple[int, ...], ...]
 
 
@@ -175,8 +182,16 @@ def prepare_chain_sequences(record):
         if not groups:
             raise ValueError(f"empty design chain {chain!r}")
         modality=str(atoms.mol_type[groups[0][0]])
+        if modality == "ligand":
+            entries=getattr(record,"ligand_entries",{}) or {}
+            entry=entries.get(chain,{})
+            if not entry.get("smiles"):
+                raise ValueError(f"design ligand {chain!r} lacks authoritative SMILES metadata")
+            result.append(LigandIdentity(chain,str(entry["smiles"])))
+            mutable_positions.append(())
+            continue
         if modality not in maps:
-            raise ValueError("pipeline supports polymer designs only; pure ligand design is unsupported")
+            raise ValueError(f"unsupported pipeline design modality: {modality}")
         values,anchors,mutable=[],[],[]
         for ordinal,rows in enumerate(groups):
             i=rows[0]
@@ -218,6 +233,14 @@ def chain_sequences(record,variant=None,*,prepared=None):
     proposals={} if variant is None else variant.get("sequences",{})
     result=[]
     for chain,mutable in zip(prepared.chains,prepared.mutable_positions):
+        if isinstance(chain,LigandIdentity):
+            proposal=proposals.get(chain.chain_id)
+            if proposal is None:
+                result.append(chain)
+            else:
+                smiles=proposal.get("smiles") if isinstance(proposal,Mapping) else proposal
+                result.append(LigandIdentity(chain.chain_id,str(smiles)))
+            continue
         if chain.chain_id not in proposals:
             result.append(chain)
             continue
@@ -231,17 +254,32 @@ def chain_sequences(record,variant=None,*,prepared=None):
     return tuple(result)
 
 def refreshed_row(record,path,*,atoms=None):
+    import numpy as np
     from src.design.utils.reader import read_structure
     atoms=_prepared_atoms(read_structure(path) if atoms is None else atoms,record.design_chains)
     current=replace(record,atoms=atoms,fixed_restypes=[{k:v for k,v in x.items() if k!="atom_id"} for x in record.fixed_restypes])
     chains=chain_sequences(current)
     row=dict(record.row)
     previous={x["chain"]:x for x in json.loads(row.get("design_chains") or "[]")}
-    row["design_chains"]=json.dumps([
-        {**previous.get(c.chain_id,{}),"chain":c.chain_id,"modality":c.modality,
-         "sequence":"".join(c.tokens),"residue_count":len(c.tokens),
-         **({"cyclic_offset":True} if c.chain_id in record.cyclic_offset_chains else {})}
-        for c in chains],separators=(",",":"))
+    metadata=[]
+    labels=np.asarray(getattr(atoms,"label_asym_id",atoms.chain_id)).astype(str)
+    for c in chains:
+        entry={**previous.get(c.chain_id,{}),"chain":c.chain_id,"modality":c.modality}
+        if isinstance(c,LigandIdentity):
+            selected=labels==c.chain_id
+            # The source row owns chemistry; a refold changes coordinates only.
+            # New FM children already supply their own native source row.
+            entry.update(sequence=previous[c.chain_id]["sequence"],
+                         residue_count=len(residues(atoms,c.chain_id)),
+                         atom_count=int(np.count_nonzero(selected)),
+                         heavy_atom_count=int(np.count_nonzero(selected &
+                             ~np.isin(np.char.upper(atoms.element.astype(str)),("H","D","T")))))
+        else:
+            entry.update(sequence="".join(c.tokens),residue_count=len(c.tokens))
+            if c.chain_id in record.cyclic_offset_chains:
+                entry["cyclic_offset"]=True
+        metadata.append(entry)
+    row["design_chains"]=json.dumps(metadata,separators=(",",":"))
     # Public atom serials change when a free residue changes its sidechain.
     # Resolve inherited locators in the parent, then remap the same semantic
     # atom/residue occurrence in the restored child.
@@ -429,24 +467,43 @@ def _rewrite_cif_aliases(path, atoms, replacements):
         Path(temporary).unlink(missing_ok=True)
 
 
+def _protected_ligand_chains(record,chains,labels):
+    from src.validate.ligands import protected_ligand_chains
+    return protected_ligand_chains(record,chains,labels)
+
+
 def restore_context_aliases(parent_record,target_cif,*,atoms=None):
-    """Restore public aliases using the native validator's chemical mapping."""
+    """Restore public ligand aliases using the native chemical mapping."""
     import numpy as np
     from src.design.utils.reader import read_structure
     from src.validate.ligands import resolve_context_ligands
     from src.validate.ligand_metrics import atom_mapping
     source=parent_record.atoms
     labels=np.asarray(getattr(source,"label_asym_id",source.chain_id)).astype(str)
-    chains=list(dict.fromkeys(labels[(source.mol_type=="ligand") &
-                                    ~np.isin(labels,parent_record.design_chains)].tolist()))
+    chains=list(dict.fromkeys(labels[source.mol_type=="ligand"].tolist()))
     if not chains:
         return atoms
     target=read_structure(target_cif) if atoms is None else atoms
-    entries,_=resolve_context_ligands(parent_record.task_dir,source,
-                                      design_chains=parent_record.design_chains,chains=chains)
+    context=[chain for chain in chains if chain not in parent_record.design_chains]
+    entries=(resolve_context_ligands(parent_record.task_dir,source,
+        design_chains=parent_record.design_chains,chains=context)[0] if context else {})
+    designed=getattr(parent_record,"ligand_entries",{}) or {}
+    for chain in chains:
+        if chain in parent_record.design_chains:
+            if not designed.get(chain,{}).get("smiles"):
+                raise ValueError(f"design ligand {chain!r} lacks authoritative SMILES metadata")
+            entries[chain]=designed[chain]
+    protected=_protected_ligand_chains(parent_record,
+        [chain for chain in chains if chain in parent_record.design_chains],labels)
     replacements={}
     for chain in chains:
-        mapping=atom_mapping(source,target,chain,chain,trusted_smiles=entries[chain].get("smiles"))
+        try:
+            mapping=atom_mapping(source,target,chain,chain,trusted_smiles=entries[chain].get("smiles"),
+                allow_symmetric_graph=chain in parent_record.design_chains and chain not in protected)
+        except ValueError as exc:
+            if chain in protected and "ambiguous" in str(exc):
+                raise ValueError(f"protected design ligand {chain!r} atom correspondence is ambiguous") from exc
+            raise
         replacements.update({b:str(source.atom_name[a]) for a,b in mapping.items()
                              if str(source.atom_name[a])!=str(target.atom_name[b])})
     if replacements:
@@ -462,6 +519,59 @@ class _InvariantBaseline:
     motif_names: tuple[tuple[str, tuple, frozenset], ...]
     special_edges: tuple
     context: _ContextBaseline
+    ligand_identity: tuple
+
+
+def _ligand_invariants(record):
+    """Refolding must preserve each designed ligand's authoritative graph."""
+    from .selection import sequence_key
+    atoms=record.atoms
+    entries=getattr(record,"ligand_entries",{}) or {}
+    labels=getattr(atoms,"label_asym_id",atoms.chain_id)
+    result=[]
+    for chain in record.design_chains:
+        rows=[i for i in range(len(atoms)) if str(labels[i])==chain
+              and str(atoms.mol_type[i])=="ligand"]
+        if not rows:
+            continue
+        if not entries.get(chain,{}).get("smiles"):
+            raise ValueError(f"design ligand {chain!r} lacks authoritative SMILES metadata")
+        identity=sequence_key((LigandIdentity(chain,entries[chain]["smiles"]),))
+        locators={i:(str(atoms.atom_name[i]),str(atoms.element[i])) for i in rows}
+        charges=getattr(atoms,"formal_charge",None)
+        known=getattr(atoms,"formal_charge_known",None)
+        inventory=tuple(sorted((locators[i],None if charges is None or charges[i] is None or
+            (known is not None and not known[i]) else int(charges[i])) for i in rows))
+        # Compare aromatic/Kekule witnesses in the trusted molecule's graph;
+        # never change the stored source or prediction bond representation.
+        from src.design.rewards.af3_chemistry import molecule_graph, trusted_smiles
+        trusted=molecule_graph(trusted_smiles(entries[chain]["smiles"]))
+        graph=None
+        if any(order==9 for _,_,order in trusted.bonds):
+            from src.validate.ligand_metrics import _heavy_indices, _trusted_smiles_graphs
+            heavy,_=_heavy_indices(atoms,chain)
+            graph,_=_trusted_smiles_graphs(atoms,atoms,heavy,heavy,entries[chain]["smiles"],
+                                           comparison_only=True)
+        edges=tuple(sorted((tuple(sorted((locators[int(a)],locators[int(b)]))),
+                            int(graph[int(a)][int(b)]) if graph is not None and int(a) in graph and int(b) in graph
+                            else int(order))
+                           for a,b,order in ([] if atoms.bonds is None else atoms.bonds.as_array())
+                           if int(a) in locators and int(b) in locators))
+        result.append((identity,inventory,edges))
+    return tuple(result)
+
+
+def _same_ligand_invariants(original,current):
+    if len(original)!=len(current):
+        return False
+    for (identity,inventory,edges),(new_identity,new_inventory,new_edges) in zip(original,current):
+        old_atoms,new_atoms=dict(inventory),dict(new_inventory)
+        if identity!=new_identity or edges!=new_edges or old_atoms.keys()!=new_atoms.keys():
+            return False
+        # Missing source charge annotation is not a zero-charge condition.
+        if any(charge is not None and new_atoms[atom]!=charge for atom,charge in old_atoms.items()):
+            return False
+    return True
 
 
 def _residue_identity_index(atoms,chain):
@@ -487,7 +597,7 @@ def prepare_invariants(parent):
                       for pos in positions)
     return _InvariantBaseline(parent,
         tuple(len(residues(parent.atoms,chain)) for chain in parent.design_chains),
-        fixed,tuple(motifs),special_edges(parent),_prepare_context(parent))
+        fixed,tuple(motifs),special_edges(parent),_prepare_context(parent),_ligand_invariants(parent))
 
 
 def assert_invariants(parent,child,*,prepared=None):
@@ -496,6 +606,9 @@ def assert_invariants(parent,child,*,prepared=None):
         raise ValueError("prepared invariants belong to a different input record")
     if parent.design_chains!=child.design_chains:
         raise ValueError("refold changed design chain roles")
+    ligand_identity=_ligand_invariants(parent) if prepared is None else prepared.ligand_identity
+    if not _same_ligand_invariants(ligand_identity,_ligand_invariants(child)):
+        raise ValueError("refold changed designed ligand SMILES or atom graph")
     for index,chain in enumerate(parent.design_chains):
         length=(len(residues(parent.atoms,chain)) if prepared is None
                 else prepared.design_lengths[index])

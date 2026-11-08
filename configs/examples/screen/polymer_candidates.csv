@@ -1,0 +1,5 @@
+id,modality,seq
+protein_example,protein,MTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTE
+peptide_example,peptide,AGLQFPVGRVHR
+rna_example,rna,GGGAAACCC
+dna_example,dna,ACGTTGCA

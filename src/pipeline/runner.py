@@ -17,7 +17,7 @@ from .layout import (TASK_LAYOUT, design_folder, metadata_folder, refold_folder,
                      run_work, stage_folder, stage_state, task_layout)
 from .selection import SelectionCandidate, select_candidates, sequence_key
 from .state import (Candidate, atomic_json, assert_invariants, chain_sequences,
-                    has_special_polymer_bond, jsonable, load_candidate, refreshed_row, residues, write_csv)
+                    failed_row, has_special_polymer_bond, jsonable, load_candidate, refreshed_row, residues, write_csv)
 
 
 def generation_runner(cfg, repo):
@@ -134,6 +134,8 @@ def final_prediction_view(record, selection="best_ranked", *, models=None):
                 # Match native validate best_ranked, including monomer ipTM=0.
                 metrics = prediction["metrics"]
                 score = 0.8 * float(metrics["iptm"]) + 0.2 * float(metrics["ptm"])
+            elif record["method"] == "boltz2":
+                score = float(prediction["confidence"]["confidence_score"])
             else:
                 score = float(prediction["confidence"]["ranking_score"])
             if not isfinite(score):
@@ -183,7 +185,8 @@ def final_prediction_view(record, selection="best_ranked", *, models=None):
     negative_score, key = min(ranked)
     view = dict(record, expected_predictions=[key], predictions={key: record["predictions"][key]})
     return view, {"mode": "best_ranked", "selected_prediction_key": key,
-                  "ranking_score": -negative_score}
+                  **({"confidence_score": -negative_score} if record["method"]=="boltz2"
+                     else {"ranking_score": -negative_score})}
 
 
 def _copy_snapshot(source, destination, task):
@@ -220,10 +223,10 @@ def import_candidates(source, target, names, *, layout=None):
     with ThreadPoolExecutor(max_workers=min(4,os.cpu_count() or 1)) as pool:
         copies=[]
         for name,entry in entries:
+            if failed_row(entry.row):
+                continue
             if entry.error:
                 raise ValueError(entry.error)
-            if entry.row.get("error"):
-                continue
             folder=folders[name]
             if name not in snapshots:
                 metadata=folder/".work"/name if new_layout else folder
@@ -379,8 +382,9 @@ def _score_profile(method, validation):
     return json.dumps([method, settings], sort_keys=True)
 
 
-def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, force=False,
+def _evaluate_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, force=False,
               folder_override=None, predictions_dir=None, publish_success=True):
+    """Own parsed structures through selection and optional relaxation only."""
     from .backends import design_score
     from src.validate.ipsae import IPSAE_METRIC_NAMES
     task_cfg=cfg["tasks"][task_name]
@@ -408,7 +412,7 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
     saved=None if force else _load_stage(state,folder=folder,task=task_name)
     if saved is not None and saved[1].get("method")==method:
         print(f"[{task_name}] {'final' if final else f'round {number}'} resumed",flush=True)
-        return saved[0],dict(saved[1],_resumed=True)
+        return {"resumed": (saved[0],dict(saved[1],_resumed=True))}
     # Only this invalidated phase's owned products are replaced. Upstream
     # generation, parent structures and the shared raw prediction cache stay intact.
     for name in ("relaxed","partial","success"):
@@ -494,7 +498,7 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
         if not check_motif:
             from .criteria import without_motif_geometry
             names,presets=without_motif_geometry(names,presets)
-        if not names and not check_motif:
+        if not names:
             passing={key for key,prediction in evaluation_record["predictions"].items()
                      if prediction["protocol"]=="complex" and evaluation_record["status"]=="complete"}
             evaluated={}
@@ -680,35 +684,53 @@ def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, f
                     count["relax_success_count"]+=1
         else:
             survivors=[candidate for candidate,_ in chosen]
-        partial=stage.get("partial",{"enabled":False})
-        if number<task_cfg["recycle"] and partial["enabled"] and survivors:
-            reference_csv=(folder/".work"/"partial_inputs.csv" if task_layout(cfg)
-                           else folder/"partial"/"inputs.csv")
-            write_csv(reference_csv,[dict(c.row,filename=c.path,candidate_id=c.candidate_id) for c in survivors])
-            from .seeds import candidate_authoring
-            references=[{"candidate_id":c.candidate_id,"path":c.path,"result_csv":str(reference_csv),
-                         "authored":candidate_authoring(cfg,c)} for c in survivors]
-            result=owner.partial_many(references,authored=cfg["task_payload"][task_name],
-                effective_generation=cfg["effective_generation"],settings=partial,
-                output=folder/"partial",seed=(cfg["seed"]+number*100003+cfg["task_names"].index(task_name)*10000019)%(2**32-1))
-            parents_by_id={c.candidate_id:c for c in survivors}
-            children=[]
-            for index,item in enumerate(result["candidates"],1):
-                parent=parents_by_id[item["parent_id"]]
-                child_row=dict(item["row"],filename=item["path"],structure_stage="partial")
-                for field in ("_pipeline_metadata","_antibody_context_path","source_status"):
-                    if parent.row.get(field):
-                        child_row[field]=parent.row[field]
-                if child_row.get("_antibody_context_path"):
-                    child_row.pop("_antibody_context",None)
-                child=Candidate(f"r{number:03d}_p{index:07d}",task_name,parent.candidate_id,parent.origin_id,
-                    item["path"],child_row,"partial",origin_path=parent.origin_path,
-                    lineage_id=parent.lineage_id)
-                children.append(child)
-            count["partial_success_count"]=len(children)
-            count["partial_failed_count"]=result.get("failed",0)
-            count["partial_model_loads"]=result.get("model_loads",0)
-            survivors=([*survivors,*children] if partial["include_parent"] else children)
+    # No parsed input, preparation object or invariant baseline crosses into
+    # partial diffusion. Ending this scope also drops loop/generator references.
+    return {"folder":folder,"state":state,"number":number,"survivors":survivors,
+            "archive":archive,"count":count,"result_rows":result_rows,"rows":rows,
+            "partial":stage.get("partial",{"enabled":False})}
+
+
+def run_stage(owner, cfg, task_name, stage, parents, previous, *, final=False, force=False,
+              folder_override=None, predictions_dir=None, publish_success=True):
+    evaluation=_evaluate_stage(owner,cfg,task_name,stage,parents,previous,
+        final=final,force=force,folder_override=folder_override,
+        predictions_dir=predictions_dir,publish_success=publish_success)
+    if "resumed" in evaluation:
+        return evaluation["resumed"]
+    folder,state,number=(evaluation[key] for key in ("folder","state","number"))
+    survivors,archive,count=(evaluation[key] for key in ("survivors","archive","count"))
+    result_rows,rows=evaluation["result_rows"],evaluation["rows"]
+    partial=evaluation["partial"]
+    task_cfg=cfg["tasks"][task_name]
+    if not final and number<task_cfg["recycle"] and partial["enabled"] and survivors:
+        reference_csv=(folder/".work"/"partial_inputs.csv" if task_layout(cfg)
+                       else folder/"partial"/"inputs.csv")
+        write_csv(reference_csv,[dict(c.row,filename=c.path,candidate_id=c.candidate_id) for c in survivors])
+        from .seeds import candidate_authoring
+        references=[{"candidate_id":c.candidate_id,"path":c.path,"result_csv":str(reference_csv),
+                     "authored":candidate_authoring(cfg,c)} for c in survivors]
+        result=owner.partial_many(references,authored=cfg["task_payload"][task_name],
+            effective_generation=cfg["effective_generation"],settings=partial,
+            output=folder/"partial",seed=(cfg["seed"]+number*100003+cfg["task_names"].index(task_name)*10000019)%(2**32-1))
+        parents_by_id={c.candidate_id:c for c in survivors}
+        children=[]
+        for index,item in enumerate(result["candidates"],1):
+            parent=parents_by_id[item["parent_id"]]
+            child_row=dict(item["row"],filename=item["path"],structure_stage="partial")
+            for field in ("_pipeline_metadata","_antibody_context_path","source_status"):
+                if parent.row.get(field) and not child_row.get(field):
+                    child_row[field]=parent.row[field]
+            if child_row.get("_antibody_context_path"):
+                child_row.pop("_antibody_context",None)
+            child=Candidate(f"r{number:03d}_p{index:07d}",task_name,parent.candidate_id,parent.origin_id,
+                item["path"],child_row,"partial",origin_path=parent.origin_path,
+                lineage_id=parent.lineage_id)
+            children.append(child)
+        count["partial_success_count"]=len(children)
+        count["partial_failed_count"]=result.get("failed",0)
+        count["partial_model_loads"]=result.get("model_loads",0)
+        survivors=([*survivors,*children] if partial["include_parent"] else children)
     write_csv(folder/"result.csv",result_rows)
     write_csv(folder/"selection.csv",rows)
     atomic_json(state,{"status":"complete","candidates":[c.saved() for c in survivors],
@@ -768,6 +790,8 @@ def _configure_motif_policy(cfg, *, legacy=False):
     cfg["motif_policy"] = "first_and_final"
     native = load_presets(inference_config_dir() / "criteria.yaml")
     for name, task in cfg["tasks"].items():
+        if _modalities(cfg["task_payload"][name], name) == {"ligand"}:
+            continue
         nucleic = _modalities(cfg["task_payload"][name], name) == {"nuc"}
         source_name = "af3_na_motif" if nucleic else "af3_ame"
         source = task["presets"].get(source_name, native[source_name])
@@ -820,10 +844,10 @@ def run(args):
                            "final":" + ".join(final_samples)+" / GT-only"})
         print(yaml.safe_dump({"effective_config":cfg,"budget":budget,
                               "generation_expansion":"sample_num follows native per-length-plan expansion",
-                              "capabilities":{"design":"protein, peptide, RNA, DNA, VHH and VH/VL antibody",
+                              "capabilities":{"design":"protein, peptide, RNA, DNA, ligand, VHH and VH/VL antibody",
                                               "af2_ig":"one standard protein design chain with protein context; paired protocols",
                                               "cyclic_offset":"AF2/AF3/AF3-LA relative encoding; ESMFold2/Mol-1 use explicit covalent bonds",
-                                              "context_motion":True,"pure_ligand_design":False,
+                                              "context_motion":True,"pure_ligand_design":True,
                                               "polymer_bond_iteration":"special polymer-polymer bonds use esmfold2-fast for AF2/AF3/AF3-LA iteration; final chemistry is native"}},
                              sort_keys=False),end="")
         return 0
@@ -1018,6 +1042,7 @@ class _OwnerPool:
         import math
         import ray
         import torch
+        from src.validate.resources import worker_resources
         if self.started:
             return
         if ray.is_initialized():
@@ -1030,10 +1055,8 @@ class _OwnerPool:
         for task in self.cfg["tasks"].values():
             for stage in [*task["rounds"],*task["final"].get("validators",[task["final"]])]:
                 settings=stage["validation"]
-                fraction=settings.get("worker_gpus")
-                fraction=float(fraction if fraction is not None else
-                               REFOLD_METHODS[stage["method"]].worker_gpus)
-                budgets.append(math.floor(1/fraction)*gpus*float(settings.get("worker_cpus",1)))
+                fraction,cpus=worker_resources(settings,stage["method"])
+                budgets.append(math.floor(1/fraction)*gpus*cpus)
             if any(stage.get("relax_enabled",False) for stage in task["rounds"]):
                 settings=task["openmm"]
                 fraction=float(settings["worker_gpus"])
@@ -1045,8 +1068,8 @@ class _OwnerPool:
         self.started=True
 
     def _activate(self,phase,gpu,cpu,*,limit=None):
-        import math
         import ray
+        from src.validate.resources import worker_capacity
         gpu,cpu=float(gpu),float(cpu)
         identity=(phase,gpu,cpu)
         if identity==self.identity:
@@ -1054,10 +1077,9 @@ class _OwnerPool:
         self._close_actors()
         self._start_runtime()
         resources=ray.cluster_resources()
-        capacity=int(resources.get("CPU",0)//cpu)
-        if gpu:
-            capacity=min(capacity,math.floor(1/gpu)*int(resources.get("GPU",0)))
-        if limit is not None:
+        capacity=(worker_capacity(resources,gpu,cpu,limit=limit) if gpu else
+                  int(resources.get("CPU",0)//cpu))
+        if not gpu and limit is not None:
             capacity=min(capacity,limit)
         if capacity<1:
             raise RuntimeError(f"Insufficient resources for {phase}: {gpu:g} GPU / {cpu:g} CPU per worker")
@@ -1069,9 +1091,9 @@ class _OwnerPool:
         print(f"Resident {phase} pool: {capacity} workers, {gpu:g} GPU / {cpu:g} CPU each",flush=True)
 
     def activate(self,method,validation,openmm):
-        gpu=validation.get("worker_gpus")
-        gpu=float(gpu if gpu is not None else REFOLD_METHODS[method].worker_gpus)
-        self._activate(method,gpu,validation.get("worker_cpus",1))
+        from src.validate.resources import worker_resources
+        gpu,cpu=worker_resources(validation,method)
+        self._activate(method,gpu,cpu)
 
     def activate_partial(self,effective_generation,*,parent_count):
         if parent_count:

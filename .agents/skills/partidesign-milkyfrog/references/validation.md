@@ -1,11 +1,13 @@
 # Validate saved PartiDesign designs
 
 Use this reference for method/source/criteria choices, shared
-ESMFold2-standard/AF3/Mol-1 MSA policy, chemistry limits, result interpretation,
+ESMFold2-standard/AF3/Mol-1/Boltz-2 MSA policy, chemistry limits, result interpretation,
 and reuse. Read the active checkout's
 `docs/validate.md` for detailed flags, profiles, and custom metric rules; inspect
 `configs/criteria.yaml` for exact preset thresholds. Paths here are relative to
-the detected checkout, not this skill's installation directory.
+the detected checkout, not this skill's installation directory. Use
+[resource and budget choices](resources.md) for worker reservations and
+prediction budgets.
 
 ## Establish the evaluation request
 
@@ -42,6 +44,7 @@ and compatibility are checked.
 | `af2_ig` | One standard-protein design chain with protein context; matched complex and isolated-chain predictions | `af2` |
 | `mol1` | Multimodal prediction with shared context MSA/template cache | `mol1` |
 | `af3`, `af3-la` | Multimodal complex prediction with the selected MSA policy | Matching method name |
+| `boltz2` (when available) | Standard protein context and one free designed ligand; complex prediction and native affinity | `boltz2` |
 | `partiscore` | Interface scoring on original saved structures; no refolding/redesign | `download partiscore` |
 | `vina_dock` | CPU chemical evaluation/docking of eligible refined pocket-ligand designs; runs alone | Environment Vina/Meeko/RDKit |
 
@@ -60,6 +63,32 @@ use standalone `partidesign score` for scoring as described in
 [workflows.md](workflows.md), or pipeline with annotation.csv for sequence/structure
 optimization as described in [partial-pipeline.md](partial-pipeline.md). Do not
 invent result.csv rows as an input workaround.
+
+## Optional Boltz-2 ligand validation
+
+Check that the active CLI lists `boltz2`; read its `docs/validate.md` for the
+Numba prerequisite. `download boltz2` prepares both checkpoints and the molecule
+cache; `check --model boltz2 --load` strict-loads them on CPU. AF3 assets are not
+required. Use `validate RUN --method boltz2 --source gt:1` for existing ligand
+results with authoritative SMILES and standard protein context.
+
+The initial route is one connected free designed ligand in complex mode.
+Modified/cyclic/covalent inputs and ambiguous chemistry fail explicitly. The
+original pose is the comparison reference, not a prediction template. Native
+`boltz2_affinity_*` fields retain upstream units and do not use Vina thresholds.
+No default Boltz screening threshold is supplied; ligand pairs have no ipSAE.
+
+Defaults are one structure, three structure recycles and 200 steps; each
+structure gets five affinity samples with 200 steps. Shared protein-context
+MSA and exact template mappings use existing `auto/off/cache-only` controls;
+designed proteins stay query-only. Keep native confidence, model-input evidence
+and sequence state for resume/refilter/recompute. Recompute reuses saved
+affinity values, not new predictions. Boltz-2 is also available in the explicit
+ligand pipeline preset and coordinate-free screen. Vina standalone/default
+validation behavior remains unchanged. Read [screen.md](screen.md) for CSV
+candidates and the separate native-confidence representative/ranking policy.
+Affinity internally re-samples; the scored-pose/crop evidence is retained and
+is not the public confidence-stage CIF.
 
 ## Make the sequence budget explicit
 
@@ -217,8 +246,8 @@ Standalone repeated `--method` runs retain separate method reports/success
 folders. Pipeline `final.methods` instead uses one shared candidate pool and
 one union success directory; read partial-pipeline.md for that contract.
 
-ESMFold2-standard/AF3/AF3-LA/Mol-1 share `--msa auto` and `--msa-source colabfold`
-defaults. AF3/AF3-LA/Mol-1 also default to protein templates with maximum release
+ESMFold2-standard/AF3/AF3-LA/Mol-1/Boltz-2 share `--msa auto` and `--msa-source colabfold`
+defaults. AF3/AF3-LA/Mol-1/Boltz-2 also default to protein templates with maximum release
 date `2021-09-30`. ESMFold2-standard consumes fixed protein-context MSA without
 templates; Fast remains query-only even with shared `auto`. `esmfold2.msa`
 accepts the same shared MSA schema, with model-specific YAML values overriding
@@ -238,7 +267,7 @@ ESMFold2 keeps RNA/DNA query-only with either source. Structural templates are
 protein-only and never consumed by ESMFold2. All designed GT/MPNN/VH/VL/VHH
 chains remain query-only and are not automatically searched. `--msa off`
 restores standard's historical query-only path and disables both MSA and
-templates for AF3/Mol-1. Generation and partial-reference coordinates do not
+templates for AF3/Mol-1/Boltz-2. Generation and partial-reference coordinates do not
 become prediction templates.
 
 Use the same task selection as design/pipeline to prepare fixed-context inputs:
@@ -253,7 +282,7 @@ or load prediction models. Its shared cache is
 `<model_dir>/.cache/af3_msa/`, retaining source/profile/generation identity.
 Different sources are not interchangeable. Pipeline `msa.csv` records which
 entries its predictions used; do not duplicate the cache under every model/run.
-A ready generation can be used by AF3 and Mol-1. A compatible template-on
+A ready generation can be used by AF3, Mol-1 and Boltz-2. A compatible template-on
 generation also supplies ESMFold2's template-off view while retaining templates
 for the other consumers.
 
@@ -270,8 +299,14 @@ serialized; never substitute another source after a failure. See `docs/msa.md`
 for commands, endpoints, cache paths, date filtering and search resources.
 
 GPU methods use visible CUDA devices. Fractional `--worker-gpus` reserves
-scheduling capacity, not a memory cap. Account for concurrent resident models
-and additional MSA CPUs when setting a requested resource budget.
+scheduling capacity, not a memory cap. `worker_gpus`/`worker_cpus` in the
+validation profile and their CLI flags apply globally across selected methods.
+Methods run serially, with parallel workers within each method. Start with
+model defaults and account for concurrent resident models, host RAM, effective
+CPUs and additional MSA search CPUs before changing reservations. Standalone
+GPU validation sizes its worker pool from GPU reservations and pending jobs;
+raising CPUs per worker increases the requested CPU budget, not a worker-count
+cap. Ensure the resulting total fits the process's CPU allowance.
 
 ## Check chemistry compatibility
 
@@ -322,7 +357,7 @@ passing does not establish experimental binding or activity.
 | Repeat original command | Reuse sequences/complete predictions, finish incomplete work, rebuild reports |
 | `--refilter` | Apply criteria to saved metrics; no models or new metrics |
 | `--recompute-metrics` | Recalculate available metrics from saved structures/confidence; no new samples or PartiScore rerun |
-| `--rerun-refold` | ESMFold2-standard/AF3/AF3-LA/Mol-1: reuse all requested saved sequence slots and replace predictions; no missing MPNN generation |
+| `--rerun-refold` | ESMFold2-standard/AF3/AF3-LA/Mol-1/Boltz-2: reuse all requested saved sequence slots and replace predictions; no missing MPNN generation |
 | `--rerun` | Regenerate selected sequence/prediction slots from original design inputs |
 
 Keep source order/settings consistent for resume; intentionally changed sequence

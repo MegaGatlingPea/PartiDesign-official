@@ -122,7 +122,7 @@ def _clean_prediction(prediction: dict) -> None:
     for field in ("_confidence_arrays", "_confidence_chain_map", "token_residue_atom_names",
                   "native_token_residue_atom_names"):
         prediction.pop(field, None)
-    native_af3 = prediction.get("model") in {"af3", "af3-la", "mol1"}
+    native_af3 = prediction.get("model") in {"af3", "af3-la", "mol1", "boltz2"}
     for field in ("confidence_path", "artifacts"):
         prediction.pop(field, None)
     if not native_af3:
@@ -142,10 +142,11 @@ def _clean_prediction(prediction: dict) -> None:
             "native_per_chain_source_token_count", "pae_matrix", "pde_matrix", "confidence_chain_map",
         ):
             prediction.pop(field, None)
-        prediction["metadata"] = {
-            name: prediction.get("metadata", {}).get(name)
-            for name in ("key", "protocol", "sample")
-        }
+        metadata = prediction.get("metadata", {})
+        keep = ["key", "protocol", "sample"]
+        if prediction.get("model") == "boltz2":
+            keep.extend(name for name in metadata if name.startswith("boltz2_"))
+        prediction["metadata"] = {name: metadata.get(name) for name in keep}
     for field in ("source", "source_index", "cyclic"):
         prediction.pop(field, None)
     if isinstance(prediction.get("confidence"), dict):
@@ -245,7 +246,7 @@ def _restore_persisted_only_metrics(
 
 
 def _completed_prediction(prediction: Mapping[str, Any]) -> bool:
-    if prediction.get("model") in {"af3", "af3-la", "mol1"}:
+    if prediction.get("model") in {"af3", "af3-la", "mol1", "boltz2"}:
         structure = prediction.get("structure_path")
         return bool(structure and prediction_valid(dict(prediction), Path(str(structure)).parent))
     structure_path = prediction.get("structure_path")
@@ -320,7 +321,7 @@ def recompute_persisted_metrics(
                 previous_provenance = prediction.get("metric_provenance", {})
                 if not isinstance(previous_provenance, Mapping):
                     raise ValueError(f"Malformed saved metric provenance: {record_path}")
-                if method in {"af3", "af3-la", "mol1"}:
+                if method in {"af3", "af3-la", "mol1", "boltz2"}:
                     from .af3 import normalize_af3_confidence
                     prediction.update(normalize_af3_confidence(
                         prediction, input_data.design_chains,
@@ -329,6 +330,9 @@ def recompute_persisted_metrics(
                 evaluated = evaluate_prediction(input_data, sequence, prediction,
                                                 ipsae_config=metric_config)
                 metrics = dict(evaluated["metrics"])
+                if method == "boltz2":
+                    from .boltz2 import affinity_metrics
+                    metrics.update(affinity_metrics(prediction))
                 reasons = dict(evaluated.get("reasons", {}))
                 provenance = dict(evaluated.get("provenance", {}))
                 _restore_persisted_only_metrics(
@@ -384,32 +388,26 @@ class ValidationWorker:
         self.backend = self.generator = self.scorer = None
         self.original_scores = {}
         self._prepared_tickets = set()
+        self._pocket_cache = None
         self.log_dir = None
         self.log_context = {}
         self._msa_context = None
 
     def _models(self):
         if self.backend is None:
-            if self.method == "af2_ig":
-                from .af2 import AF2Backend
-                self.backend = AF2Backend(self.repo, self.cfg["af2"], self.device)
-            elif self.method in {"esmfold2-fast", "esmfold2-standard"}:
-                from .esmfold2 import ESMFold2Backend
-                self.backend = ESMFold2Backend(self.repo, self.cfg["esmfold2"], self.device)
-            elif self.method == "mol1":
-                from .mol1 import Mol1Backend
-                self.backend = Mol1Backend(self.repo, self.cfg["mol1"], self.device)
-            elif self.method in {"af3", "af3-la"}:
-                from .af3 import AF3Backend, AF3Validator
-                self.backend = AF3Validator(
-                    AF3Backend(self.repo, self.cfg["af3"], method=self.method, device=self.device),
-                    require_structure=True,
-                )
+            from .backend import create_backend
+            self.backend = create_backend(self.repo, self.method, self.cfg, self.device)
         if self.backend is not None and self.log_dir is not None:
             setter = getattr(self.backend, "set_log_dir", None)
             if setter is not None:
                 setter(self.log_dir)
         return self.backend
+
+    def _source_pocket_cache(self):
+        if self._pocket_cache is None:
+            from .pocket import SourcePocketCache
+            self._pocket_cache = SourcePocketCache()
+        return self._pocket_cache
 
     def _log(self, phase, **fields):
         path = self.log_dir / f"worker_{os.getpid()}.log" if self.log_dir else None
@@ -507,6 +505,9 @@ class ValidationWorker:
                           count=len(batch), seconds=round(perf_counter() - generation_started, 6))
                 pending = []
                 for variant in batch:
+                    if self.method == "boltz2":
+                        from src.design.rewards.af3_backend import _variant_with_ligand_smiles
+                        variant = _variant_with_ligand_smiles(input, variant)
                     index = int(variant["seq_index"])
                     if index in known:
                         continue
@@ -545,11 +546,15 @@ class ValidationWorker:
             pass  # Missing inputs are reported by the normal input loader.
         else:
             context.update(input_size=stat.st_size, input_mtime_ns=stat.st_mtime_ns)
-        if self.method in {"af3", "af3-la", "mol1", "esmfold2-standard"} and self._msa_context is not None:
+        if self.method in {"af3", "af3-la", "mol1", "boltz2", "esmfold2-standard"} and self._msa_context is not None:
             context["msa_context"] = self._msa_context
         if self.method == "mol1":
             from .mol1 import ADAPTER_REVISION
             context["adapter_revision"] = ADAPTER_REVISION
+        if self.method == "boltz2":
+            from .boltz2 import ADAPTER_REVISION
+            context["adapter_revision"] = ADAPTER_REVISION
+            context["boltz2_settings"] = {key: value for key, value in self.cfg["boltz2"].items() if key != "msa"}
         return context
 
     def _save(self, path, record):
@@ -564,7 +569,7 @@ class ValidationWorker:
 
         started = perf_counter()
         try:
-            if self.method in {"af3", "af3-la", "mol1"}:
+            if self.method in {"af3", "af3-la", "mol1", "boltz2"}:
                 from .af3 import normalize_af3_confidence
                 prediction.update(normalize_af3_confidence(
                     prediction, input.design_chains,
@@ -575,6 +580,9 @@ class ValidationWorker:
                              if self.method in IPSAE_METHODS else None)
             evaluated = evaluate_prediction(input, variant, prediction,
                                             ipsae_config=metric_config)
+            if self.method == "boltz2":
+                from .boltz2 import affinity_metrics
+                evaluated["metrics"].update(affinity_metrics(prediction))
             prediction.update(metrics=evaluated["metrics"], reasons=evaluated.get("reasons", {}),
                               metric_provenance=evaluated.get("provenance", {}),
                               metrics_status="complete")
@@ -639,6 +647,12 @@ class ValidationWorker:
         path = output / f"seq{variant['seq_index']}.json"
         expected = expected_keys(self.method, self.cfg)
         sequence = _compact_sequence(variant)
+        if self.method == "boltz2":
+            if prepared_inputs is None and variant.get("status") != "failed":
+                from .boltz2_msa import prepare_boltz2_inputs
+                prepared_inputs = prepare_boltz2_inputs(input, variant, self.cfg["boltz2"], self.repo, pocket_cache=self._source_pocket_cache())
+            contexts = {key: value["msa_context"] for key, value in (prepared_inputs or {}).items()}
+            self._msa_context = {"protocols": contexts} if contexts else None
         if self.method == "esmfold2-standard":
             if prepared_inputs is None and variant.get("status") != "failed":
                 from .esmfold2_msa import prepare_esmfold2_input
@@ -647,12 +661,12 @@ class ValidationWorker:
                                  if prepared_inputs is not None else {"mode": "off"})
         context = self._context(plan, sample, entry)
         previous = read_json(path)
-        if self.method in {"af3", "af3-la", "mol1", "esmfold2-standard"} and previous and previous.get("predictions"):
+        if self.method in {"af3", "af3-la", "mol1", "boltz2", "esmfold2-standard"} and previous and previous.get("predictions"):
             previous_msa = previous.get("msa_context") or {"mode": "off"}
             current_msa = context.get("msa_context", {"mode": "off"})
             identity = _esmfold2_msa_context_identity if self.method == "esmfold2-standard" else _msa_context_identity
             if identity(previous_msa) != identity(current_msa) and not (self.cfg.get("rerun") or self.cfg.get("rerun_refold")):
-                label = "ESMFold2" if self.method == "esmfold2-standard" else "AF3"
+                label = "ESMFold2" if self.method == "esmfold2-standard" else ("Boltz2" if self.method == "boltz2" else "AF3")
                 raise AF3MSAResumeError(f"Saved {label} predictions use a different MSA cache/profile/generation or native MSA settings. Use --rerun-refold to keep sequences and replace refolds, or --rerun to regenerate everything")
         record = begin_sequence(path, context, sequence, expected,
                                 force=bool(self.cfg.get("rerun") or self.cfg.get("rerun_refold")))
@@ -801,6 +815,8 @@ class ValidationWorker:
         from .inputs import load_input
         from src.design.rewards.af3_backend import prepare_af3_inputs
         from src.design.rewards.af3_input import msa_queries
+        if self.method == "boltz2":
+            from .boltz2_msa import boltz2_msa_queries as msa_queries
 
         root = Path(plan["task_dir"]) / "validate" / self.method
         entry = plan["samples"][sample]
@@ -819,7 +835,7 @@ class ValidationWorker:
             sources = self._sources_for_input(input)
             slots = list(sequence_slots(sources))
             variants, queries = [], {}
-            group = "esmfold2" if self.method == "esmfold2-standard" else ("mol1" if self.method == "mol1" else "af3")
+            group = "esmfold2" if self.method == "esmfold2-standard" else (self.method if self.method in {"mol1", "boltz2"} else "af3")
             if group == "esmfold2":
                 from .esmfold2_msa import msa_settings as esm_msa_settings, msa_queries as esm_msa_queries
                 msa_settings = esm_msa_settings(self.cfg[group])
@@ -836,6 +852,11 @@ class ValidationWorker:
                     bare = dict(self.cfg[group], msa={**msa_settings, "mode": "off", "refresh": False, "cache_profile": None})
                     payloads = {} if variant.get("status") == "failed" else {
                         "complex": prepare_esmfold2_input(input, variant, bare, self.repo, references=[])}
+                elif self.method == "boltz2":
+                    from .boltz2_msa import prepare_boltz2_inputs
+                    settings = self.cfg["boltz2"]
+                    bare = dict(settings, msa={**settings["msa"], "mode": "off"})
+                    payloads = {} if variant.get("status") == "failed" else prepare_boltz2_inputs(input, variant, bare, self.repo, pocket_cache=self._source_pocket_cache())
                 elif self.method == "mol1":
                     from .mol1 import prepare_mol1_inputs
                     settings = self.cfg["mol1"]
@@ -869,7 +890,7 @@ class ValidationWorker:
                 Path(filename).unlink(missing_ok=True)
                 self._prepared_tickets.discard(filename)
                 raise
-            self._log("esmfold2_input_prepared" if group == "esmfold2" else "af3_input_prepared",
+            self._log(f"{group}_input_prepared",
                       variants=len(variants), unique_queries=len(queries))
             return {"ticket": filename, "queries": list(queries.values())}
 
@@ -884,9 +905,12 @@ class ValidationWorker:
         """Resume the same hot backend using the exact persisted chemistry input."""
         from .inputs import load_input
         from src.design.rewards.af3_input import attach_msa_references, msa_queries
+        if self.method == "boltz2":
+            from .boltz2_msa import (boltz2_msa_queries as msa_queries,
+                                     attach_boltz2_references as attach_msa_references)
 
         root = Path(plan["task_dir"]) / "validate" / self.method
-        group = "esmfold2" if self.method == "esmfold2-standard" else ("mol1" if self.method == "mol1" else "af3")
+        group = "esmfold2" if self.method == "esmfold2-standard" else (self.method if self.method in {"mol1", "boltz2"} else "af3")
         if group == "esmfold2":
             from .esmfold2_msa import (msa_settings as esm_msa_settings, msa_queries as esm_msa_queries,
                                       attach_msa_references as attach_esm_msa_references)
@@ -937,7 +961,7 @@ class ValidationWorker:
                         self._log("msa_search_failed_preserved", seq_index=variant["seq_index"], error="; ".join(failures))
                     else:
                         record = record or begin_sequence(sequence_path, self._context(plan, sample, entry), _compact_sequence(variant), expected_keys(self.method, self.cfg))
-                        label = "ESMFold2" if group == "esmfold2" else "AF3"
+                        label = "ESMFold2" if group == "esmfold2" else ("Boltz2" if group == "boltz2" else "AF3")
                         record.update(status="failed", error=f"{label} MSA search failed: " + "; ".join(failures), failure_stage="msa_search")
                         self._save(sequence_path, record)
                 else:

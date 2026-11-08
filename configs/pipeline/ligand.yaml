@@ -1,0 +1,23 @@
+preset: ligand
+recycle: 1
+iteration:
+  sequence:
+    include_gt: true
+    mpnn: {count: 0}
+  refold:
+    method: boltz2
+    validation:
+      boltz2: {affinity: false}
+  filter: {criteria: []}
+  selection: {mode: top, max_pass: 200, per_parent: 1, rank_by: design_plddt}
+rounds:
+  1:
+    sequence:
+      mpnn: {count: 0}
+    selection: {mode: top, max_pass: 200, per_parent: 1, rank_by: design_plddt}
+final:
+  method: boltz2
+  validation:
+    boltz2: {samples: 1, affinity: true}
+  criteria: []
+criteria_routes: {}

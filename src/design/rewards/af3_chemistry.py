@@ -188,7 +188,9 @@ def molecule_graph(
   charges = tuple(int(atom.GetFormalCharge()) for atom in molecule.GetAtoms())
   bonds: list[tuple[int, int, int]] = []
   for bond in molecule.GetBonds():
-    if bond.GetIsAromatic() or bond.GetBondType() == Chem.BondType.AROMATIC:
+    if bond.GetBondType() == Chem.BondType.TRIPLE:
+      order = 3
+    elif bond.GetIsAromatic() or bond.GetBondType() == Chem.BondType.AROMATIC:
       order = 9
     elif bond.GetBondType() == Chem.BondType.SINGLE:
       order = 1
@@ -315,10 +317,11 @@ def materialize_trusted_molecule(
   )
 
 
-def materialize_smiles(source: AtomGraph, smiles: str) -> tuple[MaterializedMolecule, tuple[int, ...]]:
+def materialize_smiles(source: AtomGraph, smiles: str, *,
+                       allow_symmetric: bool = False) -> tuple[MaterializedMolecule, tuple[int, ...]]:
   """Map source rows to a trusted SMILES graph and carry source atom names."""
   molecule = trusted_smiles(smiles)
-  mapping = map_source_to_molecule(source, molecule)
+  mapping = map_source_to_molecule(source, molecule, allow_symmetric=allow_symmetric)
   atom_names: list[str | None] = [None] * molecule.GetNumAtoms()
   for source_index, trusted_index in enumerate(mapping):
     atom_names[trusted_index] = source.names[source_index]
@@ -354,7 +357,7 @@ def _mapping_valid(source: AtomGraph, trusted: AtomGraph, mapping: Sequence[int]
 
 
 class _TrustedGraphMatcher:
-  """Exact graph matcher with one lazy, trusted Kekule bond representation."""
+  """Exact graph matcher with whole-molecule aromatic representation proof."""
 
   def __init__(self, molecule: Any, *, atom_names: Sequence[str] | None = None) -> None:
     self.graph = molecule_graph(molecule, atom_names=atom_names)
@@ -385,10 +388,12 @@ class _TrustedGraphMatcher:
     trusted_order = self._edges.get(key)
     if source_order == trusted_order:
       return True
-    if trusted_order != 9 or source_order not in {1, 2, 3, 5, 6, 7}:
+    if trusted_order == 3 and source_order == 7:
+      return True
+    if trusted_order != 9 or source_order not in {1, 2, 5, 6}:
       return False
-    base = source_order - 4 if source_order in {5, 6, 7} else source_order
-    return self._kekule_orders()[key] == base
+    # A complete mapping is checked as one chemical assignment below.
+    return True
 
   def mapping_valid(self, source: AtomGraph, mapping: Sequence[int]) -> bool:
     if _mapping_valid(source, self.graph, mapping):
@@ -409,7 +414,95 @@ class _TrustedGraphMatcher:
     ]
     if {key for key, _order in observed} != self._edges.keys():
       return False
-    return all(self.bond_matches(key, order) for key, order in observed)
+    if not all(self.bond_matches(key, order) for key, order in observed):
+      return False
+    return self._aromatic_assignment_valid(dict(observed))
+
+  def _aromatic_assignment_valid(self, observed: Mapping[tuple[int, int], int]) -> bool:
+    def canonical(key, order):
+      if order == self._edges[key]:
+        return True
+      base = order - 4 if order in {5, 6, 7} else order
+      return self._kekule_orders()[key] == base
+    if all(canonical(key, order) for key, order in observed.items()):
+      return True
+    cache = getattr(self, "_aromatic_assignments", None)
+    if cache is None:
+      cache = self._aromatic_assignments = {}
+    signature = tuple(sorted(observed.items()))
+    if signature in cache:
+      return cache[signature]
+    Chem, _ = _rdkit()
+    aromatic = [key for key, order in self._edges.items() if order == 9]
+    remaining = [0] * len(self.graph.names)
+    for left, right in aromatic:
+      if self._kekule_orders()[left, right] == 2:
+        remaining[left] += 1
+        remaining[right] += 1
+    selected: set[tuple[int, int]] = set()
+    unknown = []
+    for edge in aromatic:
+      order = observed[edge]
+      if order == 9:
+        unknown.append(edge)
+      elif order in {2, 6}:
+        selected.add(edge)
+        for atom in edge:
+          remaining[atom] -= 1
+
+    # Generic aromatic edges may complete a Kekule assignment, but may not
+    # change an atom's valence, hydrogens or chemical identity. No resonance
+    # enumeration or source-structure mutation is needed.
+    trusted = Chem.Mol(self._molecule)
+    trusted_identity = Chem.MolToSmiles(Chem.Mol(trusted), isomericSmiles=True)
+    atom_identity = lambda atom: (atom.GetFormalCharge(), atom.GetTotalNumHs(),
+                                  atom.GetNumRadicalElectrons(), atom.GetIsotope())
+    trusted_atoms = tuple(atom_identity(atom) for atom in trusted.GetAtoms())
+
+    def complete() -> bool:
+      try:
+        copied = Chem.Mol(trusted)
+        Chem.Kekulize(copied, clearAromaticFlags=True)
+        for left, right in aromatic:
+          copied.GetBondBetweenAtoms(left, right).SetBondType(
+              Chem.BondType.DOUBLE if (left, right) in selected else Chem.BondType.SINGLE)
+        Chem.SanitizeMol(copied)
+        return (tuple(atom_identity(atom) for atom in copied.GetAtoms()) == trusted_atoms
+                and Chem.MolToSmiles(copied, isomericSmiles=True) == trusted_identity)
+      except (ValueError, RuntimeError):
+        return False
+
+    def assign(edges: Sequence[tuple[int, int]]) -> bool:
+      if any(value < 0 for value in remaining):
+        return False
+      available = [[] for _ in remaining]
+      for edge in edges:
+        for atom in edge:
+          available[atom].append(edge)
+      if any(need > len(available[atom]) for atom, need in enumerate(remaining)):
+        return False
+      active = [atom for atom, need in enumerate(remaining) if need]
+      if not active:
+        return complete()
+      atom = min(active, key=lambda item: (len(available[item]) - remaining[item], item))
+      edge = available[atom][0]
+      rest = [item for item in edges if item != edge]
+      left, right = edge
+      if remaining[left] and remaining[right]:
+        selected.add(edge)
+        remaining[left] -= 1
+        remaining[right] -= 1
+        valid = assign(rest)
+        remaining[left] += 1
+        remaining[right] += 1
+        selected.remove(edge)
+        if valid:
+          return True
+      return assign(rest)
+
+    valid = assign(unknown)
+    cache[signature] = valid
+    return valid
 
   def degree_matches(self, source_orders: Sequence[int], trusted_index: int) -> bool:
     incident = self._incident[trusted_index]
@@ -436,12 +529,24 @@ class _TrustedGraphMatcher:
     return assign(0, set())
 
 
-def map_source_to_molecule(source: AtomGraph, molecule: Any) -> tuple[int, ...]:
-  """Return source-local -> trusted-molecule atom mapping, fail-closed."""
-  return _map_source_to_graph(source, _TrustedGraphMatcher(molecule))
+def map_source_to_molecule(source: AtomGraph, molecule: Any, *,
+                           allow_symmetric: bool = False) -> tuple[int, ...]:
+  """Map source atoms, retaining strict compiler UIDs and protected identity.
+
+  Only a caller that proved an unconstrained, free design ligand may choose
+  an equivalent graph automorphism. Canonical A1 source contracts stay strict.
+  """
+  matcher = _TrustedGraphMatcher(molecule)
+  try:
+    return _map_source_to_graph(source, matcher)
+  except ChemistryError as exc:
+    if not allow_symmetric or "ambiguous" not in str(exc):
+      raise
+    return _map_source_to_graph(source, matcher, comparison_only=True)
 
 
-def _map_source_to_graph(source: AtomGraph, matcher: _TrustedGraphMatcher) -> tuple[int, ...]:
+def _map_source_to_graph(source: AtomGraph, matcher: _TrustedGraphMatcher, *,
+                         comparison_only: bool = False) -> tuple[int, ...]:
   trusted = matcher.graph
   if len(source.names) != len(trusted.names):
     raise ChemistryError("SMILES atom count differs from source ligand graph")
@@ -457,7 +562,7 @@ def _map_source_to_graph(source: AtomGraph, matcher: _TrustedGraphMatcher) -> tu
       canonical_indices = []
       break
     canonical_indices.append(int(match.group(1)) - 1)
-  if canonical_indices and set(canonical_indices) == set(range(len(source.names))):
+  if not comparison_only and canonical_indices and set(canonical_indices) == set(range(len(source.names))):
     if matcher.mapping_valid(source, canonical_indices):
       return tuple(canonical_indices)
     raise ChemistryError(
@@ -490,7 +595,7 @@ def _map_source_to_graph(source: AtomGraph, matcher: _TrustedGraphMatcher) -> tu
   used: set[int] = set()
 
   def visit(depth: int) -> None:
-    if len(found) > 1:
+    if len(found) >= (1 if comparison_only else 2):
       return
     if depth == len(order):
       candidate = tuple(mapping[index] for index in range(len(source.names)))
@@ -522,12 +627,21 @@ def _map_source_to_graph(source: AtomGraph, matcher: _TrustedGraphMatcher) -> tu
       mapping.pop(source_index)
 
   visit(0)
-  if len(found) != 1:
+  if not found or (not comparison_only and len(found) != 1):
     raise ChemistryError(
         "SMILES source-row atom mapping is ambiguous" if len(found) > 1
         else "SMILES source-row atom mapping is unavailable"
     )
   return found[0]
+
+
+def comparison_graph_mapping(source: AtomGraph, molecule: Any) -> tuple[int, ...]:
+  """Prove complete chemical equivalence for local graph comparison only.
+
+  Symmetric witnesses normalize the same source graph. They must not be reused
+  as compiler/source atom-UID mappings; map_source_to_molecule stays strict.
+  """
+  return _map_source_to_graph(source, _TrustedGraphMatcher(molecule), comparison_only=True)
 
 
 def _graph_molecule(graph: AtomGraph) -> Any:

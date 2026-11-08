@@ -61,7 +61,7 @@ def run_staged_jobs(ray, actors, jobs, repo, cfg, resources, finished):
     """Prepare ahead at most two samples per actor, refold ready tickets first."""
     from .af3_msa import AF3MSACache, msa_query_enabled
     method = jobs[0][0]["method"] if jobs else "af3"
-    group = "esmfold2" if method == "esmfold2-standard" else ("mol1" if method == "mol1" else "af3")
+    group = "esmfold2" if method == "esmfold2-standard" else (method if method in {"mol1", "boltz2"} else "af3")
     if group == "esmfold2":
         from .esmfold2_msa import msa_settings
         settings = msa_settings(cfg[group])

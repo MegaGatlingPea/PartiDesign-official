@@ -28,7 +28,9 @@ def merge_shared(base, overlay):
     shared = overlay.get('msa', {})
     validate_msa_settings(shared)
     result = merge(base, {k: v for k, v in overlay.items() if k != 'msa'})
-    for group in ('esmfold2', 'af3', 'mol1'):
+    for group in ('esmfold2', 'af3', 'mol1', 'boltz2'):
+        if group not in result:
+            continue
         explicit = overlay.get(group, {}).get('msa', {})
         result[group]['msa'] = merge(result[group]['msa'], {**shared, **explicit})
     return result

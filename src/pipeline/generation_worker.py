@@ -36,7 +36,9 @@ def generation_launch(config, invocation_dir, workdir):
     previous = os.environ.get(_CONFIG_ENV)
     os.environ[_CONFIG_ENV] = str(path.resolve())
     try:
-        yield
+        from .memory_trace import generation_memory_trace
+        with generation_memory_trace():
+            yield
     finally:
         if previous is None:
             os.environ.pop(_CONFIG_ENV, None)

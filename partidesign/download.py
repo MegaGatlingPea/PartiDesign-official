@@ -180,6 +180,12 @@ def _esmfold2_assets(mode: str) -> tuple[_AssetSpec, ...]:
     return tuple(assets)
 
 
+# Optional inference backend; immutable official HF release, no third-party rehosting.
+from .boltz_assets import ASSETS as _BOLTZ2_RELEASE_ASSETS, HF_BASE as _BOLTZ2_BASE
+_BOLTZ2_ASSETS = tuple((name, "common" if name == "mols.tar" else "checkpoint", size, digest)
+                       for name, (size, digest) in _BOLTZ2_RELEASE_ASSETS.items())
+
+
 _PROJECT_CKPTS_BASE = "https://huggingface.co/MegaGatlingPea/PartiDesign/resolve/a0ccb3b7b2e775d1364314f8bf35644ba0719e71"
 
 
@@ -241,6 +247,12 @@ _CATALOG: dict[str, _TargetSpec] = {
     "esmfold2-fast": _TargetSpec("esmfold2-fast", _esmfold2_assets("fast")),
     "esmfold2-standard": _TargetSpec("esmfold2-standard", _esmfold2_assets("standard")),
     "af2": _TargetSpec("af2", _af2_assets(), archive_url=_ALPHAFOLD_PARAMS_URL),
+    "boltz2": _TargetSpec(
+        "boltz2",
+        tuple(_asset(f"community_models/boltz/{folder}/{name}",
+                     f"{_BOLTZ2_BASE}/{name}", expected_bytes=size, sha256=digest)
+              for name, folder, size, digest in _BOLTZ2_ASSETS),
+    ),
     "mol1": _TargetSpec(
         "mol1",
         (
@@ -287,7 +299,7 @@ _CATALOG: dict[str, _TargetSpec] = {
     ),
 }
 
-TARGETS = tuple(_CATALOG)
+TARGETS = tuple(name for name, spec in _CATALOG.items() if not spec.packaged_resource)
 
 
 class _DownloadError(RuntimeError):
@@ -409,6 +421,9 @@ def _inventory_fields(spec: _TargetSpec, root: Path, *, verify: bool = False,
             # before returning success; avoid hashing the same large file twice.
             item.update(integrity="checksum_verified", detail="registered SHA256 verified before skip/publication")
         files.append(item)
+    if spec.name == "boltz2":
+        from .boltz_assets import inspect_boltz_mols
+        files.append(inspect_boltz_mols(root / "community_models/boltz", verify=verify))
     missing = [str(item["relative"]) for item in files if item["integrity"] == "missing"]
     invalid = [str(item["relative"]) for item in files if item["integrity"] == "invalid"]
     present = sum(item["bytes"] is not None for item in files)
@@ -489,6 +504,8 @@ def _record(spec: _TargetSpec, root: Path, status: str, error: str | None = None
             # Keep reporting the catalog text even when a caller supplied an
             # unsafe root or a future catalog entry needs review.
             paths.append(str(_root_path(root) / asset.relative))
+    if spec.name == "boltz2":
+        paths.append(str(_root_path(root) / "community_models/boltz/common/mols"))
     return {
         "target": spec.name,
         "status": status,
@@ -554,10 +571,11 @@ def _format_error(error: BaseException) -> str:
     return f"{type(error).__name__}: {message}" if message else type(error).__name__
 
 
-def list_targets(root: Path, *, verify: bool = False) -> list[dict[str, object]]:
-    """Return local status for every catalog target without network access."""
+def list_targets(root: Path, *, verify: bool = False,
+                 include_packaged: bool = False) -> list[dict[str, object]]:
+    """Inspect model targets; internal task checks may include packaged components."""
     records: list[dict[str, object]] = []
-    for name in TARGETS:
+    for name in _CATALOG if include_packaged else TARGETS:
         spec = _CATALOG[name]
         af3 = name in {"af3", "af3-la"}
         record = _af3_record if af3 else _record
@@ -1266,6 +1284,12 @@ def _download_one(root: Path, spec: _TargetSpec, *, force: bool) -> dict[str, ob
         return _record(spec, root, "failed", unsafe)
     complete = not missing
     if complete and not force:
+        if spec.name == "boltz2":
+            try:
+                from .boltz_assets import ensure_boltz_mols
+                ensure_boltz_mols(root / "community_models/boltz", verify=True)
+            except Exception as exc:
+                return _record(spec, root, "failed", _format_error(exc))
         return _enrich_record(spec, root, _record(spec, root, "installed"), verified_checksums=True)
     if not spec.has_source:
         if spec.with_git_repo:
@@ -1304,6 +1328,10 @@ def _download_one(root: Path, spec: _TargetSpec, *, force: bool) -> dict[str, ob
         if not staged:
             raise _DownloadError("target has no downloadable assets")
         _publish(staged)
+        if spec.name == "boltz2":
+            from .boltz_assets import ensure_boltz_mols
+            _emit({"event": "prepare", "label": "Boltz-2 molecule library"})
+            ensure_boltz_mols(root / "community_models/boltz", verify=True)
         return _enrich_record(spec, root, _record(spec, root, "downloaded"), verified_checksums=True)
     except Exception as exc:
         return _record(spec, root, "failed", _format_error(exc))
@@ -1332,7 +1360,7 @@ def download_targets(
             name = str(raw_target)
             _emit({"event": "target_start", "target": name})
             spec = _CATALOG.get(name)
-            if spec is None:
+            if spec is None or spec.packaged_resource:
                 record = {
                     "target": name,
                     "status": "failed",

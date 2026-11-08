@@ -75,7 +75,7 @@ def _banner(console, command, root=None, *, mascot=True, description=None):
     from ._mascot import IMAGE_WIDTH, supports_unicode, native_image, place_native_image
     key = str(command).lower().removesuffix(" help")
     icons = {"cli": "✨", "design": "🧬", "download": "📦", "model inventory": "📦",
-             "pipeline": "🚀", "check": "🔎", "validate": "🔎", "cluster": "🧩",
+             "pipeline": "🚀", "screen": "🔬", "check": "🔎", "validate": "🔎", "cluster": "🧩",
              "postfilter": "🔎", "score": "✨", "msa": "🧬", "relax": "✨"}
     title = Text()
     if console.width >= 60 and supports_unicode(console.file):
@@ -179,6 +179,7 @@ def _command_hint(parser):
         "relax": "partidesign relax TASK_FILE.yaml --out RUN_DIR --plan",
         "score": "partidesign score RUN_DIR --show-config",
         "validate": "partidesign validate RUN_OR_TASK_PATH --plan",
+        "screen": "partidesign screen SCREEN.yaml --plan",
         "cluster": "partidesign cluster RUN_OR_TASK_OR_SUCCESS --plan",
     }
     return hints.get(command)
@@ -460,7 +461,7 @@ def _asset_table(records, root, *, listing=False, width=None):
 _MODEL_GROUPS = (
     ("PartiDesign models", {"partidesign", "partiscore"}),
     ("Sequence design", {"proteinmpnn", "solublempnn", "ligandmpnn", "cyclicmpnn", "nampnn"}),
-    ("Structure prediction", {"esmfold2-fast", "esmfold2-standard", "af2", "mol1", "af3", "af3-la"}),
+    ("Structure prediction", {"esmfold2-fast", "esmfold2-standard", "af2", "mol1", "af3", "af3-la", "boltz2"}),
 )
 
 
@@ -473,31 +474,21 @@ def _short_plain_table(records, *, usage_width=None):
         print(f"{str(item['target']):<19} {_short_use(item):<{usage_width}} {_short_size(item):>11}  {status}")
 
 
-def _inventory_plain(records, root, *, files=False, include_chemistry=True):
-    usage_width = max([len("Usage"), *(len(_short_use(_resource_metadata(item))) for item in records if item["target"] != "chemistry")])
+def _inventory_plain(records, root, *, files=False):
+    usage_width = max([len("Usage"), *(len(_short_use(_resource_metadata(item))) for item in records)])
     for title, names in _MODEL_GROUPS:
         selected = [item for item in records if item["target"] in names]
         if selected:
             print("\n" + title)
             _short_plain_table(selected, usage_width=usage_width)
-    if include_chemistry:
-        for record in records:
-            if record["target"] == "chemistry":
-                item = _resource_metadata(record)
-                print("Chemistry: " + _short_status(item)[0] + " · " + _short_size(item))
 
 
-def _render_inventory(console, records, root, *, listing=False, include_chemistry=True):
+def _render_inventory(console, records, root, *, listing=False):
     for index, (title, names) in enumerate(_MODEL_GROUPS):
         selected = [item for item in records if item["target"] in names]
         if selected:
             _section(console, title, first=index == 0)
             console.print(_asset_table(selected, root, width=console.width))
-    if include_chemistry:
-        for record in records:
-            if record["target"] == "chemistry":
-                item = _resource_metadata(record)
-                console.print(_text("Chemistry: " + _short_status(item)[0] + " · " + _short_size(item), "dim"))
 
 
 def show_inventory(records, root):
@@ -664,13 +655,13 @@ def _render_concise_check(console, system, resources, root, failures=()):
         print("Machine overview")
         for row in _machine_rows(system or {}):
             print(f"{row['label']}: {row.get('value', 'unavailable')}")
-        _inventory_plain(resources or [], root, include_chemistry=False)
+        _inventory_plain(resources or [], root)
         for label, _, detail in failures:
             print("Failed: " + label + ": " + _concise_failure(label, detail, resources))
         return
     _render_machine_overview(console, system or {})
     console.print()
-    _render_inventory(console, resources or [], root, include_chemistry=False)
+    _render_inventory(console, resources or [], root)
     for label, _, detail in failures:
         console.print(_text("Failed: " + label + ": " + _concise_failure(label, detail, resources), "bold red"))
 

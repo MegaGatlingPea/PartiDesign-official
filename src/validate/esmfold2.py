@@ -1167,9 +1167,75 @@ class ESMFold2Backend:
 
     def close(self) -> None:
         self._closed = True
+        if hasattr(self, "_sequence_msa_cache"):
+            self._sequence_msa_cache.clear()
         if self._service is not None:
             self._service.close()
             self._service = None
+
+    def _sequence_prediction(self, structure, raw_confidence, confidence_record, payload, sample, output):
+        import numpy as np
+        from types import SimpleNamespace
+        from .sequence_metrics import native_sequence_prediction, structure_from_cif
+        with np.load(raw_confidence, allow_pickle=False) as archive:
+            arrays = {key: archive[key] for key in archive.files}
+        mask = np.asarray(arrays["token_attention_mask"], dtype=bool)
+        selected = np.flatnonzero(mask)
+        inverse = np.full(len(mask), -1, dtype=int)
+        inverse[selected] = np.arange(len(selected))
+        atom_mask = np.asarray(arrays["atom_attention_mask"], dtype=bool)
+        atom_to_token = np.asarray(arrays["atom_to_token"], dtype=int)
+        if atom_to_token.shape != atom_mask.shape or np.any(atom_to_token[atom_mask] < 0) or np.any(atom_to_token[atom_mask] >= len(mask)):
+            raise ESMFold2Error("Native sequence atom/token feature mapping is malformed")
+        atom_mask &= mask[atom_to_token]
+        mapping = inverse[atom_to_token[atom_mask]]
+        metadata = dict(confidence_record["confidence"])
+        scoped = metadata.pop("partidesign_sequence_confidence", None)
+        if not isinstance(scoped, Mapping):
+            raise ESMFold2Error("Native sequence scoped confidence was not captured")
+        metadata.update(scoped)
+        metadata.update(token_chain_ids=np.asarray(arrays["token_chain_ids"])[selected].tolist(),
+                        token_res_ids=(np.asarray(arrays["residue_index"])[selected] + 1).tolist(),
+                        chain_ids=[entry["chain_id"] for entry in payload["sequences"]])
+        if "token_residue_atom_names" in arrays:
+            metadata["token_residue_atom_names"] = arrays["token_residue_atom_names"][selected].tolist()
+        metadata["native_model_input_evidence"] = {key: confidence_record.get(key) for key in (
+            "msa", "context_embedding_cache", "effective_config")}
+        common_payload = {"sequence_request": payload["partidesign_sequence_request"],
+                          "msa_context": payload.get("msa_context", {}),
+                          "pocket_state": payload.get("sequence_pocket_state", {})}
+        result = native_sequence_prediction(
+            SimpleNamespace(predicted_structure=structure_from_cif(structure), metadata=metadata,
+                            numerical_data={"full_pae": arrays["pae"][np.ix_(selected, selected)],
+                                            "full_pde": arrays["pde"][np.ix_(selected, selected)]}),
+            payload=common_payload, model="esmfold2-" + self.config.get("mode", "fast"),
+            sample=sample, directory=output, atom_to_token=mapping,
+            token_plddt=np.asarray(arrays["plddt"])[selected] * 100.0)
+        native_path = Path(output) / f"{payload['sample_id']}_complex_sample{sample}.native.confidence.npz"
+        shutil.copyfile(raw_confidence, native_path)
+        result["metadata"]["native_confidence_npz_path"] = str(native_path)
+        return result
+
+    def predict_sequences(self, request, output, *, completed_keys=()):
+        from .sequence_inputs import prepare_sequence_payload, esmfold2_sequence_payload
+        if self._closed:
+            raise ESMFold2Error("ESMFold2 backend is closed")
+        if not hasattr(self, "_sequence_msa_cache"):
+            self._sequence_msa_cache = {}
+        settings = self.config.get("esmfold2", self.config)
+        method = "esmfold2-" + settings.get("mode", "fast")
+        completed = {key.removeprefix("complex_") for key in completed_keys}
+        if all(f"sample{i}" in completed for i in range(int(settings.get("samples", 1)))):
+            return
+        prepared = prepare_sequence_payload(request, self.repo_root, method, settings,
+                                             cache=self._sequence_msa_cache)
+        payload = esmfold2_sequence_payload(prepared)
+        payload["sequence_pocket_state"] = prepared["pocket_state"]
+        for prediction in self.predict(None, {"seq_index": 0}, output, completed_keys=completed,
+                                       prepared_inputs=payload):
+            if prediction.get("status") != "complete":
+                prediction["key"] = "complex_" + prediction["key"]
+            yield prediction
 
     def predict(
         self, input: Any, variant: Mapping[str, Any], output_dir: Path,
@@ -1296,6 +1362,12 @@ class ESMFold2Backend:
                 msa_evidence = confidence_record.get("msa", confidence_record["confidence"].get("msa"))
                 if isinstance(msa_evidence, Mapping):
                     confidence["msa"] = dict(msa_evidence)
+                if "partidesign_sequence_request" in payload:
+                    prediction = self._sequence_prediction(
+                        structure, raw_confidence, confidence_record, payload, sample_index, output_dir)
+                    shutil.rmtree(attempt_dir)
+                    yield prediction
+                    continue
                 final_structure = output_dir / f"{variant_id}__s{sample_index:03d}.cif"
                 arrays = _read_native_confidence_arrays(raw_confidence)
                 arrays = _logical_confidence_arrays(arrays, payload, confidence)

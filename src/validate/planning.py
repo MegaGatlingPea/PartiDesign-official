@@ -215,8 +215,8 @@ def expected_keys(method: str, cfg: dict) -> list[str]:
                 for sample in range(cfg["af2"]["samples"])]
     if method in {"esmfold2-fast", "esmfold2-standard"}:
         return [f"sample{i}" for i in range(cfg["esmfold2"]["samples"])]
-    if method in {"af3", "af3-la", "mol1"}:
-        group = "mol1" if method == "mol1" else "af3"
+    if method in {"af3", "af3-la", "mol1", "boltz2"}:
+        group = method if method in {"mol1", "boltz2"} else "af3"
         mode = cfg[group]["mode"]
         protocols = ("complex", "monomer") if mode == "both" else (mode,)
         return [f"{protocol}_sample{i}" for protocol in protocols
@@ -243,7 +243,7 @@ def prediction_metadata_valid(key: str, prediction: dict, method: str) -> bool:
                     and prediction.get("model") in {method.removeprefix("esmfold2-"), method}
                     and type(prediction.get("sample")) is int
                     and prediction["sample"] == int(match[1]))
-    if method in {"af3", "af3-la", "mol1"}:
+    if method in {"af3", "af3-la", "mol1", "boltz2"}:
         match = re.fullmatch(r"(complex|monomer)_sample(\d+)", key)
         return bool(match and prediction.get("protocol") == match[1]
                     and prediction.get("model") == method

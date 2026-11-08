@@ -28,6 +28,7 @@ Each command has a separate guide:
 | [`design`](design.md) | Generate molecular structures and identities |
 | [`msa`](msa.md) | Prepare shared context MSA and templates for selected tasks |
 | [`pipeline`](pipeline.md) | Run design, refinement, and validation in one command |
+| [`screen`](screen.md) | Predict and rank supplied sequences or SMILES against shared contexts |
 | [`score`](score.md) | Score interfaces in saved structures with PartiScore |
 | [`relax`](relax.md) | Refine existing structures with OpenMM |
 | [`validate`](validate.md) | Evaluate saved designs with selected sequences, predictors, and criteria |
@@ -37,6 +38,8 @@ Each command has a separate guide:
 For saved generation results, use [validate](validate.md). Choosing a structure
 predictor, choosing sequence sources, and deciding what passes are separate
 steps; the guide explains how to make those choices and inspect the results.
+For supplied candidates in an `id,modality,seq` CSV, use [screen](screen.md) with
+the named tasks in [screen.yaml](../configs/examples/screen.yaml).
 Successful protein–protein and standard peptide–protein complex refolds,
 including antibody–antigen and head-to-tail cyclic peptide complexes, can then
 receive optional [postfiltering](postfilter.md) through persistent Ray CPU actors.
@@ -59,6 +62,10 @@ Clustering independently compares original generated polymer backbones.
   including the insulin receptor demo. AF3 and Mol-1 remain explicitly selectable.
   [Antibody pipelines](pipeline.md#antibody-pipelines) include GLP1R VHH de novo
   and annotated-complex optimization with standard final validation.
+- [Ligand pipelines](pipeline.md#ligand-pipelines): Boltz-2 prediction,
+  optional partial-diffusion rounds, and native final affinity.
+- [Screen](screen.md): shared sequence contexts, native representatives and
+  per-method candidate rankings.
 - [Example index](../configs/examples/README.md): named runnable tasks by modality
   and peptide topology.
 - [Command index](commands.md): all CLI entry points.

@@ -640,6 +640,7 @@ class AF3Input:
   cyclic_chains: tuple[str, ...] = ()
   cyclic_lengths: Mapping[str, int] = field(default_factory=dict)
   source_residue_map: Mapping[str, tuple[Mapping[str, Any] | None, ...]] = field(default_factory=dict)
+  source_residue_native_index: Mapping[str, Any] = field(default_factory=dict)
   source_atom_ledger: tuple[Mapping[str, Any], ...] = ()
   source_inter_residue_bonds: tuple[tuple[int, int, int], ...] = ()
   source_polymer_sequences: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
@@ -782,6 +783,7 @@ class AF3Input:
         "native_to_source_chain": dict(self.native_to_source_chain),
       "cyclic_chains": list(self.cyclic_chains),
       "cyclic_lengths": dict(self.cyclic_lengths),
+      "source_residue_native_index": dict(self.source_residue_native_index),
       "source_residue_map": {
           key: [None if item is None else dict(item) for item in value]
           for key, value in self.source_residue_map.items()
@@ -1287,6 +1289,7 @@ def build_af3_input(
       custom_components.pop(component_id, None)
   chain_entries: list[dict[str, Any]] = []
   residue_native_position: dict[tuple[str, int, str], tuple[str, int]] = {}
+  source_residue_native_index: dict[str, dict[str, dict[str, tuple[str, int]]]] = {}
   source_residue_map: dict[str, tuple[Mapping[str, Any] | None, ...]] = {}
   atom_ins_codes = np.asarray(
       getattr(atoms, "ins_code", np.full(len(atoms), "")), dtype=object
@@ -1389,6 +1392,8 @@ def build_af3_input(
         if residue_key in residue_native_position:
           raise AF3InputError(f"chain {source_id!r} has ambiguous AF3 bond endpoint {residue_key[1:]}")
         residue_native_position[residue_key] = (native_id, position)
+        source_residue_native_index.setdefault(residue_key[0], {}).setdefault(
+            str(residue_key[1]), {})[residue_key[2]] = (native_id, position)
       raw_entry = _source_entry(source_id)
       declared_ccd = raw_entry.get("ccd_ids", raw_entry.get("ccdCodes", ()))
       if isinstance(declared_ccd, str):
@@ -1425,9 +1430,14 @@ def build_af3_input(
           source_graph_value = source_graph(
               atoms, groups[0], preserve_aromatic_orders=True
           )
-          materialized, source_to_smiles = materialize_smiles(
-              source_graph_value, str(smiles)
-          )
+          try:
+            materialized, source_to_smiles = materialize_smiles(source_graph_value, str(smiles))
+          except ChemistryError as exc:
+            from src.validate.ligands import is_free_design_ligand
+            if "ambiguous" not in str(exc) or not is_free_design_ligand(input_record, source_id):
+              raise
+            materialized, source_to_smiles = materialize_smiles(
+                source_graph_value, str(smiles), allow_symmetric=True)
         except ChemistryError as exc:
           raise AF3InputError(
               f"SMILES ligand chain {source_id!r} has no exact source-row mapping"
@@ -1617,6 +1627,8 @@ def build_af3_input(
           if residue_key in residue_native_position:
             raise AF3InputError(f"chain {source_id!r} has an ambiguous native residue occurrence")
           residue_native_position[residue_key] = (native_id, position)
+          source_residue_native_index.setdefault(residue_key[0], {}).setdefault(
+              str(residue_key[1]), {})[residue_key[2]] = (native_id, position)
           name = names[observed_index]
         fixed_inventory = (
             fixed_inventories.get(int(source_group["residue_uid"]))
@@ -1863,6 +1875,7 @@ def build_af3_input(
       cyclic_chains=cyclic_native,
       cyclic_lengths=cyclic_lengths,
       source_residue_map=source_residue_map,
+      source_residue_native_index=source_residue_native_index,
       source_atom_ledger=tuple(_source_ledger(atoms)),
       source_inter_residue_bonds=source_inter_residue_bonds,
       source_polymer_sequences=source_polymer_sequences,

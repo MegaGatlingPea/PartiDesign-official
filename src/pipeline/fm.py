@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 
-from .state import write_csv
+from .state import failed_row, refreshed_row, write_csv
 
 
 class PartialOwner:
@@ -71,13 +71,19 @@ class PartialOwner:
         runner = DesignRunner(native, invocation_dir=Path.cwd())
         before = self.loads
         try:
-            result = run_runtime(runner.loaded, runner.tasks, runner.requests,
-                                 model_loader=self._load, model_compiler=self._compile,
-                                 compact_task_snapshots=True)
+            from .memory_trace import generation_memory_trace
+            with generation_memory_trace():
+                result = run_runtime(runner.loaded, runner.tasks, runner.requests,
+                                     model_loader=self._load, model_compiler=self._compile,
+                                     compact_task_snapshots=True)
             entries = list(discover_inputs(output, list(payloads)))
             resolved_rows = {}
             for entry in entries:
                 row = dict(entry.row)
+                if not failed_row(row) and not entry.error and '"ligand"' in str(row.get("design_chains","")):
+                    from src.validate.inputs import load_input
+                    record=load_input(entry.path,row,entry.task_dir)
+                    row=refreshed_row(record,entry.path,atoms=record.atoms)
                 if row.get("heavy_role") and not entry.error and not row.get("error"):
                     from src.validate.inputs import load_input
                     row = dict(load_input(entry.path,row,entry.task_dir).row)
@@ -102,14 +108,17 @@ class PartialOwner:
                         metadata = private / parent_id
                         metadata.mkdir()
                         os.replace(snapshot, metadata / snapshot.name)
-                    native_rows = [_relocated(dict(entry.row), source, destination)
+                        for entry in entries:
+                            if entry.task_dir.name==parent_id:
+                                resolved_rows[str(entry.path)]["_pipeline_metadata"]=str(metadata)
+                    native_rows = [_relocated(resolved_rows[str(entry.path)], source, destination)
                                    for entry in entries if entry.task_dir.name == parent_id]
                     write_csv(source / "result.csv", native_rows)
                     os.replace(source, destination)
                     destinations[parent_id] = (source, destination)
             rows = []
             for entry in entries:
-                if entry.row.get("error"):
+                if failed_row(entry.row):
                     continue
                 if entry.error:
                     raise RuntimeError(entry.error)

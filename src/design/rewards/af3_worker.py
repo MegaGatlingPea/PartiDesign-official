@@ -2091,6 +2091,13 @@ def _native_prediction(
     native_token_atoms_layout: Any = None,
 ) -> dict[str, Any]:
   """Convert one native SDK result to the validation/reward prediction ABI."""
+  if payload.get("sequence_request") is not None:
+    from src.validate.sequence_metrics import native_sequence_prediction
+    return native_sequence_prediction(
+        inference_result, payload=payload, model=worker.method, sample=sample,
+        directory=directory, native_token_atoms_layout=native_token_atoms_layout,
+        native_frame_mask=native_frame_mask,
+    )
   structure = inference_result.predicted_structure
   directory.mkdir(parents=True, exist_ok=True)
   stem = f"{payload.get('name', 'af3')}_{protocol}_sample{int(sample)}"
@@ -2535,12 +2542,20 @@ class AF3Worker:
     pipeline = pipeline_cls(config=config)
     try:
       ccd = self._ccd(native_input.user_ccd)
-      batch = pipeline.process_item(
-          fold_input=fold_input,
-          ccd=ccd,
-          random_state=np.random.RandomState(int(native_input.rng_seeds[0])),
-          random_seed=int(native_input.rng_seeds[0]),
-      )
+      from contextlib import nullcontext
+      pure_sequences = bool(native_input.chains) and all(
+          chain.get("input_semantics") == "sequence" for chain in native_input.chains)
+      template_policy = nullcontext()
+      if pure_sequences:
+        from src.validate.af3_sequence_features import sequence_template_policy
+        template_policy = sequence_template_policy(self._sdk["features"], enabled=True)
+      with template_policy:
+        batch = pipeline.process_item(
+            fold_input=fold_input,
+            ccd=ccd,
+            random_state=np.random.RandomState(int(native_input.rng_seeds[0])),
+            random_seed=int(native_input.rng_seeds[0]),
+        )
     except AF3InputError:
       raise
     except (TypeError, ValueError, KeyError, IndexError) as exc:
@@ -2569,7 +2584,11 @@ class AF3Worker:
       else:
         try:
           payload_map = dict(payload)
-          native_input = AF3Input.from_payload(payload_map)
+          if payload_map.get("sequence_request") is not None:
+            from src.validate.sequence_inputs import af3_sequence_input
+            native_input = af3_sequence_input(payload_map)
+          else:
+            native_input = AF3Input.from_payload(payload_map)
         except AF3InputError:
           raise
         except (TypeError, ValueError, KeyError, IndexError) as exc:
@@ -2626,6 +2645,8 @@ class AF3Worker:
                 native_token_atoms_layout=native_token_atoms_layout,
             )
             for index, inference_result in enumerate(inference_results)
+            if not (payload_map.get("sequence_request") is not None
+                    and f"complex_sample{index}" in payload_map.get("completed_keys", ()))
         ]
       except (AF3InputError, AF3WorkerError):
         raise

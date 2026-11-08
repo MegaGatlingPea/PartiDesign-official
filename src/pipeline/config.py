@@ -17,11 +17,11 @@ from src.validate.msa_options import cli_settings
 from src.validate.config import DEFAULTS as VALIDATE_DEFAULTS
 from src.validate.config import merge as merge_validation
 from src.validate.config import validate_ipsae_settings, validate_esmfold2_settings, config_for_method
-from src.validate.config import validate_af3_settings, validate_mol1_settings, _settings, _validate_vina
+from src.validate.config import validate_af3_settings, validate_mol1_settings, validate_boltz2_settings, _settings, _validate_vina
 
 METHODS = tuple(REFOLD_METHODS)
 FINAL_METHODS = METHODS
-PROFILES = ("auto", "protein", "nuc", "ppi", "antibody")
+PROFILES = ("auto", "protein", "nuc", "ppi", "antibody", "ligand")
 _ROUTES = {"monomer", "protein", "nuc", "ligand", "peptide", "antibody", "ame", "joint"}
 _ROUTE_ALIASES = {"protein_context": "protein", "nucleic_context": "nuc",
                   "nuc_context": "nuc", "ligand_context": "ligand",
@@ -415,8 +415,6 @@ def _modalities(task: dict, name: str) -> set[str]:
             result.add("ligand")
         else:
             raise ValueError(f"task {name}: unsupported design modality {modality!r}")
-    if not result & {"protein", "nuc"}:
-        raise ValueError(f"task {name}: pure ligand design is not supported by pipeline")
     return result
 
 
@@ -436,6 +434,10 @@ def _design_chain_count(authored: dict, name: str, base: Path) -> int:
 def _preset_name(value: Any, modalities: set[str], name: str, *, antibody: bool = False) -> str:
     _choice(value, PROFILES, f"task {name}.preset")
     polymers = modalities & {"protein", "nuc"}
+    if value == "ligand" or (value == "auto" and modalities == {"ligand"}):
+        if modalities != {"ligand"}:
+            raise ValueError(f"task {name}: preset ligand requires ligand-only design")
+        return "ligand"
     if value == "antibody":
         if not antibody:
             raise ValueError(f"task {name}: preset antibody requires format: antibody")
@@ -464,7 +466,7 @@ def _presets(value: dict, label: str) -> dict:
         if not isinstance(methods, list) or not methods or any(
                 not isinstance(method, str) or method not in
                 {"af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1",
-                 "partiscore", "vina_dock"} for method in methods):
+                 "boltz2", "partiscore", "vina_dock"} for method in methods):
             raise ValueError(f"Invalid methods for criterion {name}")
         _choice(preset.get("reduction"), {"all_and_mean", "any_prediction",
                                            "best_ranked", "any_af2_pair"},
@@ -587,17 +589,17 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
     # placeholders until runtime resolves each parent's auto MPNN route.
     defaults["sequence"]["sources"] = [{"source": "gt", "label": "self", "count": 1,
                                         "settings": {}}]
-    for group in ("sequence", "af2", "esmfold2", "af3", "mol1"):
+    for group in ("sequence", "af2", "esmfold2", "af3", "mol1", "boltz2"):
         defaults[group]["seed"] = seed
-    for group in ('esmfold2', 'af3', 'mol1'):
+    for group in ('esmfold2', 'af3', 'mol1', 'boltz2'):
         defaults[group]['msa'] = merge_validation(defaults[group]['msa'], shared_msa or {})
     cfg = merge_validation(defaults, overrides)
     validate_ipsae_settings(cfg["ipsae"])
-    for group in ('esmfold2', 'af3', 'mol1'):
+    for group in ('esmfold2', 'af3', 'mol1', 'boltz2'):
         cfg[group]['msa'] = merge_validation(cfg[group]['msa'], cli_msa or {})
     # Validate caller values before workflow-owned sample/mode normalization:
     # bool-as-int or invalid dormant native settings must not be hidden by it.
-    for group in ("af2", "esmfold2", "af3", "mol1"):
+    for group in ("af2", "esmfold2", "af3", "mol1", "boltz2"):
         _integer(cfg[group]["samples"], f"validation.{group}.samples")
     _choice(cfg["esmfold2"]["mode"], {"fast", "standard"}, "validation.esmfold2.mode")
     if cfg["structure_stage"] != "base":
@@ -626,9 +628,9 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
     selected_group = REFOLD_METHODS[method].group
     cfg[selected_group]["samples"] = samples
     cfg["esmfold2"]["mode"] = "standard" if method == "esmfold2-standard" else "fast"
-    for group in ("sequence", "af2", "esmfold2", "af3", "mol1"):
+    for group in ("sequence", "af2", "esmfold2", "af3", "mol1", "boltz2"):
         _integer(cfg[group]["seed"], f"validation.{group}.seed", 0)
-    for group in ("af2", "esmfold2", "af3", "mol1"):
+    for group in ("af2", "esmfold2", "af3", "mol1", "boltz2"):
         _integer(cfg[group]["samples"], f"validation.{group}.samples")
     for group, fields in (("af2", ("recycles",)), ("esmfold2", ("loops", "steps"))):
         for key in fields:
@@ -656,6 +658,7 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
     cfg["esmfold2"] = config_for_method(cfg, method)["esmfold2"]
     validate_af3_settings(cfg["af3"])
     validate_mol1_settings(cfg["mol1"])
+    validate_boltz2_settings(cfg["boltz2"])
     # A scorer path remains part of native config even with the stage disabled.
     cfg["scorer"]["checkpoint"] = _path(cfg["scorer"]["checkpoint"], base,
                                          "validation.scorer.checkpoint")
@@ -989,8 +992,12 @@ def build_config(args: Any, repo_root: str | Path, *,
                     row["transition"]["partial"]["replicas"] = args.partial_replicas
             if number == 1:
                 initial_basis = copy.deepcopy(row["transition"]["partial"])
-            _check_iteration(row, f"task {name}.rounds.{number}")
             refold, sequence = row["refold"], row["sequence"]
+            if profile == "ligand" and (sequence["mpnn"]["count"] or not sequence["include_gt"]):
+                raise ValueError(f"task {name}: ligand pipeline requires GT-only sequence proposals")
+            _check_iteration(row, f"task {name}.rounds.{number}")
+            if refold["method"] == "af2_ig" and "ligand" in modalities:
+                raise ValueError(f"task {name}: af2_ig does not support ligand design")
             if refold["method"] == "af2_ig" and "nuc" in modalities:
                 raise ValueError(f"task {name}: af2_ig does not support nucleic-acid design")
             if refold["method"] == "af2_ig" and any(
@@ -1032,6 +1039,8 @@ def build_config(args: Any, repo_root: str | Path, *,
         _check_filter({key: value for key, value in final.items() if key in _FILTER_FIELDS},
                       f"task {name}.final")
         methods = final.get("methods", [final.get("method", "esmfold2-standard")])
+        if "af2_ig" in methods and "ligand" in modalities:
+            raise ValueError(f"task {name}: af2_ig does not support ligand design")
         if "af2_ig" in methods and "nuc" in modalities:
             raise ValueError(f"task {name}: af2_ig does not support nucleic-acid design")
         if "af2_ig" in methods and any(

@@ -20,6 +20,7 @@ partidesign <command> --help
 | [`partidesign design`](design.md) | Generate molecular structures and identities |
 | [`partidesign msa`](msa.md) | Prepare shared context MSA and templates for selected tasks |
 | [`partidesign pipeline`](pipeline.md) | Run design, refinement, and validation in one command |
+| [`partidesign screen`](screen.md) | Predict and rank supplied sequences or SMILES against shared contexts |
 | [`partidesign score`](score.md) | Score interfaces in saved structures with PartiScore |
 | [`partidesign relax`](relax.md) | Refine existing structures with OpenMM |
 | [`partidesign validate`](validate.md) | Evaluate saved designs with selected sequences, predictors, and criteria |
@@ -51,11 +52,27 @@ only. Narrow or short terminals also use the text header. There is no pixel-art
 substitute. Redirected output, `NO_COLOR`, and `TERM=dumb` retain plain output.
 JSON plans and saved scientific outputs keep their existing formats.
 
+## Screen
+
+`partidesign screen SCREEN.yaml` reads named tasks with shared sequence contexts
+and an `id,modality,seq` candidate CSV. Each method chooses its native structure
+representative before candidates are ranked. Polymers default to symmetric
+`design_ipsae`; ligands use Boltz-2 binding probability or another method's
+`ligand_iptm`.
+
+```bash
+partidesign screen configs/examples/screen.yaml --plan
+```
+
+All cofold methods except AF2-IG are available. Screen and pipeline use the same
+validate prediction backends and `--worker-cpus` / `--worker-gpus` reservations.
+See [screen](screen.md) for MSA/templates, 1-based context pockets and outputs.
+
 ## Pipeline
 
 `partidesign pipeline TASKS.yaml` runs design, refinement, and validation in one
 command. It generates once, then refines sequences and structures through MPNN,
-refolding, selection, and partial diffusion. All presets default to ESMFold2-fast
+refolding, selection, and partial diffusion. Polymer presets default to ESMFold2-fast
 with relaxed pipeline screening during iteration; OpenMM is optional.
 
 By default, final validation for `protein`, `nuc`, and `antibody`, including
@@ -74,6 +91,11 @@ The explicit `ppi` preset uses only AF2-IG models `[1, 2]`, with `samples: 1` an
 Both selected model pairs must pass the AF2 internal filter. The demo uses this
 same PPI route.
 
+Ligand-only design automatically selects `ligand`: `recycle: 1`, Boltz-2
+iteration and final structure validation with native affinity. Additional rounds
+use the same partial transitions. See
+[ligand pipelines](pipeline.md#ligand-pipelines).
+
 Use `--method` or `iteration.refold` to explicitly override iteration, and
 `final.method` or `final.methods` to select optional final backends such as AF3 or
 Mol-1. With an explicit multi-method final, every configured method runs and any
@@ -86,5 +108,5 @@ For single-reference sampling with `partidesign design`, see
 
 `partidesign msa TASKS.yaml --task NAME` prepares fixed-context alignments and
 protein templates without generating designs or loading a prediction model.
-Protein searches default to ColabFold. `pipeline` and `validate` use the same
+Protein searches default to ColabFold. `screen`, `pipeline` and `validate` use the same
 cache and accept `--msa-source colabfold|af3`. See [MSA and templates](msa.md).

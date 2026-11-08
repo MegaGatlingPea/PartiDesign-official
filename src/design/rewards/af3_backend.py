@@ -402,10 +402,38 @@ class AF3Backend:
           fatal=bool(getattr(exc, "fatal", False)),
       ) from exc
 
+  def predict_sequences(self, request, output, *, completed_keys=()):
+    """Fold native polymers/SMILES through this same resident AF3 worker."""
+    if self._closed:
+      raise AF3BackendError("AF3 backend is closed")
+    section = _config_section(self.config)
+    expected = {f"complex_sample{i}" for i in range(int(_get(section, "samples", 1)))}
+    completed = set(completed_keys)
+    if expected <= completed:
+      return
+    from src.validate.sequence_inputs import prepare_sequence_payload
+    if not hasattr(self, "_sequence_msa_cache"):
+      self._sequence_msa_cache = {}
+    payload = prepare_sequence_payload(request, self.repo_root, self.method, section,
+                                       cache=self._sequence_msa_cache)
+    payload["completed_keys"] = sorted(completed)
+    output = Path(output).expanduser().resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    if not self._log_dir_explicit:
+      self.set_log_dir(output / "logs")
+    predictions = self.predict_payload(payload, output)
+    if len(predictions) != len(expected - completed) or {p["key"] for p in predictions} != expected - completed:
+      raise AF3BackendError("AF3 sequence worker returned an incomplete sample set")
+    for prediction in predictions:
+      if prediction["key"] not in completed:
+        yield prediction
+
   def close(self) -> None:
     if self._closed:
       return
     self._closed = True
+    if hasattr(self, "_sequence_msa_cache"):
+      self._sequence_msa_cache.clear()
     close = getattr(self._worker, "close", None)
     if close is not None:
       close()

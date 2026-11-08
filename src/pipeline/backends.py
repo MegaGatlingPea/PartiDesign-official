@@ -234,8 +234,8 @@ def _design_arrays(input_record):
     if not all(np.any(designed & (labels == chain)) for chain in design):
         raise ValueError("pipeline design chain is absent from parsed source atoms")
     kinds = set(modalities[designed])
-    if not kinds or not kinds <= {"protein", "rna", "dna"}:
-        raise ValueError("pipeline supports polymer design only; pure ligand design is unsupported")
+    if not kinds or not kinds <= {"protein", "rna", "dna", "ligand"}:
+        raise ValueError("pipeline design chains contain an unsupported modality")
     return atoms, design, labels, modalities, designed, kinds
 
 
@@ -307,10 +307,13 @@ def _restoration_identity(input_record):
             "cyclic_offset_chains": list(_get(input_record, "cyclic_offset_chains", ()))}
 
 
-def _model_settings(config, method, payload=None):
+def _model_settings(config, method, payload=None, *, structure=False):
     """Search policy is resolved into inputs before the resident model runs."""
     spec = REFOLD_METHODS[method]
     settings = {key: value for key, value in config[spec.group].items() if key != "msa"}
+    if method == "boltz2" and structure:
+        for key in ("affinity", "affinity_samples", "affinity_steps"):
+            settings.pop(key, None)
     if spec.family == "esmfold2" and payload is not None and payload.get("msa_policy") == "none":
         # Preserve the historical query-only request identity and RNG contract.
         for key in ("msa_max_depth", "msa_column_mask_rate", "msa_subsample_at_inference"):
@@ -319,6 +322,30 @@ def _model_settings(config, method, payload=None):
 
 
 def _model_payload_identity(payload, method):
+    if method == "boltz2":
+        # Retain all native scientific inputs, including explicit pockets and
+        # constraints. Sample and variant names were normalized by the caller.
+        identity=copy.deepcopy(payload)
+        for value in identity.values():
+            # These fields restore source author names/occurrences after the
+            # native model; _restoration_identity separately protects that map.
+            for field in ("name","source_atom_ledger","source_inter_residue_bonds",
+                          "source_polymer_sequences","source_residue_map","component_rows",
+                          "native_component_map","boltz2_private_input_compatibility",
+                          "boltz2_ccd_inventory"):
+                value.pop(field,None)
+            # Atom-name/UID permutations restore the source after prediction;
+            # Boltz conditioning uses the authored SMILES, not this carrier.
+            for chain in value.get("chains", ()):
+                chain.pop("smiles_atom_map", None)
+            pocket=value.get("boltz2_pocket")
+            if isinstance(pocket,Mapping):
+                value["boltz2_pocket"]={key:item for key,item in pocket.items() if key not in
+                    {"source","selector","source_occurrences","authoring_snapshot","task_owner"}}
+            context=value.get("msa_context")
+            if isinstance(context,Mapping):
+                value["msa_context"]={key:item for key,item in context.items() if key!="policy"}
+        return identity
     if REFOLD_METHODS[method].family in {"af3", "mol1"}:
         # Source atom ledgers/old design sequences are restoration carriers,
         # not AF3 conditioning. Stable occurrence identity is kept separately.
@@ -375,7 +402,7 @@ def _alias_variant(variant):
     return result
 
 
-def _rebind_af3_sources(input_record, variant, config, predictions, repo_root, method="af3"):
+def _rebind_af3_sources(input_record, variant, config, predictions, repo_root, method="af3", *, pocket_cache=None):
     """Restore each parent's source evidence without changing shared raw data."""
     from src.design.rewards.af3_backend import prepare_af3_inputs
     section = copy.deepcopy(config[REFOLD_METHODS[method].group])
@@ -383,9 +410,13 @@ def _rebind_af3_sources(input_record, variant, config, predictions, repo_root, m
     if method == "mol1":
         from src.validate.mol1 import prepare_mol1_inputs
         prepare = prepare_mol1_inputs
+    elif method == "boltz2":
+        from src.validate.boltz2_msa import prepare_boltz2_inputs
+        prepare = prepare_boltz2_inputs
     else:
         prepare = prepare_af3_inputs
-    prepared = prepare(_alias_input(input_record), _alias_variant(variant), section, repo_root)
+    extra={"pocket_cache":pocket_cache} if method=="boltz2" else {}
+    prepared = prepare(_alias_input(input_record), _alias_variant(variant), section, repo_root, **extra)
     atoms = input_record.atoms
     labels = np.asarray(getattr(atoms, "label_asym_id", atoms.chain_id)).astype(str)
     uid = getattr(atoms, "atom_uid", np.arange(len(atoms)))
@@ -461,7 +492,7 @@ def design_score(input_record, method, raw_prediction):
             # Native AF2 extract_confidence explicitly reduces the design slice.
             return _score_fraction(confidence["plddt"], native_percent=True)
         raise ValueError("AF2 prediction lacks native design-chain pLDDT")
-    if method in REFOLD_METHODS and REFOLD_METHODS[method].family in {"af3", "mol1"}:
+    if method in REFOLD_METHODS and REFOLD_METHODS[method].family in {"af3", "mol1", "boltz2"}:
         from src.design.rewards.af3_runner import _chain_plddt
         values = [_chain_plddt(raw_prediction, chain) for chain in design]
         if any(value is None for value in values):
@@ -530,6 +561,7 @@ class NativeOwner:
         self._workers = {}
         self._generators = {}
         self._msa_caches = {}
+        self._pocket_cache = None
         self._msa_references = {}
         for reference in msa_references:
             identity = (reference["modality"], reference["sequence"])
@@ -547,6 +579,12 @@ class NativeOwner:
     def _check_open(self):
         if self._closed:
             raise RuntimeError("pipeline native owner is closed")
+
+    def _source_pocket_cache(self):
+        if self._pocket_cache is None:
+            from src.validate.pocket import SourcePocketCache
+            self._pocket_cache=SourcePocketCache()
+        return self._pocket_cache
 
     def _assets(self, method, config):
         """Inspect only the native checkpoint/chemistry files, once per owner."""
@@ -589,6 +627,12 @@ class NativeOwner:
             if key not in self._asset_cache:
                 self._asset_cache[key] = [_stat(checkpoint), _stat(root / "common/components.cif"),
                                           _stat(root / "common/components.cif.rdkit_mol.pkl")]
+        elif method == "boltz2":
+            root = community_asset("boltz", self.repo)
+            key = _canonical([method, str(root)])
+            if key not in self._asset_cache:
+                self._asset_cache[key] = [_stat(root / "checkpoint/boltz2_conf.ckpt"),
+                                          _stat(root / "common/mols.tar")]
         else:
             section = config[REFOLD_METHODS[method].group]
             root = af3_asset(method, self.repo)
@@ -672,6 +716,20 @@ class NativeOwner:
         return reference
 
     def _payload(self, input_record, variant, method, config):
+        if method == "boltz2":
+            from src.validate.boltz2_msa import prepare_boltz2_inputs
+            from src.validate.af3_msa import AF3MSACache
+            settings=config["boltz2"]["msa"]
+            owner=self
+            class PinnedCache:
+                def ensure(self,modality,sequence):
+                    key=_canonical(settings)
+                    if key not in owner._msa_caches:
+                        owner._msa_caches[key]=AF3MSACache(owner.repo,settings)
+                    return owner._msa_reference(owner._msa_caches[key],modality,sequence)
+            prepared=prepare_boltz2_inputs(input_record,variant,config["boltz2"],self.repo,
+                                          cache=PinnedCache(),pocket_cache=self._source_pocket_cache())
+            return prepared,prepared
         if method in {"esmfold2-fast", "esmfold2-standard"}:
             from src.validate.esmfold2_msa import (
                 msa_queries, attach_msa_references, msa_settings, prepare_esmfold2_input,
@@ -755,6 +813,8 @@ class NativeOwner:
         config = _validation_config(round_config.get("validation", {}), round_config.get("method", "esmfold2-fast"))
         atoms, design, labels, modalities, designed, kinds = _design_arrays(input_record)
         include_gt = round_config.get("include_gt", True)
+        if kinds == {"ligand"} and (count or not include_gt):
+            raise ValueError("ligand pipeline requires GT-only sequence proposals")
         sources = [{"source": "gt", "count": 1}] if include_gt else []
         passthrough = None
         candidate = None
@@ -869,6 +929,67 @@ class NativeOwner:
         self._last_prediction = (request_key, predictions)
         return copy.deepcopy(predictions)
 
+    def _finish_predictions(self,request_key,predictions,method,config,root):
+        """Durably enrich an existing Boltz pose, never rerunning confidence."""
+        if method != "boltz2" or not config["boltz2"]["affinity"]:
+            return self._remember_prediction(request_key,predictions)
+        from src.validate.boltz2 import AFFINITY_FIELDS
+        settings=config["boltz2"]
+        requested={key:settings[key] for key in ("seed","affinity_samples","affinity_steps")}
+        from partidesign.paths import community_asset
+        checkpoint=community_asset("boltz",self.repo)/"checkpoint/boltz2_aff.ckpt"
+        asset_key=_canonical(["boltz2-affinity",str(checkpoint)])
+        if asset_key not in self._asset_cache:
+            self._asset_cache[asset_key]=_stat(checkpoint)
+        requested["checkpoint"]=copy.deepcopy(self._asset_cache[asset_key])
+        worker=None
+        for index,prediction in enumerate(predictions):
+            metadata=prediction.get("metadata",{})
+            if metadata.get("boltz2_affinity_eligible") is False:
+                metadata.update(
+                    boltz2_affinity_status="not_applicable",
+                    boltz2_affinity_unavailable_reason=(metadata.get("boltz2_affinity_unavailable_reason")
+                        or "Native Boltz-2 ligand affinity is not applicable to this structure"))
+                _atomic_json(root/"raw_predictions.json",{
+                    "request_key":request_key,"predictions":predictions,
+                    "artifacts":self._prediction_artifacts(predictions)})
+                continue
+            complete=(metadata.get("pipeline_affinity_config")==requested
+                      and prediction.get("boltz2_affinity_requested") is True
+                      and all(isinstance(prediction.get("confidence",{}).get("boltz2_"+name),(float,int))
+                              and isfinite(prediction["confidence"]["boltz2_"+name]) for name in AFFINITY_FIELDS))
+            if complete:
+                continue
+            with self._execution:
+                self._check_open()
+                worker=worker or self._worker(method,config,self._assets(method,config))
+                worker.log_dir=self.cache.parent/"logs"
+                enriched=worker._models().add_affinity(copy.deepcopy(prediction))
+            enriched.setdefault("metadata",{})["pipeline_affinity_config"]=copy.deepcopy(requested)
+            predictions[index]=enriched
+            # Commit each enrichment. A later failure keeps every structure
+            # and all earlier affinity results reusable after an owner restart.
+            _atomic_json(root/"raw_predictions.json",{
+                "request_key":request_key,"predictions":predictions,
+                "artifacts":self._prediction_artifacts(predictions)})
+        return self._remember_prediction(request_key,predictions)
+
+    @staticmethod
+    def _prediction_artifacts(predictions):
+        paths=set()
+        for prediction in predictions:
+            paths.update(str(Path(prediction[field]).resolve()) for field in _ARTIFACT_FIELDS
+                         if prediction.get(field))
+            metadata=prediction.get("metadata",{})
+            resume=metadata.get("boltz2_affinity_resume",{})
+            paths.update(str(Path(resume[field]).resolve()) for field in
+                         ("payload_path","pre_affinity_structure_path") if resume.get(field))
+            paths.update(str(Path(metadata[field]).resolve()) for field in
+                         ("boltz2_affinity_raw_path","boltz2_affinity_samples_path",
+                          "boltz2_affinity_input_evidence_path")
+                         if metadata.get(field))
+        return sorted(paths)
+
     def predict(self, input_record, variant, method, validation_config, *, task_name):
         from src.validate.storage import ensure_directory, locked
         from src.validate.planning import expected_keys, prediction_metadata_valid
@@ -880,7 +1001,7 @@ class NativeOwner:
         canonical_input, canonical_variant = _alias_input(input_record), _alias_variant(variant)
         payload, prepared = self._payload(canonical_input, canonical_variant, method, config)
         assets = self._assets(method, config)
-        model_settings = _model_settings(config, method, payload)
+        model_settings = _model_settings(config, method, payload, structure=True)
         conditioning = _model_payload_identity(payload, method)
         occurrences = (_occurrence_identity(canonical_input)
                        if method == "af2_ig" else _restoration_identity(canonical_input))
@@ -892,14 +1013,14 @@ class NativeOwner:
                    "referenced_files": _referenced_files([conditioning, model_settings], self.repo)}
         request_text = _canonical(request)
         request_key = f"request_{self._request_id(request_text)}"
-        cached = self._memory_prediction(request_key)
+        cached = None if method == "boltz2" else self._memory_prediction(request_key)
         if cached is not None:
             return request_key, cached, True
         root = ensure_directory(self.cache / request_key)
         state_path = root / "raw_predictions.json"
         with locked(root / "prediction.lock"):
             self._check_open()
-            cached = self._memory_prediction(request_key)
+            cached = None if method == "boltz2" else self._memory_prediction(request_key)
             if cached is not None:
                 return request_key, cached, True
             expected = expected_keys(method, config)
@@ -907,7 +1028,7 @@ class NativeOwner:
                 state = json.loads(state_path.read_text())
                 if state.get("request_key") != request_key:
                     raise NativeBackendError("prediction cache request identity is corrupt")
-                if request_key in self._validated_predictions:
+                if request_key in self._validated_predictions and method != "boltz2":
                     valid = all(Path(value["structure_path"]).is_file()
                                 for value in state["predictions"])
                 else:
@@ -923,8 +1044,8 @@ class NativeOwner:
                         for key in expected:
                             (slots / (key + ".json")).unlink(missing_ok=True)
                         slots.rmdir()
-                    return request_key, self._remember_prediction(
-                        request_key, _decode(state["predictions"])), True
+                    return request_key, self._finish_predictions(
+                        request_key, _decode(state["predictions"]),method,config,root), True
             expected_set = set(expected)
             slots = root / "prediction_slots"
             committed, ordinals = {}, {}
@@ -938,13 +1059,11 @@ class NativeOwner:
                 if not prediction.get("structure_path"):
                     raise NativeBackendError("native prediction has no restored structure")
                 artifacts = set()
-                for field in _ARTIFACT_FIELDS:
-                    value = prediction.get(field)
-                    if value:
-                        path = Path(value).resolve()
-                        if not path.is_file():
-                            raise NativeBackendError(f"native prediction artifact is missing: {path}")
-                        artifacts.add(str(path))
+                for value in self._prediction_artifacts([prediction]):
+                    path = Path(value)
+                    if not path.is_file():
+                        raise NativeBackendError(f"native prediction artifact is missing: {path}")
+                    artifacts.add(str(path))
                 return sorted(artifacts)
 
             for key in expected:
@@ -975,7 +1094,10 @@ class NativeOwner:
             if completed != expected_set:
                 with self._execution:
                     self._check_open()
-                    worker = self._worker(method, config, assets)
+                    structure_config=copy.deepcopy(config)
+                    if method == "boltz2":
+                        structure_config["boltz2"]["affinity"]=False
+                    worker = self._worker(method, structure_config, assets)
                     worker.log_dir = ensure_directory(self.cache.parent / "logs")
                     backend = worker._models()
                     extra = {} if prepared is None else {"prepared_inputs": prepared}
@@ -1000,13 +1122,13 @@ class NativeOwner:
             saved = _atomic_json(state_path, {
                 "request_key": request_key,
                 "predictions": [value["prediction"] for value in ordered],
-                "artifacts": sorted({p for value in ordered for p in value["artifacts"]})})
+                "artifacts": self._prediction_artifacts([value["prediction"] for value in ordered])})
             for key in committed:
                 (slots / (key + ".json")).unlink()
             if slots.exists():
                 slots.rmdir()
-            return request_key, self._remember_prediction(
-                request_key, _decode(saved["predictions"])), completed == expected_set
+            return request_key, self._finish_predictions(
+                request_key, _decode(saved["predictions"]),method,config,root), completed == expected_set
 
     def evaluate(self, input_record, variant, method, validation_config, raw_predictions):
         from src.validate.planning import expected_keys
@@ -1032,8 +1154,9 @@ class NativeOwner:
         predictions = [copy.deepcopy({key: value for key, value in prediction.items()
                                       if key != "_parsed_atoms"})
                        for prediction in raw_predictions]
-        if REFOLD_METHODS[method].family in {"af3", "mol1"}:
-            _rebind_af3_sources(input_record, variant, config, predictions, self.repo, method)
+        if REFOLD_METHODS[method].family in {"af3", "mol1", "boltz2"}:
+            extra={"pocket_cache":self._source_pocket_cache()} if method=="boltz2" else {}
+            _rebind_af3_sources(input_record, variant, config, predictions, self.repo, method, **extra)
         with self._execution:
             worker = self._worker(method, config, self._assets(method, config))
             worker.log_dir = self.cache.parent / "logs"
@@ -1098,6 +1221,7 @@ class NativeOwner:
             self._workers.clear()
             self._generators.clear()
             self._msa_caches.clear()
+            self._pocket_cache = None
             self._asset_cache.clear()
             self._request_ids.clear()
             self._validated_predictions.clear()

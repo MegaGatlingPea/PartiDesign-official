@@ -759,6 +759,7 @@ def _trusted_smiles_graphs(
     ref_indices: np.ndarray,
     pred_indices: np.ndarray,
     smiles: str,
+    *, comparison_only: bool = False,
 ) -> tuple[dict[int, dict[int, float]], dict[int, dict[int, float]]]:
     """Prove both complete graphs against a resolved context SMILES identity.
 
@@ -768,7 +769,7 @@ def _trusted_smiles_graphs(
     """
 
     from ..design.rewards.af3_chemistry import (
-        ChemistryError, map_source_to_molecule, molecule_graph, source_graph,
+        ChemistryError, comparison_graph_mapping, map_source_to_molecule, molecule_graph, source_graph,
         trusted_smiles,
     )
 
@@ -779,7 +780,8 @@ def _trusted_smiles_graphs(
         graphs = []
         for atoms, indices in ((reference, ref_indices), (predicted, pred_indices)):
             source = source_graph(atoms, indices, preserve_aromatic_orders=True)
-            mapping = map_source_to_molecule(source, molecule)
+            mapper = comparison_graph_mapping if comparison_only else map_source_to_molecule
+            mapping = mapper(source, molecule)
             if len(indices) != len(expected) or set(mapping) != expected:
                 raise ChemistryError("context SMILES requires every trusted heavy atom")
             by_trusted = {
@@ -806,6 +808,7 @@ def atom_mapping(
     authoritative_mapping: Mapping[int, int] | None = None,
     allow_predicted_extra: bool = False,
     trusted_smiles: str | None = None,
+    allow_symmetric_graph: bool = False,
 ) -> dict[int, int]:
     """Return a deterministic reference-atom -> predicted-atom isomorphism.
 
@@ -843,7 +846,8 @@ def atom_mapping(
     pred_graph = _adjacency(predicted, pred_indices)
     if trusted_smiles is not None:
         ref_graph, pred_graph = _trusted_smiles_graphs(
-            reference, predicted, ref_indices, pred_indices, trusted_smiles
+            reference, predicted, ref_indices, pred_indices, trusted_smiles,
+            comparison_only=allow_symmetric_graph,
         )
     ref_bond_stereo = _bond_stereo_facts(reference, ref_indices)
     pred_bond_stereo = _bond_stereo_facts(predicted, pred_indices)

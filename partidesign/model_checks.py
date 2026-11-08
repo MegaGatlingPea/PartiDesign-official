@@ -205,6 +205,10 @@ def load_target(args) -> str:
         return _af3_load(Path(args.model_dir), target)
     if target == "mol1":
         return _mol1_load(Path(args.model_dir), args.checkpoint)
+    if target == "boltz2":
+        if args.checkpoint is not None:
+            raise ValueError("Boltz-2 checks both catalog checkpoints; select their root with --model-dir")
+        return _boltz2_load()
     if target == "af2":
         return _af2_load()
     if target == "chemistry":
@@ -246,6 +250,32 @@ def _mol1_load(root: Path, checkpoint: str | None = None) -> str:
     finally:
         backend.close()
     return f"strict CPU Mol-1 keys/shapes/finite tensors: {records} parameter records"
+
+
+def _boltz2_load() -> str:
+    import copy
+    import tempfile
+    from src.validate.config import DEFAULTS
+    from src.validate.boltz2 import Boltz2Backend
+
+    settings = copy.deepcopy(DEFAULTS["boltz2"])
+    settings["affinity"] = True
+    settings["msa"]["mode"] = "off"
+    backend = Boltz2Backend(code_root(), settings, device="cpu")
+    counts = {}
+    try:
+        with tempfile.TemporaryDirectory(prefix="partidesign-boltz2-load-") as directory:
+            backend._load(Path(directory))
+            if set(backend.models) != {"confidence", "affinity"}:
+                raise RuntimeError("Boltz-2 CPU check requires both confidence and affinity models")
+            for kind, model in backend.models.items():
+                if any(parameter.device.type != "cpu" for parameter in model.parameters()):
+                    raise RuntimeError(f"Boltz-2 {kind} did not load on CPU")
+                counts[kind] = _finite_state(model)
+    finally:
+        backend.close()
+    return "strict CPU Boltz-2 checkpoint keys/shapes/finite tensors: " + ", ".join(
+        f"{kind} {count} parameter records" for kind, count in counts.items())
 
 
 def _esm_load(mode: str) -> str:

@@ -1,0 +1,69 @@
+{
+  "measured_batch_size": 16,
+  "total_tokens": [
+    50,
+    100,
+    150,
+    200,
+    250,
+    300,
+    350,
+    400,
+    450,
+    500
+  ],
+  "candidate_batches": [
+    4,
+    8,
+    12,
+    16,
+    24,
+    32,
+    48,
+    64
+  ],
+  "unmeasured_candidates": [
+    4,
+    8,
+    12,
+    24,
+    32,
+    48,
+    64
+  ],
+  "recipe": {
+    "member": "prot",
+    "modality": "protein",
+    "context_design_split": "1:1",
+    "flow_steps": 400,
+    "context_mode": "flex",
+    "precision": "BF16 mixed",
+    "compiler": "Inductor default,dynamic,fullgraph"
+  },
+  "raw_source_sha256": "17e4f09b2ecf17da5ef49235fcf37a29b649ef6cd9233a9404c4f9f68f4a742d",
+  "peak_capture": "Reset CUDA peak counters before forward, read after adapter.validate; includes resident tensors. Model and allocator retained across ascending token lengths.",
+  "scope": "Only historical matched full generation; not total device occupancy, full process startup peak, another model/modality, or partial calibration.",
+  "hardware": "Publication reports RTX4090-48G; individual raw records omit device identity/capacity.",
+  "estimator": {
+    "formula": "r=B/16; M_hat_GiB=r*R16+max(1-r,0)*A16",
+    "interpretation": "Largest scenario in an assumed affine family F+r(R-F) with 0<=F<=A, not an empirically established bound.",
+    "example_headroom_fraction": 0.2,
+    "lookup": "Ceiling to next measured token count within50..500",
+    "kind": "advisory heuristic; only B16 is measured; other batches unmeasured",
+    "guarantees": false
+  },
+  "source_data_file": "partidesign_memory_bs16.csv",
+  "plots": [
+    {
+      "file": "partidesign_token_memory.png",
+      "bytes": 230111,
+      "sha256": "247c948b1d512d62b4e9ab6375fc3c4d76a71ca9c1e6746787b45e3ce1652e82"
+    },
+    {
+      "file": "partidesign_batch_candidates.png",
+      "bytes": 468158,
+      "sha256": "790e704809f1c9f481e10c87c44383951f5e87c9f4008c14f4498a478ea618c0"
+    }
+  ],
+  "plot_numeric_rounding": "Plot uses the prior six-decimal GiB extract; portable CSV also retains exact source bytes."
+}

@@ -8,6 +8,7 @@ helpers. Source confidence is calculated by the shared request-local native hook
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 import traceback
@@ -75,6 +76,45 @@ def _native_binder_confidence(*args: Any, **kwargs: Any) -> dict[str, Any]:
     return native_binder_confidence(*args, **kwargs)
 
 
+@contextlib.contextmanager
+def _sequence_confidence_hooks(native, payload):
+    """Capture scoped logits and actual features within one native request."""
+    if "partidesign_sequence_request" not in payload:
+        yield
+        return
+    import numpy as np
+    original_confidence, original_raw = native._confidence_payload, native._write_raw_confidence
+    token_chains = None
+
+    def confidence(output, features, chain_infos, sample_index, mode, config):
+        nonlocal token_chains
+        result = original_confidence(output, features, chain_infos, sample_index, mode, config)
+        result["partidesign_sequence_confidence"] = _native_binder_confidence(
+            output, features, chain_infos, sample_index, payload, np, segments=None)
+        labels = {int(chain.asym_id): str(chain.chain_id) for chain in chain_infos}
+        asym = features["asym_id"][0].detach().cpu().numpy()
+        mask = features["token_attention_mask"][0].detach().cpu().numpy().astype(bool)
+        token_chains = np.asarray([labels[int(value)] if valid else "" for value, valid in zip(asym, mask, strict=True)])
+        return result
+
+    def raw(path, output, features, input_payload, ccd_reader, sample_index, np, **kwargs):
+        original_raw(path, output, features, input_payload, ccd_reader, sample_index, np, **kwargs)
+        if token_chains is None:
+            raise RuntimeError("Sequence confidence was not captured before native archive publication")
+        with np.load(path, allow_pickle=False) as archive:
+            arrays = {key: archive[key] for key in archive.files}
+        for key in ("atom_to_token", "atom_attention_mask"):
+            arrays[key] = features[key][0].detach().cpu().numpy()
+        arrays["token_chain_ids"] = token_chains
+        np.savez_compressed(path, **arrays)
+
+    native._confidence_payload, native._write_raw_confidence = confidence, raw
+    try:
+        yield
+    finally:
+        native._confidence_payload, native._write_raw_confidence = original_confidence, original_raw
+
+
 def run(startup_path: Path) -> None:
     startup = _load_json(startup_path)
     if startup.get("schema_version") != 1:
@@ -112,7 +152,8 @@ def run(startup_path: Path) -> None:
             request_config["seed"] = request.get("seed", config["seed"])
             fatal = False
             try:
-                artifacts = native._execute_request(bundle, request, request_config, mode)
+                with _sequence_confidence_hooks(native, _load_json(request["input_json"])):
+                    artifacts = native._execute_request(bundle, request, request_config, mode)
                 result = {
                     "type": "result", "request_id": request["request_id"],
                     "status": "ok", "error": None, "artifacts": artifacts,

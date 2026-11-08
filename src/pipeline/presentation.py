@@ -99,6 +99,7 @@ def public_config(cfg):
             final_view.pop("af3", None)
             final_view.pop("mol1", None)
             final_view.pop("esmfold2", None)
+            final_view.pop("boltz2", None)
             final_view["methods"] = final["methods"]
             for validator in final["validators"]:
                 view = validation_view(validator, profile, final=True)
@@ -160,7 +161,7 @@ def _msa_view(stage):
     msa = section["msa"]
     view = {"mode": msa["mode"], "source": msa["source"],
             "protein_templates": msa["mode"] != "off" and msa["templates"],
-            "rna_msa": spec.family != "esmfold2" and msa["mode"] != "off" and msa["source"] == "af3",
+            "rna_msa": spec.family not in {"esmfold2", "boltz2"} and msa["mode"] != "off" and msa["source"] == "af3",
             "cache_dir": msa["cache_dir"]}
     if spec.family == "esmfold2" and msa["mode"] != "off":
         view.update({key: section[key] for key in
@@ -256,6 +257,6 @@ def plan_view(cfg):
                 result["tasks"][name]["antibody_contact_filter_applies_to"] = [
                     stage["round"] for stage in task["rounds"]
                     if stage.get("filter_enabled") is not False] + ["final"]
-        if cfg.get("motif_policy") == "first_and_final":
+        if cfg.get("motif_policy") == "first_and_final" and task["preset"] != "ligand":
             result["tasks"][name]["motif_filter"] = copy.deepcopy(task["presets"]["pipeline_motif"]["rules"])
     return result

@@ -99,13 +99,14 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml \
   --task protdbench_insulin_receptor --preset ppi --run-name insulin_receptor
 ```
 
-Workflow presets live in `configs/pipeline/`. Protein/nuc final validation runs
-Mol-1, AF3 and ESMFold2-standard, with five samples each. PPI also runs AF2-IG
-models 1 and 2, five matched complex/monomer pairs per model, requiring both
-model winners to pass its filter. All presets use relaxed pipeline iteration
-screens. Multi-method final acceptance is a union. The selection caps are 200.
+Workflow presets live in `configs/pipeline/`. Protein/nuc final validation uses
+only ESMFold2-standard with five samples. PPI uses only AF2-IG models `[1, 2]`,
+one matched complex/monomer pair per model (four structures total), requiring
+both model winners to pass its filter. Polymer presets use relaxed pipeline
+iteration screens. Explicit multi-method final acceptance is a union. The
+selection caps are 200.
 
-For a lighter final stage, select
+For the bundled PPI demo workflow, select
 [configs/pipeline/demo.yaml](../pipeline/demo.yaml):
 
 ```bash
@@ -117,9 +118,10 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml \
 The demo workflow uses production sequence counts (GT1+MPNN1 first,
 GT1+MPNN4 later), three rounds, ESMFold2-fast with relaxed pipeline screening,
 first-round K=200, later/final max-pass=200, partial fraction 0.625 with four replicas
-and parent retention, and no relax step. Final validation uses only Mol-1 with
-five samples. Middle rounds that continue retain at most
-two candidates from each parent/partial family before the task-wide cap. Add `--plan` to preview without loading
+and parent retention, and no relax step. Final validation uses only AF2-IG
+models `[1, 2]`, one matched complex/monomer pair per model. Middle rounds that
+continue retain at most two candidates from each parent/partial family before
+the task-wide cap. Add `--plan` to preview without loading
 models or creating output. Repeat `--task` to select several; omitting it selects
 all six tasks. Tasks can end early when no candidate passes the current filter.
 See the [pipeline guide](../../docs/pipeline.md).

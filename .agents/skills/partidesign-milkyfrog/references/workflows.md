@@ -4,8 +4,9 @@ Use this reference for setup, generation, saved-structure operations, and output
 handling. Read [task-recipes.md](task-recipes.md) for molecular task authoring,
 [validation.md](validation.md) for post-generation evaluation, or
 [postfilter.md](postfilter.md) for optional CPU screening of successful protein
-complex refolds. Repository paths below refer to the dynamically located
-active checkout, not this skill folder.
+complex refolds. For batch size, assigned GPUs, and generation or refold worker
+resources, use [resources.md](resources.md). Repository paths below refer to the
+dynamically located active checkout, not this skill folder.
 
 For a first generation command, read [A first run](../../../../docs/design.md#a-first-run).
 See [Capabilities](../../../../README.md#capabilities) for illustrated protein, DNA,
@@ -78,7 +79,8 @@ Model-root priority is `--model-dir`, `PARTIDESIGN_MODEL_DIR`, then the detected
 checkout. An external root contains `ckpts/` and `community_models/`; use
 `partidesign download partidesign partiscore --model-dir PATH` for project weights,
 and copy any needed Git-supplied CyclicMPNN files into their matching locations.
-Code and static chemistry resources stay with the installed package. Selecting
+Code and PartiDesign's native component dictionary stay with the installed
+package. The dictionary needs no separate download or model selection. Selecting
 a model root does not change where task inputs and outputs resolve.
 
 For ordinary protein, nucleic-acid and antibody pipelines, download both ESMFold2 variants:
@@ -116,13 +118,13 @@ Read `docs/design.md`; for task fields use `docs/task_schema.md` and the relevan
 section of `configs/examples/README.md`. Inspect the named task's sample count,
 length plans, scoring, refinement, and search settings before running it.
 
-The bundled `protein_fixture` requests five length-40 proteins. These examples
-use batch size one and automatic execution while retaining all five requests:
+The bundled `protein_fixture` requests five length-40 proteins. This first-run
+example retains all five requests and uses configured resource defaults with
+automatic execution:
 
 ```bash
 partidesign design configs/examples/protein.yaml \
-  --task protein_fixture --run-name first_run \
-  --batch-size 1 --show-config
+  --task protein_fixture --run-name first_run --show-config
 
 partidesign check configs/examples/protein.yaml --task protein_fixture
 ```
@@ -134,13 +136,17 @@ Detailed compilation and stochastic length/crop validity have further
 execution-time checks. Use the
 same checkpoint, routing, and runtime overlays for checking and generation.
 
-For user-requested execution after prerequisites pass:
+For user-requested execution after prerequisites pass, keep only the GPUs
+assigned to the run visible:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 partidesign design configs/examples/protein.yaml \
-  --task protein_fixture --run-name first_run \
-  --batch-size 1
+partidesign design configs/examples/protein.yaml \
+  --task protein_fixture --run-name first_run
 ```
+
+The small fixture is useful for setup and first-result latency. Choose batch size
+and workers for the actual workload before a bulk run; use the resource guide
+above rather than carrying diagnostic settings into production.
 
 `--task` is repeatable; omitting it selects every task in the file. `sample_num`
 is per length plan; multiple polymer design chains use explicit `joint` length
@@ -187,7 +193,6 @@ are separate choices. Preview an optional clash-reward run with:
 ```bash
 partidesign design configs/examples/protein.yaml \
   --task protein_fixture --run-name ranked_run \
-  --batch-size 1 \
   --override search=best_of_n --override reward=clash \
   --override search.best_of_n.replicas=4 --show-config
 ```
@@ -275,3 +280,13 @@ Each selected `validate/<method>/` receives `clusters.csv` and
 `cluster_summary.csv`. Reruns recalculate and replace these reports. Empty
 success tables yield zero-count reports; no clusters does not itself mean the
 alignment command failed.
+
+## Group ligand molecules and scaffolds
+
+Use `partidesign cluster RUN --group-by identity` for exact isomeric SMILES or
+`--group-by murcko` for Murcko scaffolds, including screen and pipeline outputs.
+These paths need no US-align, retain every analog member and preserve charge/
+stereo in exact identity. Acyclic molecules use their exact identity rather
+than a shared empty scaffold. Representatives follow natural candidate-ID order,
+not an extra score. `--method` still filters the prediction method. Read
+`docs/cluster.md` for input selection and chemical report paths.

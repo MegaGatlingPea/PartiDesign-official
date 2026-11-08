@@ -1,0 +1,9 @@
+{
+  "url": "https://github.com/jwohlwend/boltz.git",
+  "sha": "b1ebfc46ecf57f5414e0d1a6f9027bbb122c53bc",
+  "version": "2.2.1",
+  "license": "MIT",
+  "license_file": "source/LICENSE",
+  "source_directory": "source",
+  "experimental": true
+}

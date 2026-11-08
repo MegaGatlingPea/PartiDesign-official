@@ -1,0 +1,22 @@
+{
+  "distribution": "chembl-structure-pipeline",
+  "version": "1.2.2",
+  "pypi_metadata_url": "https://pypi.org/pypi/chembl_structure_pipeline/1.2.2/json",
+  "archive_filename": "chembl_structure_pipeline-1.2.2.tar.gz",
+  "archive_url": "https://files.pythonhosted.org/packages/a8/a8/b37b0d4373e534c036a4e201f72e47e928c2a806f9699af60d126699b9b9/chembl_structure_pipeline-1.2.2.tar.gz",
+  "archive_sha256": "625ffc25f86d7d6fe1b459a381b2a52fb1df5fe0c8bbfe9c615e8b7f75c301c8",
+  "retrieved_utc": "2026-11-07T10:36:42.516752+00:00",
+  "license": "MIT",
+  "copyright": "2019 Greg Landrum / The ChEMBL group (see per-file notices and LICENSE)",
+  "modifications": "None. All upstream package source, data and LICENSE files are byte-identical to the verified PyPI sdist; package-relative imports need no relocation.",
+  "runtime_dependencies": "Python standard library and RDKit; declared setuptools requirement is packaging-only.",
+  "upstream_file_sha256": {
+    "LICENSE": "36b1ee91639d4be92a468f7597955163ac0196bd99bea1e5ca38faaa47f6451c",
+    "__init__.py": "45c233e3bffa07384004e84a6a632c4b933f40d175c883ecf5171814b0932267",
+    "checker.py": "76d88a10c7917bc3d3dd4469f55a0b61d891b2d83d17a2389e382d3a222f4a99",
+    "data/salts.smi": "ee021b99d844bda607f3f8a41fcf4f81dd5fead073cd03dc80936cafd2eb99a5",
+    "data/solvents.smi": "3ff218cceb49fdd0c3d94902421bf0d5b602472dc7181a73e4fcdbe4c8a3ac96",
+    "exclude_flag.py": "91a458b2d3b0bd6ae4b5ba265099ecfb5ec17d84e424cb4ce376f38611f0aa86",
+    "standardizer.py": "934d5bce73a3d3611d7c30b2ea46826fff43cf5622bb5671a568cdb7f87937be"
+  }
+}

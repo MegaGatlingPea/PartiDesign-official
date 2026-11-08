@@ -19,21 +19,21 @@ at length 40, with scoring and refinement disabled:
 
 ```bash
 partidesign design configs/examples/protein.yaml \
-  --task protein_fixture --run-name first_run \
-  --batch-size 1 --show-config
+  --task protein_fixture --run-name first_run --show-config
 
 partidesign check configs/examples/protein.yaml --task protein_fixture
 
-CUDA_VISIBLE_DEVICES=0 partidesign design configs/examples/protein.yaml \
-  --task protein_fixture --run-name first_run \
-  --batch-size 1
+partidesign design configs/examples/protein.yaml \
+  --task protein_fixture --run-name first_run
 ```
 
 `--show-config` prints configuration without loading weights, probing the GPU,
 or generating structures. Automatic execution remains pending until runtime.
-Remove it to generate after checking the inputs and assets. The generation
-bundle must include the model, autoencoder, and
-experiment configuration; see [model setup](download.md#generation-weights-and-bundled-assets).
+The examples retain configured resource defaults; use only GPUs assigned to the
+run and see [resource choices](#choose-generation-resources) for bulk work.
+Remove `--show-config` to generate after checking the inputs and assets. The
+generation bundle must include the model, autoencoder, and experiment
+configuration; see [model setup](download.md#generation-weights-and-bundled-assets).
 
 ## Partial generation from a candidate
 
@@ -64,8 +64,7 @@ antibody request, for example:
 
 ```bash
 partidesign design configs/examples/antibody.yaml \
-  --task antibody_fixture --run-name antibody_run \
-  --batch-size 1 --show-config
+  --task antibody_fixture --run-name antibody_run --show-config
 ```
 
 Routing is enabled by default. `--route-ckpt` can select `omni`, `prot`, `pep`,
@@ -87,8 +86,8 @@ These defaults come from the supplied [runtime configuration](../configs/design.
 | `--ckpt FILE` | Explicit compatible checkpoint; default `ckpts/partidesign.ckpt` under the selected model root. |
 | `--route true\|false` | Enable bundle routing; default true. |
 | `--route-ckpt MEMBER` | Force a bundle member; default `null` for automatic selection. |
-| `--batch-size N` | Positive generation batch size; default 16. |
-| `--num-workers N` | Nonnegative data-worker count; default 4. |
+| `--batch-size N` | Positive generation batch size per GPU rank; default 16. |
+| `--num-workers N` | Nonnegative data-loader worker count per GPU rank; default 4. |
 | `--seed N` | Nonnegative global seed; default 2026. |
 | `--execution-backend auto\|native\|bioir` | Execution backend; default `auto`. |
 | `--compile auto\|true\|false` | Native FM-denoiser compilation; default `auto`. |
@@ -101,6 +100,29 @@ Set sample counts, lengths, and molecular conditions in the task YAML.
 `--config` is a runtime overlay, not a second task file. Dedicated flags override
 the corresponding configured values; do not set a conflicting `--override` for
 the same field. Preview changes with `--show-config`.
+
+## Choose generation resources
+
+Generation uses the visible GPUs. Preserve scheduler/user-assigned visibility;
+if setting `CUDA_VISIBLE_DEVICES`, include only GPUs assigned to this run.
+The defaults are batch size 16 and four loader workers per GPU rank: four ranks
+can create 16 loader workers in addition to the rank processes. Account for
+that total within the available CPU cores, host RAM, and any container/cgroup
+RAM limit.
+
+Choose a batch for the actual token/atom counts, retained context, length
+variation, enabled rewards/refinement, and current free VRAM, leaving memory
+headroom for the full run. Suitable values vary with the workload. Add loader
+workers when the GPU waits for preparation and spare CPU/RAM remain; reduce
+them when CPU contention or host memory is limiting.
+
+First-result latency and sustained throughput are different goals. A small trial
+may spend much of its time loading models, compiling, or capturing graphs;
+additional GPU ranks also load models and create processes. For bulk work,
+compare steady throughput after startup while keeping the requested workload
+fixed. Keep automatic backend/compilation for normal runs and remove temporary
+diagnostic overrides after resolving an issue. Resource changes preserve the
+requested sample count but can change stochastic outputs.
 
 ## Execution and compilation
 
@@ -263,7 +285,6 @@ needs no additional learned reward weights:
 ```bash
 partidesign design configs/examples/protein.yaml \
   --task protein_fixture --run-name ranked_run \
-  --batch-size 1 \
   --override search=best_of_n \
   --override reward=clash \
   --override search.best_of_n.replicas=4

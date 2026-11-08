@@ -2,7 +2,8 @@
 
 Locate the runtime checkout first; `<repo>` below means that checkout, not this
 skill's installation directory. Read the referenced local page and current
-configuration for the user's installed version.
+configuration for the user's installed version. For batch size, assigned GPUs,
+and worker resources, start with [resources.md](resources.md).
 
 ## 1. Where should I install and run PartiDesign?
 
@@ -35,8 +36,9 @@ Root priority is `--model-dir`, then `PARTIDESIGN_MODEL_DIR`, then the detected
 checkout. That root holds `ckpts/` and `community_models/`. Download the project
 checkpoints into it with `partidesign download partidesign partiscore --model-dir PATH`;
 copy any required Git-supplied CyclicMPNN files into their matching locations.
-Static chemistry and bundled source stay with the installed package. A model-root
-change does not relocate task inputs or outputs. See `<repo>/docs/download.md`,
+PartiDesign's native component dictionary and bundled source stay with the
+installed package; the dictionary needs no separate download. A model-root change
+does not relocate task inputs or outputs. See `<repo>/docs/download.md`,
 Use a separate model directory.
 
 ## 4. Which preview or check should I use?
@@ -56,7 +58,7 @@ compatibility and retained smoke outputs.
 Without `--task`, every named task in the file is selected; repeat `--task` to
 select several explicitly. `sample_num` is per length plan, so three lengths
 with two samples request six base samples. Joint rows are explicit combinations,
-and Best-of-N replicas multiply candidates. `--batch-size 1` changes execution,
+and Best-of-N replicas multiply candidates. `--batch-size N` changes execution,
 not the count. Read `<repo>/configs/examples/README.md` and
 `<repo>/docs/task_schema.md` before choosing a budget.
 
@@ -111,13 +113,15 @@ input error; check the task using the intended checkpoint/settings. See
 
 ## 11. What should I change after an out-of-memory error?
 
-Inspect the log and active GPU first. Try a smaller batch, commonly
-`--batch-size 1 --compile false` as an intentional native-eager diagnostic;
-this leaves the requested sample budget unchanged. Automatic execution does
-not retry arbitrary out-of-memory failures. To reduce work, copy the task and
-explicitly reduce `sample_num` or the length plan. Retain scientifically
-required context when adjusting a crop. Validation models have their own memory
-demands and options. Start with
+Inspect the failing stage, log, current free VRAM, and host/cgroup RAM first.
+Generation and validation have separate resource settings. With the default
+automatic backend, `--batch-size 1 --compile false` is an intentional native-eager
+diagnostic; it leaves the requested sample budget unchanged. After diagnosis,
+remove diagnostic overrides to restore automatic execution/compilation and choose
+a batch with measured memory headroom using [resources.md](resources.md).
+Automatic execution does not retry arbitrary out-of-memory failures. To reduce
+requested work, copy the task and explicitly reduce `sample_num` or the length
+plan. Retain scientifically required context when adjusting a crop. See
 `<repo>/docs/check.md` and the relevant command page.
 
 ## 12. The command ended, but a sample has no CIF. Where do I look?

@@ -56,8 +56,9 @@ ckpts/
 The generation bundle is 4,909,825,762 bytes; PartiScore is 25,350,931 bytes.
 Keep the existing binary formats and filenames intact. These project-owned
 weights use Apache-2.0; third-party backend weights retain their upstream terms.
-CyclicMPNN weights and native chemistry resources continue to come with the
-source checkout. The model files are not included in wheels or source archives.
+CyclicMPNN weights come with the source checkout. PartiDesign's native component
+dictionary is included in the package and needs no separate download. Model
+weights are not included in wheels or source archives.
 
 For a different location, pass `--model-dir` to download/check and runtime
 commands, or select the checkpoint with `design --ckpt FILE`. A compatible
@@ -82,6 +83,7 @@ model. Download only the backends used by your chosen validation workflow:
 | Standard ESMFold2 evaluation | `partidesign download esmfold2-standard` |
 | AlphaFold2 initial-guess evaluation | `partidesign download af2` |
 | Explicit Mol-1 evaluation | `partidesign download mol1` |
+| Boltz-2 validation, sequence screening or ligand pipeline | `partidesign download boltz2` |
 | AlphaFold3 / AF3-LA evaluation | `partidesign download af3 af3-la` |
 
 The target name for NA-MPNN is `nampnn`. CyclicMPNN is already included. Each
@@ -93,9 +95,10 @@ Check only the backends you installed:
 partidesign check --model proteinmpnn --model ligandmpnn
 partidesign check --model af3 --msa off
 partidesign check --model mol1 --msa off
+partidesign check --model boltz2 --msa off
 ```
 
-The AF3 and Mol-1 commands check weights and chemistry without requiring MSA databases.
+These AF3, Mol-1 and Boltz-2 commands check weights and chemistry without requiring MSA databases.
 ColabFold is the default protein MSA/template source and needs no local AF3 search databases.
 For `source: af3`, prepare local databases or a cache separately. Downloads
 do not install the full MSA search databases. See [checks](check.md) and
@@ -118,6 +121,39 @@ it does not need a separate Mol-1 search database. The environments provide
 `colabfold-binaries` for HHsearch; no full ColabFold prediction installation is needed.
 See [MSA and templates](msa.md) for pre-search commands and cache policy. Check upstream parameter
 terms separately from the source-code license.
+
+### Boltz-2 assets
+
+`partidesign download boltz2` prepares optional structure/affinity checkpoints
+and safely extracts their molecule library:
+
+```text
+community_models/boltz/
+  source/                    # bundled source; stays with the code installation
+  checkpoint/boltz2_conf.ckpt
+  checkpoint/boltz2_aff.ckpt
+  common/mols.tar
+  common/mols/                # extracted molecule library
+```
+
+The three downloads total **6,204,362,719 bytes**; keeping the extracted library
+brings their installed footprint to about **7.47 GiB**. Downloads use the official
+[Boltz-2 Hugging Face repository](https://huggingface.co/boltz-community/boltz-2)
+at immutable revision `6fdef46d763fee7fbb83ca5501ccceff43b85607`, with registered
+sizes and SHA256 checksums. The release uses MIT terms. Incomplete extraction
+is not reported as ready. `check` can verify the extracted files against the
+pinned archive; replaced incomplete ordinary directories are preserved as hidden
+backups.
+
+The single `boltz2` target supplies structure and affinity assets for
+[`validate --method boltz2`](validate.md#boltz-2-proteinligand-validation),
+[sequence screening](screen.md) and the [ligand pipeline](pipeline.md#ligand-pipelines).
+Vina and the ordinary polymer defaults remain unchanged. Boltz-2 shares the existing ColabFold
+MSA/template cache and needs no separate search database. The current optional
+route requires Numba 0.68.1 and llvmlite 0.50.0 in the existing environment;
+installer defaults have not been expanded for this integration. See the
+[validation guide](validate.md#boltz-2-proteinligand-validation) for input limits
+and native affinity metrics.
 
 ## Use a separate model directory
 
@@ -152,7 +188,7 @@ invocation directory. Selecting a model root does not change that directory.
 | `TARGET ...` | Prepare the named resources; no targets opens the interactive selector in a terminal. |
 | `--list` | Print asset status and sources without downloading. Can be restricted to named targets. |
 | `--model-dir PATH` | Select the model root. |
-| `--all` | Attempt every registered target; cannot be combined with explicit targets. |
+| `--all` | Prepare all models; cannot be combined with explicit targets. |
 | `--force` | Refresh downloadable assets, replacing them only after complete preparation. Cannot be combined with `--list`. |
 
 Files are placed at the paths shown by the inventory. Repeating a download

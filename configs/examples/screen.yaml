@@ -1,0 +1,25 @@
+# Short deployment examples, not validated binders or optimized compounds.
+polymer_screen:
+  methods: [esmfold2-fast, esmfold2-standard]
+  samples: 1
+  msa: {mode: auto, source: colabfold, templates: false}
+  contexts:
+    A:
+      type: protein
+      sequence: MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
+  candidates: ./configs/examples/screen/polymer_candidates.csv
+
+ligand_screen:
+  methods: [boltz2]
+  samples: 1
+  msa:
+    mode: auto
+    source: colabfold
+    templates: true
+    max_template_date: "2021-09-30"
+  contexts:
+    A:
+      type: protein
+      sequence: MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG
+      pocket: [8, 44, 68]
+  candidates: ./configs/examples/screen/ligand_candidates.csv

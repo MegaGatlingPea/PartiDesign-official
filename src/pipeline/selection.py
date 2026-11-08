@@ -1,8 +1,9 @@
-"""Deterministic, CPU-only sequence selection for hallucination rounds.
+"""Deterministic, CPU-only design identity selection for pipeline rounds.
 
 A descriptor represents public residue identities, not MPNN parent proxies.
 Cyclic equivalence is forward rotation only. Constraint labels supplied in
 anchors rotate with their residue and participate in every comparison.
+Ligands use exact canonical isomeric SMILES, without polymer token distances.
 """
 from __future__ import annotations
 
@@ -63,10 +64,32 @@ class ChainSequence:
         object.__setattr__(self, "anchors", tuple(normalized))
 
 
-def _chains(chains: Sequence[ChainSequence]) -> tuple[ChainSequence, ...]:
+@dataclass(frozen=True)
+class LigandIdentity:
+    """Exact chemical identity; never tokenized or compared as a polymer."""
+    chain_id: str
+    smiles: str
+    modality: str = "ligand"
+
+    def __post_init__(self):
+        from rdkit import Chem
+        _nonempty_string(self.chain_id, "chain_id")
+        _nonempty_string(self.smiles, "ligand SMILES")
+        if self.modality != "ligand":
+            raise ValueError("LigandIdentity modality must be ligand")
+        molecule = Chem.MolFromSmiles(self.smiles)
+        if molecule is None or molecule.GetNumAtoms() < 1:
+            raise ValueError("ligand identity requires valid authoritative SMILES")
+        # Canonical ordering only: retain stereochemistry, formal charge,
+        # disconnected components and the authored tautomer/protonation state.
+        object.__setattr__(self, "smiles", Chem.MolToSmiles(
+            molecule, canonical=True, isomericSmiles=True))
+
+
+def _chains(chains) -> tuple[ChainSequence | LigandIdentity, ...]:
     result = tuple(chains)
-    if not result or any(not isinstance(chain, ChainSequence) for chain in result):
-        raise ValueError("at least one polymer ChainSequence is required")
+    if not result or any(not isinstance(chain, (ChainSequence, LigandIdentity)) for chain in result):
+        raise ValueError("at least one ChainSequence or LigandIdentity is required")
     ids = [chain.chain_id for chain in result]
     if len(ids) != len(set(ids)):
         raise ValueError("design chain IDs must be unique")
@@ -78,7 +101,7 @@ class SelectionCandidate:
     candidate_id: str
     parent_id: str
     score: float
-    chains: tuple[ChainSequence, ...]
+    chains: tuple[ChainSequence | LigandIdentity, ...]
     family_id: str = ""
 
     def __post_init__(self):
@@ -109,15 +132,16 @@ def _rotations(values: tuple | str, cyclic: bool) -> tuple:
     return tuple(dict.fromkeys(values[offset:] + values[:offset] for offset in range(len(values))))
 
 
-def sequence_key(chains: Sequence[ChainSequence]) -> tuple:
+def sequence_key(chains: Sequence[ChainSequence | LigandIdentity]) -> tuple:
     """Exact sequence/constraint key preserving chain roles and forward cycles.
 
     This is not a prediction-cache key: identical design sequences can still
     have different contexts, templates, parameters or initial guesses.
     """
     return tuple(
-        (chain.chain_id, chain.modality, chain.cyclic,
-         min(_rotations(_symbols(chain), chain.cyclic)))
+        ((chain.chain_id, "ligand", chain.smiles) if isinstance(chain, LigandIdentity) else
+         (chain.chain_id, chain.modality, chain.cyclic,
+          min(_rotations(_symbols(chain), chain.cyclic))))
         for chain in _chains(chains)
     )
 
@@ -137,6 +161,8 @@ def _prepare_sequences(sequences):
     for chains in sequences:
         result = []
         for chain in chains:
+            if isinstance(chain, LigandIdentity):
+                raise ValueError("ligands use exact SMILES identity, not polymer edit distance")
             encoded = "".join(chr(alphabet.setdefault(symbol, len(alphabet))) for symbol in _symbols(chain))
             rotations = _rotations(encoded, chain.cyclic)
             result.append(_PreparedChain(
@@ -233,6 +259,7 @@ def select_candidates(
     if len(ids) != len(set(ids)):
         raise ValueError("candidate IDs must be unique within a selection")
     ranked = sorted(values, key=lambda value: (-value.score, value.candidate_id))
+    has_ligands = any(isinstance(chain, LigandIdentity) for value in ranked for chain in value.chains)
     keys = {value.candidate_id: sequence_key(value.chains) for value in ranked}
     input_unique = len(set(keys.values()))
     denominator = input_unique if unique_count is None else unique_count
@@ -282,7 +309,9 @@ def select_candidates(
     if mode == "cluster":
         cap = min(num_clusters, len(family_retained))
         if family_retained:
-            if len(family_retained) <= num_clusters:
+            if len(family_retained) <= num_clusters or has_ligands:
+                # Chemical identities are already deduplicated. Rank the exact
+                # groups without inventing a ligand similarity/clustering rule.
                 labels = list(range(len(family_retained)))
             else:
                 import numpy as np
@@ -304,6 +333,11 @@ def select_candidates(
             for value, label in zip(family_retained, labels):
                 groups.setdefault(int(label), []).append(value)
             ordered = sorted(groups.values(), key=lambda group: (-group[0].score, group[0].candidate_id))
+            if has_ligands:
+                for group in ordered[num_clusters:]:
+                    for value in group:
+                        decisions[value.candidate_id]["reason"] = "max_pass"
+                ordered = ordered[:num_clusters]
             cluster_count = len(ordered)
             for cluster_id, group in enumerate(ordered, start=1):
                 representative = group[0]
@@ -339,5 +373,5 @@ def select_candidates(
                 "denominator_count": denominator})
 
 
-__all__ = ["ChainSequence", "SelectionCandidate", "SelectionResult",
+__all__ = ["ChainSequence", "LigandIdentity", "SelectionCandidate", "SelectionResult",
            "sequence_key", "sequence_distance", "select_candidates"]

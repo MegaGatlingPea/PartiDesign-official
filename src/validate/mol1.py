@@ -204,6 +204,8 @@ def mol1_job(payload, directory):
 
 def mol1_covalent_bonds(payload):
     """Canonical native bond input shared by execution and request deduplication."""
+    if payload.get("sequence_request") is not None:
+        return []
     if "mol1_covalent_bonds" in payload:
         return payload["mol1_covalent_bonds"]
     entities = {chain["id"]: str(i) for i, chain in enumerate(payload["chains"], 1)}
@@ -392,6 +394,17 @@ class Mol1Backend:
                 yield self._prediction(predicted["coordinate"][sample], summary, full, atoms, data,
                                        payload, protocol, sample, folder)
 
+    def predict_sequences(self, request, output, *, completed_keys=()):
+        from .sequence_inputs import prepare_sequence_payload
+        if not hasattr(self, "_sequence_msa_cache"):
+            self._sequence_msa_cache = {}
+        if all(f"complex_sample{i}" in completed_keys for i in range(self.config["samples"])):
+            return
+        payload = prepare_sequence_payload(request, self.repo, "mol1", self.config,
+                                           cache=self._sequence_msa_cache)
+        yield from self.predict(None, None, output, completed_keys=completed_keys,
+                                prepared_inputs={"complex": payload})
+
     def _prediction(self, coordinates, summary, full, atoms, data, payload, protocol, sample, folder):
         from mol.data.utils import save_structure_cif
         from src.design.rewards.af3_worker import _native_prediction, _token_residue_atom_names
@@ -418,6 +431,16 @@ class Mol1Backend:
                         token_residue_atom_names=_token_residue_atom_names(
                             native.atom_name, n_token, atom_to_token_idx=atom_to_token),
                         chain_ids=list(dict.fromkeys(str(x) for x in native.chain_id)))
+        if payload.get("sequence_request") is not None:
+            from .sequence_metrics import native_sequence_prediction
+            inference_result = SimpleNamespace(predicted_structure=structure, metadata=metadata,
+                                               numerical_data={"full_pae": plain(full["token_pair_pae"]),
+                                                               "full_pde": plain(full["token_pair_pde"])})
+            result = native_sequence_prediction(
+                inference_result, payload=payload, model="mol1", sample=sample, directory=folder,
+                atom_to_token=atom_to_token, native_frame_mask=np.asarray(plain(full["token_has_frame"]), dtype=bool))
+            native_path.unlink()
+            return result
         result = _native_prediction(
             SimpleNamespace(predicted_structure=structure, metadata=metadata,
                             numerical_data={"full_pae": plain(full["token_pair_pae"]),
@@ -434,3 +457,5 @@ class Mol1Backend:
     def close(self):
         self.runner = None
         self.cache = None
+        if hasattr(self, "_sequence_msa_cache"):
+            self._sequence_msa_cache.clear()

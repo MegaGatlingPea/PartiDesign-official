@@ -7,7 +7,9 @@ and final results before explaining advanced workflow overrides.
 
 Read the selected checkout's `docs/partial.md` for one reference restart, or
 `docs/pipeline.md` for iteration. Locate the active checkout as in SKILL.md;
-these paths are not relative to the installed skill.
+these paths are not relative to the installed skill. Use
+[resource and budget choices](resources.md) for generation batching, prediction
+workers and iteration budgets.
 
 ## Inputs and entry points
 
@@ -38,11 +40,11 @@ preset defaults, rather than writing null values. Keep example comments in Engli
 Common iteration operations are `mpnn`, `include_gt`, `refold`, `filter`,
 `selection`, `partial` and `relax`, under workflow `iteration`. `rounds.N` uses
 those same operations. `mpnn` accepts a count or `{source, count, settings}`;
-`refold` accepts a method or `{method, conformers, af2/esmfold2/af3/mol1 settings,
-worker_gpus}`. Both iteration and final accept esmfold2-fast,
-esmfold2-standard, af2_ig, af3, af3-la and mol1. Standard shares compatible
+`refold` accepts a method or `{method, conformers, validation: {...}}`; native
+model settings and `worker_gpus`/`worker_cpus` belong inside `validation`. Both iteration and final accept esmfold2-fast,
+esmfold2-standard, af2_ig, af3, af3-la, mol1 and boltz2. Standard shares compatible
 fast screen routes and AF3-LA shares compatible AF3 routes unless explicitly
-overridden. The default remains fast with one conformer. AF3-LA uses the
+overridden. The polymer default remains fast with one conformer. AF3-LA uses the
 native af3 settings section and its own weights.
 Filters accept booleans or existing validation criterion names. `partial`
 accepts a boolean or `{enabled, fraction, replicas, include_parent}`; `relax` is
@@ -109,7 +111,7 @@ with partial around the listed complexes. The first refolding round counts towar
 `recycle: 3`: GT1 + auto MPNN1 first, GT1 + MPNN4 later, ESMFold2-fast with one
 conformer. GT means the current candidate sequence. Auto MPNN follows native
 chemistry routing; NA-MPNN with ligand context preserves contacting identities
-through self_fi. All presets use relaxed pipeline screening by default, with
+through self_fi. Polymer presets use relaxed pipeline screening by default, with
 original-reference motif checks still strict at round 1 and final.
 
 First selection deduplicates and clusters to K=200. Later rounds take the best
@@ -195,7 +197,7 @@ Use `iteration.refold.validation.ipsae: {pae_cutoff: 10.0}` and
 `final.validation.ipsae: {pae_cutoff: 10.0}` in workflow YAML to set the default
 10.0 Å cutoff; use the same refold override under `rounds.N` for one round.
 
-Select any of the six refold methods with final.method, or use final.methods
+Select any of the seven refold methods with final.method, or use final.methods
 for union filtering. AF3 and AF3-LA share context MSA/template searches, while
 prediction identities and weights stay distinct. AF2 defaults to models 1 and
 2, one matched complex/monomer pair each; eligible VHH is supported, paired
@@ -213,7 +215,7 @@ and query-only input instead of claiming a context MSA search.
 
 Explicit overrides may use standard in iteration as well as final. Native defaults are
 `msa_max_depth: 1024`, `msa_column_mask_rate: 0.1`, and
-`msa_subsample_at_inference: true`, under `iteration.refold.esmfold2` or
+`msa_subsample_at_inference: true`, under `iteration.refold.validation.esmfold2` or
 `final.esmfold2`. A `null` depth removes the row limit subject to native feature
 caps. `esmfold2.msa` accepts the shared MSA schema; common `--msa` and
 `--msa-source` flags apply to standard. Fast remains query-only with any shared
@@ -311,7 +313,13 @@ The pipeline uses one Ray runtime with independent partial-diffusion, MPNN
 and refolding worker pools. MPNN workers request 1 CPU and 0.0625 GPU each,
 allowing up to 16 per GPU, further limited by parent count and available CPUs.
 Each phase closes its workers and model cache before the next phase, so later
-phases reload their models. `--worker-gpus` sets refolding resources; partial
+phases reload their models. `--worker-gpus` and `--worker-cpus` override
+refolding reservations across all rounds and final methods. For scoped
+settings, use `iteration.refold.validation.worker_gpus`/`worker_cpus`,
+including round/task overrides, and `final.validation`; the latter shares
+reservations across `final.methods`. These use the same resource helper and
+backend factory as screen and validate. Prediction flags do not change MPNN
+or partial reservations. Partial
 workers independently request one GPU and `generation.num_workers + 1` CPUs
 each. Both initial and inter-round partial diffusion retain the effective
 `generation.batch_size` (set by `--batch-size`), regardless of parent count or
@@ -321,8 +329,17 @@ runs as batches of 16 and 4.
 Special polymer–polymer bonds switch AF2-IG/AF3 iteration to ESMFold2-fast;
 explicit Mol-1 iteration keeps its native covalent-bond input. Ordinary backbone
 edges and offset-only intent do not trigger an override. Final chemistry limits remain in force;
-no automatic final bond-geometry gate is added. Pure ligand pipeline design is
-unsupported. Equivalent prediction requests reuse evidence; parent-relative
+no automatic final bond-geometry gate is added. The `ligand` preset supports
+free-ligand design with one Boltz-2 round (`recycle: 1`) and Boltz-2 final
+validation by default.
+An additional recycle introduces the existing partial-diffusion transition; no
+motif-scaffolding stage is added. Pocket postfiltering is off; applicable native
+Boltz pocket conditioning comes from exact source hotspot mappings. Iteration
+ranks design-only pLDDT. Exact isomeric SMILES dedup preserves stereo/charge.
+No-context ligand generation is allowed; affinity needs eligible protein context.
+Boltz final reuses equivalent structure evidence and adds eligible native
+affinity with its own internal sampling/pose evidence. Without eligible protein
+context, structure validation continues and affinity is recorded as not applicable. Read docs/pipeline.md for capabilities. Equivalent prediction requests reuse evidence; parent-relative
 metrics are recomputed. `--resume` needs identical effective settings; changed
 settings need a new run. `--from-run` preserves upstream generation.
 

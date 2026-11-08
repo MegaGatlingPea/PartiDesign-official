@@ -118,7 +118,7 @@ def executable_version(executable: str) -> str:
 
 
 def _write_reports(method_dir: Path, details: list[dict], summaries: list[dict],
-                   scratch_root: Path) -> None:
+                   scratch_root: Path, *, report_specs=None) -> None:
     # Stage and back up reports under the ignored cache. Restore an earlier
     # report if publishing the second CSV fails, so a partial pair is not left
     # behind after an ordinary filesystem error.
@@ -131,8 +131,10 @@ def _write_reports(method_dir: Path, details: list[dict], summaries: list[dict],
         temporary = Path(temporary)
         staged = []
         published = []
-        for filename, fields, rows in (("clusters.csv", _DETAIL_FIELDS, details),
-                                        ("cluster_summary.csv", _SUMMARY_FIELDS, summaries)):
+        reports = report_specs if report_specs is not None else (
+            ("clusters.csv", _DETAIL_FIELDS, details),
+            ("cluster_summary.csv", _SUMMARY_FIELDS, summaries))
+        for filename, fields, rows in reports:
             destination = method_dir / filename
             new = temporary / (filename + ".new")
             backup = temporary / (filename + ".old") if destination.exists() else None
@@ -247,7 +249,11 @@ def process_job(job: ClusterJob, options: WorkerOptions) -> dict:
 
 
 def run(paths, *, tasks=(), methods=(), criteria=(), threshold=0.5,
-        workers=16, executable=None, plan=False) -> int:
+        workers=16, executable=None, plan=False, group_by=None) -> int:
+    if group_by is not None:
+        from .chemical import run as run_chemical
+        return run_chemical(paths, tasks=tasks, methods=methods, criteria=criteria,
+                            group_by=group_by, workers=workers, plan=plan)
     if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not math.isfinite(threshold) or not 0 < threshold <= 1:
         raise ValueError("--tm-threshold must be finite and in (0,1]")
     if isinstance(workers, bool) or not isinstance(workers, int) or not 1 <= workers <= MAX_WORKERS:

@@ -265,6 +265,14 @@ def _execute(target: str, root: Path, directory: Path) -> str:
         settings.update(samples=1, recycles=1, steps=10)
         settings["msa"]["mode"] = "off"
         backend = Mol1Backend(code_root(), settings, device="cuda:0")
+    elif target == "boltz2":
+        import copy
+        from src.validate.config import DEFAULTS
+        from src.validate.boltz2 import Boltz2Backend
+        settings = copy.deepcopy(DEFAULTS["boltz2"])
+        settings.update(samples=1, recycles=1, steps=10, affinity=False)
+        settings["msa"]["mode"] = "off"
+        backend = Boltz2Backend(code_root(), settings, device="cuda:0")
     elif target in {"af3", "af3-la"}:
         from .af3_assets import layout
         assets = layout(root, target)
@@ -294,6 +302,8 @@ def _execute(target: str, root: Path, directory: Path) -> str:
         if prediction.get("status") != "complete":
             raise RuntimeError(f"backend prediction failed: {prediction.get('error')}")
         _structure(prediction["structure_path"])
+    if target == "boltz2":
+        return f"real bounded Boltz-2 structure-only inference (affinity disabled); {len(predictions)} structures independently read back"
     return f"real bounded {target} inference; {len(predictions)} structures independently read back"
 
 

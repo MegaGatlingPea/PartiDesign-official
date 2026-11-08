@@ -12,3 +12,6 @@ configs/examples/structures/nuc_design/rna_backbone_motif.pdb whitespace=-blank-
 
 # Preserve upstream DAlphaBall source formatting.
 community_models/rosetta/source/dalphaball/** whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+
+# Preserve vendored Boltz and ChEMBL source formatting.
+community_models/boltz/source/** whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

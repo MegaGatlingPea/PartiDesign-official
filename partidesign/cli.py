@@ -180,8 +180,8 @@ def build_parser() -> argparse.ArgumentParser:
     score.add_argument("--show-config", action="store_true",
                        help="Print resolved scoring configuration without scoring")
 
-    cluster = commands.add_parser("cluster", help="Cluster designs that pass validation by structural similarity",
-        description='Group successful designs by structural similarity with USalign.')
+    cluster = commands.add_parser("cluster", help="Group designs by structure or ligand chemistry",
+        description='Group designs by structural similarity, ligand identity, or Murcko scaffold.')
     from src.cluster.cli import add_arguments as cluster_arguments
     cluster_arguments(cluster)
 
@@ -189,6 +189,11 @@ def build_parser() -> argparse.ArgumentParser:
         description='Relax and filter validated protein and peptide complexes.')
     from src.postfilter.cli import add_arguments as postfilter_arguments
     postfilter_arguments(postfilter)
+
+    screen = commands.add_parser("screen", help="Screen sequence candidates with co-folding models",
+        description='Screen protein, peptide, RNA, DNA and SMILES candidates against sequence-defined contexts.')
+    from src.screen.cli import add_arguments as screen_arguments
+    screen_arguments(screen)
 
     pipeline = commands.add_parser("pipeline", help="Run design, refinement, and validation in one command",
         description='Run design, iterative refinement and final validation together.')
@@ -231,7 +236,7 @@ def build_parser() -> argparse.ArgumentParser:
     rerun = validate.add_mutually_exclusive_group()
     rerun.add_argument("--rerun", action="store_true", help="Regenerate requested sequence slots")
     rerun.add_argument("--rerun-refold", action="store_true",
-                       help="AF3/AF3-LA/Mol-1 only: reuse saved sequence slots and regenerate refolds")
+                       help="Reuse saved sequence slots and regenerate MSA-capable refolds")
     _msa_options(validate)
     _single(validate, "--limit", type=int, help="Positive maximum sample count per task")
     return parser
@@ -685,9 +690,9 @@ def _validate_arguments(args, parser):
             args.msa_templates, args.msa_template_date,
         )
         if (any(value is not None for value in msa_values) or args.msa_refresh) and (
-            not args.model or not any(target in {"af3", "af3-la", "mol1"} for target in args.model)
+            not args.model or not any(target in {"af3", "af3-la", "mol1", "boltz2"} for target in args.model)
         ):
-            parser.error("MSA options require check --model af3, --model af3-la, or --model mol1")
+            parser.error("MSA options require check --model af3, --model af3-la, --model mol1, or --model boltz2")
     if args.command == "validate" and (args.refilter or args.recompute_metrics) and (args.rerun or args.score):
         mode = "--refilter" if args.refilter else "--recompute-metrics"
         parser.error(f"{mode} cannot be combined with --rerun or --score")
@@ -737,7 +742,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not can_prompt():
             parser.error("download needs TARGET(s), --all or --list outside an interactive terminal")
     try:
-        if (args.command in {"cluster", "postfilter", "pipeline"}
+        if (args.command in {"cluster", "postfilter", "pipeline", "screen"}
                 and not getattr(args, "plan", False) and not getattr(args, "show_config", False)):
             from .ui import show_context
             show_context(args.command.capitalize(), None)
@@ -750,6 +755,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "pipeline":
             from src.pipeline.cli import run as pipeline_run
             return pipeline_run(args)
+        if args.command == "screen":
+            from src.screen.cli import run as screen_run
+            return screen_run(args)
         root = model_dir(args.model_dir)
         if args.command == "download":
             from .download import TARGETS, download_targets, list_targets, selection_options

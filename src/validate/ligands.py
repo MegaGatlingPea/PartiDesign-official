@@ -117,6 +117,57 @@ def _design_chains(task_config: Mapping[str, Any]) -> set[str]:
     return result
 
 
+def protected_ligand_chains(record, chains, labels):
+    """Use existing condition facts; never infer a protected atom's alias."""
+    from .inputs import _locator_chain
+    if not chains:
+        return set()
+    protected = {chain for chain in chains if any(
+        getattr(record, field, {}).get(chain) for field in
+        ("fixed_positions", "motif_positions", "tip_positions"))}
+    protected.update(_locator_chain(entry) for entry in getattr(record, "fixed_restypes", ()))
+    for bond in getattr(record, "bond_constraints", ()):
+        protected.update(_locator_chain(bond.get(end, {})) for end in ("atom1", "atom2"))
+    for name in ("identity_condition", "motif_coord_condition", "token_center_condition", "coordinate_condition"):
+        values = getattr(record.atoms, name, None)
+        if values is None:
+            continue
+        values = np.asarray(values, dtype=bool)
+        if values.shape != (len(record.atoms),):
+            raise ValueError(f"invalid ligand condition mask: {name}")
+        protected.update(set(labels[values].tolist()) & set(chains))
+    if set(chains) <= protected:
+        return protected
+    from .metadata import authoring_dir
+    if authoring_dir(record) is None:
+        return protected | set(chains)
+    # One known native snapshot; no source structure or directory scan.
+    _, task, _ = _task_config(record, allow_missing=True)
+    if not task:
+        return protected | set(chains)
+    condition = task.get("condition") or {}
+    for group in ("ligand", "backbone", "contig", "sequence"):
+        authored = condition.get(group) or {}
+        protected.update(chain for chain in chains if chain in authored)
+    return protected
+
+
+def is_free_design_ligand(record, chain):
+    """Permit symmetric atom correspondence only for a proven free design."""
+    if chain not in getattr(record, "design_chains", ()):
+        return False
+    atoms = record.atoms
+    labels = _canonical_chains(atoms)
+    if chain in protected_ligand_chains(record, [chain], labels):
+        return False
+    selected = labels == chain
+    if not np.any(selected):
+        return False
+    return atoms.bonds is None or not any(
+        bool(selected[int(a)]) != bool(selected[int(b)])
+        for a, b, _ in atoms.bonds.as_array())
+
+
 def _ligand_conditions(task_config: Mapping[str, Any]) -> Mapping[str, Any]:
     condition = task_config.get("condition", {})
     if not isinstance(condition, Mapping):

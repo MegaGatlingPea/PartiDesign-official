@@ -21,6 +21,7 @@ _SHORT_DESCRIPTIONS = {
     "esmfold2-standard": "Validates with MSA and shared ESM-C safetensors.",
     "af2": "Runs AF2-IG final validation for PPI designs.",
     "mol1": "Optionally predicts molecular complex structures.",
+    "boltz2": "Predicts protein–ligand structures and binding affinity.",
     "af3": "Optionally predicts full-complex structures.",
     "af3-la": "Optionally predicts complexes with AF3-LA.",
     "chemistry": "Provides molecular definitions for structure workflows."
@@ -49,22 +50,26 @@ _TARGET_INFO = {
                ("design (sequence search/reward)", "pipeline (nucleic-acid sequence source)", "validate (sequence source)"),
                27_667_482, _REFERENCE_LABEL, "The download target is nampnn; nucleic-acid fold validation uses it as its default sequence source."),
     "esmfold2-fast": ("ESMFold2-fast structure prediction with shared ESMC-6B and chemistry assets.",
-                      ("pipeline (iteration)", "validate (selected method)", "design (configured fold reward/search)"),
-                      27_146_137_588, _REFERENCE_LABEL, "Default iteration backend; shares ESMC-6B/CCD files with standard, so footprints must not be summed as new download size."),
+                      ("pipeline (iteration)", "validate (selected method)", "screen (selected method)", "design (configured fold reward/search)"),
+                      27_146_137_588, _REFERENCE_LABEL, "Default ordinary iteration backend; shares ESMC-6B/CCD files with standard, so footprints must not be summed as new download size."),
     "esmfold2-standard": ("ESMFold2-standard structure prediction with fixed protein-context MSA support.",
-                          ("pipeline (ordinary final)", "validate (selected method)", "design (configured fold reward/search)"),
+                          ("pipeline (ordinary final)", "validate (selected method)", "screen (selected method)", "design (configured fold reward/search)"),
                           27_330_225_891, _REFERENCE_LABEL, "Default ordinary final; explicit PPI instead uses AF2-IG. Shares ESMC-6B/CCD files with fast."),
     "af2": ("AlphaFold2 initial-guess (AF2-IG) structure-evaluation parameters.",
             ("pipeline (PPI final)", "validate (af2 method)", "design (configured fold reward/search)"),
             5_587_937_914, _REFERENCE_LABEL, "Fifteen registered parameter files; the PPI preset selects models 1 and 2 with matched complex/monomer predictions."),
+    "boltz2": ("Boltz-2 optional protein–ligand structure and affinity weights with molecule library.",
+               ("validate --method boltz2", "pipeline (ligand default)", "screen (boltz2 method)"), 8_025_061_538,
+               "weights, archive and extracted molecule library",
+               "Default ligand pipeline backend; optional in validate and screen. Official MIT release; shared ColabFold MSA/templates."),
     "mol1": ("Mol-1 optional biomolecular structure-evaluation assets.",
-             ("validate (mol1 method)", "pipeline (explicit custom method)", "design (configured fold reward/search)"),
+             ("validate (mol1 method)", "pipeline (explicit custom method)", "screen (selected method)", "design (configured fold reward/search)"),
              3_099_999_035, _REFERENCE_LABEL, "Optional backend; not required by the shipped default final routes."),
     "af3": ("AlphaFold3 optional structure-evaluation weights and shared derived CCD assets.",
-            ("validate (af3 method)", "pipeline (explicit custom method)", "design (configured fold reward/search)"),
+            ("validate (af3 method)", "pipeline (explicit custom method)", "screen (selected method)", "design (configured fold reward/search)"),
             2_175_129_772, _REFERENCE_LABEL, "Optional, upstream parameter/output terms apply. Shares CCD files with af3-la; derived CCD size can vary."),
     "af3-la": ("AlphaFold3-LA optional structure-evaluation variant with shared AF3 chemistry assets.",
-               ("validate (af3-la method)", "pipeline (explicit custom method)", "design (configured fold reward/search)"),
+               ("validate (af3-la method)", "pipeline (explicit custom method)", "screen (selected method)", "design (configured fold reward/search)"),
                2_175_093_308, _REFERENCE_LABEL, "Optional variant; shares CCD files with af3. Derived CCD size can vary."),
     "chemistry": ("Bundled chemical-component dictionary used by molecular structure workflows.",
                   ("design", "pipeline", "score", "validate", "relax", "postfilter"),
@@ -106,7 +111,8 @@ def target_metadata(name: str) -> dict[str, object]:
 
 def target_catalog() -> list[dict[str, object]]:
     """Static help catalog: importing it performs no file/network/model checks."""
-    return [target_metadata(name) for name in _TARGET_INFO]
+    from .download import TARGETS
+    return [target_metadata(name) for name in TARGETS]
 
 
 __all__ = ["format_bytes", "target_metadata", "target_catalog"]

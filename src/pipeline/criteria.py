@@ -65,7 +65,8 @@ def _relaxed(preset: dict) -> dict:
 
 def _protein_binder(preset: dict) -> dict:
     result = copy.deepcopy(preset)
-    result["methods"] = [method for method, spec in REFOLD_METHODS.items() if spec.family != "af2"]
+    result["methods"] = [method for method, spec in REFOLD_METHODS.items()
+                         if spec.family not in {"af2", "boltz2"}]
     thresholds = {
         "binder_iptm": 0.6,
         "binder_ptm": 0.7,
@@ -98,6 +99,8 @@ def _af2_antibody(native: dict) -> dict:
 
 def profile_presets(profile: str) -> dict:
     """Return independent native definitions with the profile's fixed deltas."""
+    if profile == "ligand":
+        return {}
     if profile not in {"protein", "nuc", "ppi", "antibody"}:
         raise ValueError(f"Unknown pipeline criteria profile: {profile}")
     native = load_presets(inference_config_dir() / "criteria.yaml")
@@ -156,7 +159,7 @@ def motif_reference_preset(native=None, *, nucleic=False):
              if rule["metric"] == "motif_rmsd_reference"]
     if not rules:
         raise ValueError(f"validate {source_name} must define the strict motif RMSD rule")
-    return {"methods": list(REFOLD_METHODS),
+    return {"methods": [method for method in REFOLD_METHODS if method != "boltz2"],
             "reduction": "any_prediction", "rules": rules}
 
 

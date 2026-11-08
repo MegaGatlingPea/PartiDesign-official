@@ -111,7 +111,7 @@ def _source_assets(target: str) -> str:
              "ligandmpnn": "ligandmpnn", "cyclicmpnn": "cyclicmpnn",
              "nampnn": "na_mpnn", "af2": "colabdesign",
              "esmfold2-fast": "esmfold2", "esmfold2-standard": "esmfold2",
-             "af3": "af3", "af3-la": "af3", "mol1": "mol1"}
+             "af3": "af3", "af3-la": "af3", "mol1": "mol1", "boltz2": "boltz"}
     if target in names:
         source = community_source(names[target])
         if not source.is_dir():
@@ -124,6 +124,8 @@ def _source_assets(target: str) -> str:
                 raise FileNotFoundError(f"AF3 SDK source is incomplete: {source}")
         if target == "mol1" and not (source / "mol" / "runner" / "inference.py").is_file():
             raise FileNotFoundError(f"Mol-1 source is incomplete: {source}")
+        if target == "boltz2" and not (source / "src/boltz/model/models/boltz2.py").is_file():
+            raise FileNotFoundError(f"Boltz-2 source is incomplete: {source}")
     return "bundled source available"
 
 
@@ -554,35 +556,36 @@ def _run_check(args, root: Path, report: Report) -> int:
                 antibody=any(task.format == "antibody" for task in runner.tasks)))
     else:
         targets = list(TARGETS) if args.all else (args.model or ["partidesign"])
-    if any(target in {"af3", "af3-la", "mol1"} for target in targets):
+    if any(target in {"af3", "af3-la", "mol1", "boltz2"} for target in targets):
         if not report.attempt(
-            "context-msa" if "mol1" in targets else "af3-msa",
-            lambda: _msa_cache_check(args, root, ("protein", "rna")),
+            "context-msa" if any(target in {"mol1", "boltz2"} for target in targets) else "af3-msa",
+            lambda: _msa_cache_check(args, root, ("protein",) if set(targets) <= {"boltz2"} else ("protein", "rna")),
         ):
             # Continue with the ordinary AF3 resource/source checks so the
             # report still identifies every missing local prerequisite.
             pass
-    records = {item["target"]: item for item in list_targets(root)}
+    records = {item["target"]: item for item in list_targets(root, include_packaged=runner is not None)}
     ready_targets = []
     for target in targets:
         record = records[target]
+        label = "packaged-ccd-component" if target == "chemistry" else target
         selected_paths, options = _task_target_options(runner, target) if runner is not None else (None, {})
         if selected_paths is not None:
-            if not report.attempt(target + "-assets", lambda paths=selected_paths:
+            if not report.attempt(label + "-assets", lambda paths=selected_paths:
                     "; ".join(_file_summary(path) for path in paths)):
                 continue
         elif record["status"] != "installed":
-            report.emit(target + "-assets", "FAIL", record.get("error") or "required resource is missing")
+            report.emit(label + "-assets", "FAIL", record.get("error") or "required resource is missing")
             continue
-        if not report.attempt(target + "-source", lambda target=target: _source_assets(target)):
+        if not report.attempt(label + "-source", lambda target=target: _source_assets(target)):
             continue
         if selected_paths is None:
-            report.emit(target + "-assets", "PASS", "complete local resource set")
+            report.emit(label + "-assets", "PASS", "complete local resource set")
         if args.load or args.smoke:
-            if report.attempt(target + "-load", lambda target=target, options=options: _cpu_child(target, root, **options)):
+            if report.attempt(label + "-load", lambda target=target, options=options: _cpu_child(target, root, **options)):
                 ready_targets.append(target)
         else:
-            report.emit(target + "-load", "NOT_RUN", "--load was not requested")
+            report.emit(label + "-load", "NOT_RUN", "--load was not requested")
     for target in TARGETS:
         if target not in targets and not (runner is not None and target == "partidesign"):
             report.emit(target, "SKIP", "unused optional model")
@@ -616,10 +619,11 @@ def _file_summary(path: Path) -> str:
     return str(path)
 
 def _target_summary(runner, holders) -> str:
+    from .download import TARGETS
     targets = _required_task_targets(runner)
     holders.append(targets)
     generation = str(runner.config.model.get("execution_backend", "auto")) + " generation"
-    return ", ".join([generation, *targets])
+    return ", ".join([generation, *(target for target in targets if target in TARGETS)])
 
 
 def _postprocess_resources(runner) -> str:

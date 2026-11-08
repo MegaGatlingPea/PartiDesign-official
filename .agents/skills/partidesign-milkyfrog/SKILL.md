@@ -1,6 +1,6 @@
 ---
 name: partidesign-milkyfrog
-description: "Use PartiDesign for molecular inference: write task YAML, plan or run generation, reference-start partial diffusion, de novo and annotated-structure pipelines, prepare shared context MSA and templates, score and refine structures, validate saved designs, postfilter successful protein and peptide complexes, cluster generated backbones, and troubleshoot usage. For end users rather than model training or software development."
+description: "Use PartiDesign for molecular inference: write task YAML, plan or run generation, reference-start partial diffusion, de novo and annotated-structure pipelines, prepare shared context MSA and templates, choose batch and worker resources, score and refine structures, validate saved designs, postfilter successful protein and peptide complexes, screen supplied sequence/SMILES candidates, group structures or ligand scaffolds, and troubleshoot usage. For end users rather than model training or software development."
 ---
 
 # PartiDesign MilkyFrog
@@ -13,10 +13,12 @@ runtime implementation, and software changes outside this skill's scope.
 
 | Need | Read |
 | --- | --- |
+| Choose batch size, worker CPU/GPU reservations, device scope, iteration workload or screening throughput | [resources.md](references/resources.md); full PartiDesign generation also uses [measured batch guidance](references/partidesign-memory.md) |
 | Environment/assets, generation, Best-of-N, existing-structure scoring, OpenMM relaxation, clustering, outputs | [workflows.md](references/workflows.md) |
 | Select an example or author molecular inputs, identities, motifs, topology, antibody scaffolds and paratopes | [task-recipes.md](references/task-recipes.md) |
-| Choose validation methods including Mol-1, sequence sources, criteria, shared MSA policy, or reuse saved evaluation | [validation.md](references/validation.md) |
+| Choose validation methods including Mol-1 and optional Boltz-2, sequence sources, criteria, shared MSA policy, or reuse saved evaluation | [validation.md](references/validation.md) |
 | Pre-search task context, choose ColabFold/local AF3 source, or explain cache locations | [validation.md](references/validation.md) |
+| Screen supplied protein, peptide, RNA, DNA or ligand candidates against a shared context | [screen.md](references/screen.md) |
 | Restart from a reference, optimize annotated existing complexes, or configure a pipeline and final filters | [partial-pipeline.md](references/partial-pipeline.md) |
 | Relax and screen successful protein–protein or standard peptide–protein refolds, including physical head-to-tail cycles, with persistent Ray CPU actors | [postfilter.md](references/postfilter.md) |
 | Explain behavior, interpret a failure, or answer a common usage question | [faq.md](references/faq.md) |
@@ -39,6 +41,22 @@ The model root is separate: `--model-dir` takes priority over
 `PARTIDESIGN_MODEL_DIR`, then the detected checkout. Task inputs, explicit
 checkpoint paths, and outputs resolve from the invocation directory. In an
 optimization annotation, paths resolve relative to annotation.csv.
+
+## Choose execution settings
+
+Before running a requested job, read [resources.md](references/resources.md). Use
+task size/input shape, the user's latency or throughput goal, and currently
+available assigned GPU/CPU/RAM to choose unset execution settings. Start from
+the active config and model-specific defaults; small-example batch one or a
+single GPU is not a universal performance setting. Preserve explicit user
+resource choices and explain an infeasible setting rather than silently replacing it.
+
+State the planned work, generation batch/loaders, device scope and applicable
+prediction-worker reservations with a short reason. Keep search budgets
+(rounds, partial replicas/fraction, sequence draws, prediction samples and
+criteria) separate from scheduling; make any proposed budget choice explicit.
+Use supported overrides only. Usage questions and plans do not launch tuning
+jobs; trials remain within the authorized compute and output scope.
 
 ## Preserve intent and execution scope
 

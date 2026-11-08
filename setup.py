@@ -65,7 +65,7 @@ _WEIGHT_SUFFIXES = {
 
 
 def _allowed_package(name: str) -> bool:
-    if name in {"partidesign", "src.design", "src.validate", "src.scoring", "src.common", "src.cluster", "src.postfilter", "src.pipeline"}:
+    if name in {"partidesign", "src.design", "src.validate", "src.scoring", "src.common", "src.cluster", "src.postfilter", "src.pipeline", "src.screen"}:
         return True
     if name.startswith("src.design."):
         return True
@@ -80,6 +80,8 @@ def _allowed_package(name: str) -> bool:
     if name.startswith("src.cluster."):
         return True
     if name.startswith("src.pipeline.") and ".tests" not in name:
+        return True
+    if name.startswith("src.screen.") and ".tests" not in name:
         return True
     return False
 
@@ -148,9 +150,54 @@ def _git_community_files() -> list[Path]:
     return sorted(path for path in community_root.rglob("*") if path.is_file())
 
 
+# Boltz runtime files are selected independently of the parent Git index: a
+# source checkout may still be an untracked nested clone during development.
+_BOLTZ_SELECTED_FILES = {
+    "README.md", "UPSTREAM.json", "run.sh", "source/LICENSE", "source/README.md",
+    "source/src/boltz/_vendor/chembl_structure_pipeline/LICENSE",
+    "source/src/boltz/_vendor/chembl_structure_pipeline/PROVENANCE.json",
+    "source/src/boltz/_vendor/chembl_structure_pipeline/data/salts.smi",
+    "source/src/boltz/_vendor/chembl_structure_pipeline/data/solvents.smi",
+}
+
+
+def _allowed_boltz_file(path: Path) -> bool:
+    relative = path.relative_to(ROOT / "community_models" / "boltz")
+    parts = relative.parts
+    if path.is_symlink() or any((ROOT / "community_models" / "boltz" / parent).is_symlink()
+                                for parent in relative.parents):
+        return False
+    excluded = _BLOCKED_COMMUNITY_DIRS | {"output", "outputs", "tmp", "mols"}
+    if any(part.startswith(".") or part.lower() in excluded
+           or part.lower().endswith(".egg-info") for part in parts):
+        return False
+    if any(part.lower().startswith("test_") for part in parts):
+        return False
+    if path.name.endswith("_test.py"):
+        return False
+    if relative.as_posix() in _BOLTZ_SELECTED_FILES:
+        return True
+    # Native Python and explicitly named ChEMBL data/licenses are sufficient for
+    # inference. Upstream examples, scripts, docs, model archives and caches are
+    # deliberately outside this source closure.
+    return parts[:3] == ("source", "src", "boltz") and path.suffix.lower() == ".py"
+
+
+def _boltz_runtime_files() -> list[Path]:
+    root = ROOT / "community_models" / "boltz"
+    candidates = [root / name for name in _BOLTZ_SELECTED_FILES]
+    native = root / "source" / "src" / "boltz"
+    if native.is_dir() and not native.is_symlink():
+        candidates.extend(native.rglob("*"))
+    return sorted(path for path in set(candidates)
+                  if path.is_file() and _allowed_boltz_file(path))
+
+
 def _allowed_community_file(path: Path) -> bool:
     relative = path.relative_to(ROOT / "community_models")
     parts = relative.parts
+    if parts and parts[0] == "boltz":
+        return _allowed_boltz_file(path)
     lowered = {part.lower() for part in parts}
     # Platform executables stay in Git; portable wheels ship their source.
     if parts[:2] == ("rosetta", "bin"):
@@ -210,6 +257,7 @@ def _copy_resources(build_lib: Path) -> None:
     if mol1_source.is_dir():
         resource_paths.extend(path for path in mol1_source.rglob("*")
                               if path.is_file() and _allowed_community_file(path))
+    resource_paths.extend(_boltz_runtime_files())
     # Curated native tool source and licenses are part of the portable wheel.
     tool_root = ROOT / "community_models" / "rosetta"
     if tool_root.is_dir():
@@ -229,6 +277,7 @@ def _copy_source_closure(build_lib: Path) -> None:
     _copy_python_tree("src/scoring", build_lib, exclude_dirs=set())
     _copy_python_tree("src/cluster", build_lib, exclude_dirs=set())
     _copy_python_tree("src/pipeline", build_lib, exclude_dirs={"tests", "__pycache__"})
+    _copy_python_tree("src/screen", build_lib, exclude_dirs={"tests", "__pycache__"})
     _copy_python_tree("src/postfilter", build_lib, exclude_dirs={"__pycache__", "tests"})
     _copy_python_tree("src/common", build_lib, exclude_dirs={"__pycache__"})
     _copy_selected_files(
@@ -267,7 +316,14 @@ class SourceDist(_sdist):
         filtered = [
             name for name in files
             if not any(part.endswith(".egg-info") for part in Path(name).parts)
+            and (Path(name).parts[:2] != ("community_models", "boltz")
+                 or _allowed_boltz_file(ROOT / name))
         ]
+        # MANIFEST may come from an older Git index/SOURCES list. Include the
+        # same untracked native source closure that a direct wheel build uses.
+        present = set(filtered)
+        filtered.extend(str(path.relative_to(ROOT)) for path in _boltz_runtime_files()
+                        if str(path.relative_to(ROOT)) not in present)
         super().make_release_tree(base_dir, filtered)
 
 

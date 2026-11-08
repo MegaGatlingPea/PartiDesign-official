@@ -6,6 +6,8 @@ and crop rules as `design` and `pipeline`,
 without generating designs or loading prediction models.
 
 The pipeline also prepares these inputs automatically before GPU work starts.
+For [sequence screening](screen.md), task and per-context `msa` settings in
+`SCREEN.yaml` prepare the same shared context evidence before prediction.
 The separate command lets you prepare and inspect the shared cache in advance.
 Identical queries with the same search profile are prepared once, even when
 several tasks, rounds or final prediction methods need them.
@@ -44,6 +46,8 @@ Ordinary pipeline final uses ESMFold2-standard and **ColabFold by default** for
 fixed protein-context MSA, without templates. Fast iterations and designed
 chains remain query-only. Explicit AF3/AF3-LA/Mol-1 can also request protein
 templates; their default maximum template release date is **2021-09-30**.
+Boltz-2 in validate, screen and the ligand pipeline preset uses the same fixed
+protein-context MSA/template policy.
 `--msa off` disables MSA and templates. Without eligible fixed protein context,
 standard naturally has no MSA query.
 
@@ -57,8 +61,8 @@ antibody heavy/light chains, RNA and DNA. Ligands are not MSA queries. Original
 generation coordinates, motifs and partial-diffusion references are not
 automatically prediction templates.
 
-Search source and prediction method are separate choices. AF3 and Mol-1 can
-read the same ColabFold result. Choosing `source: af3` selects the local search
+Search source and prediction method are separate choices. AF3, Mol-1 and
+Boltz-2 can read the same ColabFold result. Choosing `source: af3` selects the local search
 route; it does not choose the prediction model. AF2-IG keeps its existing
 initial-guess protocol.
 
@@ -76,7 +80,7 @@ msa:
   max_template_date: "2021-09-30"
 ```
 
-Shared settings apply to ESMFold2-standard, AF3/AF3-LA and Mol-1. Standard
+Shared settings apply to ESMFold2-standard, AF3/AF3-LA, Mol-1 and Boltz-2. Standard
 consumes fixed protein-context MSA without templates. Model-specific MSA settings
 remain supported and can override the shared workflow settings. Corresponding
 CLI options take precedence. Use `--show-config` to inspect the resolved values.
@@ -88,10 +92,20 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml \
 
 partidesign validate inference/RUN --method mol1 --source gt:1 \
   --msa-source colabfold --msa auto
+
+partidesign validate inference/ligand_run --method boltz2 --source gt:1 \
+  --msa-source colabfold --msa auto --plan
+
+partidesign screen configs/examples/screen.yaml --task ligand_screen \
+  --msa-source colabfold --msa auto --msa-templates true --plan
 ```
 
 In `validate`, `--source gt:1` selects sequences, while `--msa-source` selects
-their context-search source.
+their context-search source. Boltz-2 uses `boltz2.msa` in a validation profile
+and the same `auto`, `cache-only`, `off` and template CLI controls below.
+Screen applies task-level settings to all shared context chains, then applies
+each context's own `msa` overrides and finally CLI overrides. Candidates remain
+query-only. Boltz-2 and ESMFold2 consume protein-context searches only.
 
 | MSA mode | Behavior |
 | --- | --- |
@@ -134,8 +148,8 @@ The default cache is:
 ```
 
 The historical `af3_msa` directory name is retained for compatibility. It is
-shared across prediction methods, tasks and runs; there are no separate Mol-1
-or ColabFold copies. Select another model root with `--model-dir`, or set
+shared across prediction methods, tasks and runs; there are no separate Mol-1,
+Boltz-2 or ColabFold copies. Select another model root with `--model-dir`, or set
 `msa.cache_dir` in the workflow. The run's compact `msa.csv` records the task
 and chain, search source, cache entry/profile/generation, MSA depth and template
 count. MSA and template files are shared rather than copied into each round or
@@ -146,6 +160,10 @@ search parameters and template-date policy. An AF3-source entry is not silently
 used for a ColabFold request. Old entries remain readable with `source: af3`.
 Each generation's `manifest.json` records its template files, query-to-template
 residue mappings and source/date information.
+
+For the current ColabFold route, `unpaired.a3m` contains search hits and
+`paired.a3m` contains only the query. Cross-chain paired MSA search is not
+provided by this shared result.
 
 The pipeline pins the selected cache generation for the run. Later rounds and
 prediction methods reuse it; `--resume` restores the same references even if
@@ -168,8 +186,10 @@ not remove this shared search cache.
 ## Templates and search resources
 
 Selected protein templates use one protein chain, its complete polymer sequence
-and a residue mapping that includes positions without observed atoms. AF3 and
-Mol-1 each construct their own model features from that common evidence. At most
+and a residue mapping that includes positions without observed atoms. AF3,
+Mol-1 and Boltz-2 each construct their own model features from that
+common evidence. Boltz-2 preserves the exact mapping across insertions, deletions
+and missing coordinates; the generated pose is not used as a template. At most
 four templates are used. Date filtering uses the structure's first release date,
 not the download time or a placeholder supplied by a prediction backend.
 
@@ -185,6 +205,7 @@ Inspect the selected route before running:
 
 ```bash
 partidesign check --model mol1 --msa-source colabfold
+partidesign check --model boltz2 --msa-source colabfold
 partidesign check --model af3 --msa-source af3
 ```
 

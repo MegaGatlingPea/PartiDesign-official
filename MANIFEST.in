@@ -98,6 +98,7 @@ exclude community_models/colabdesign/source/colabdesign/mpnn/weights/v_48_020.pk
 global-exclude *.ipynb
 
 recursive-include src/common *.py
+recursive-include src/screen *.py
 
 include partidesign_cu12.yaml
 include partidesign_cu13.yaml

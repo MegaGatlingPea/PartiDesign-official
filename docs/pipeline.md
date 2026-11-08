@@ -34,9 +34,10 @@ when explicitly selected. PPI requires a fixed protein partner for AF2-IG.
 For monomers or tasks without fixed protein context, use `auto` or the ordinary
 modality preset; standard remains the final model with query-only input.
 
-The pipeline supports protein, peptide, RNA, DNA, VHH and VH/VL antibody design within each
-backend's capabilities, including supported ligand context. Pure ligand design
-uses [generation](design.md).
+The pipeline supports protein, peptide, RNA, DNA, ligand, VHH and VH/VL antibody
+design within each backend's capabilities. Tasks whose designed chains are
+ligands use the [ligand preset](#ligand-pipelines); protein design with ligand
+context keeps its applicable polymer preset.
 
 ## Optimize existing structures
 
@@ -279,10 +280,10 @@ Each round proposes sequences, refolds them and selects candidates for the next
 step. Selected refold structures supply the reference for partial diffusion,
 so subsequent rounds explore structures around the accepted candidates.
 
-All presets use relaxed pipeline screening during iteration by default.
+Polymer presets use relaxed pipeline screening during iteration by default.
 By default, original-reference motif geometry is checked strictly at round 1 and final.
 
-The default is three rounds, including the first validation round (`recycle: 3`):
+The polymer default is three rounds, including the first validation round (`recycle: 3`):
 
 ```text
 prepare required fixed-context MSA/templates
@@ -311,6 +312,54 @@ Directory initialization is a separate earlier step.
 Original task conditions, fixed identities, motifs, context, and bonds remain
 active as the current complex supplies the next partial-diffusion reference.
 
+## Ligand pipelines
+
+Ligand-only design automatically chooses `preset: ligand`; it can also be
+selected explicitly:
+
+```bash
+partidesign pipeline configs/examples/ligand.yaml --task ligand_fixture \
+  --preset ligand --run-name ligand_pipeline --plan
+```
+
+The default is **one round**, including the first validation round
+(`recycle: 1`). Boltz-2 predicts one complex per candidate. Iteration ranks native
+design-only pLDDT, excluding context atoms, and deduplicates exact canonical
+isomeric SMILES while preserving charge and stereochemistry. The ligand preset
+adds no quality thresholds or pocket postfilter.
+
+Final validation uses one Boltz-2 structure sample, selected by native
+`confidence_score`, followed by native affinity. A matching completed Boltz-2
+structure can be reused. Affinity internally samples cropped poses and retains
+its selected internal sample and pose evidence. Native affinity requires one
+free designed ligand with eligible protein context; see the
+[Boltz-2 capability limits](validate.md#boltz-2-proteinligand-validation).
+Without eligible protein context, including context-free ligand design, final
+keeps structure validation and records affinity as not applicable.
+
+For two rounds with fast first-round refolding and Boltz-2 in round 2, save this
+workflow as `ligand_two_rounds.yaml`:
+
+```yaml
+preset: ligand
+recycle: 2
+rounds:
+  1:
+    refold: {method: esmfold2-fast}
+```
+
+```bash
+partidesign pipeline configs/examples/ligand.yaml --task ligand_fixture \
+  --config ligand_two_rounds.yaml --run-name ligand_two_rounds --plan
+```
+
+The first transition retains the selected parent and generates four partial
+children at fraction 0.625; each child's generated chemistry and lineage
+continue into the next round. No transition follows the last round.
+Applicable ESMFold2, AF3/AF3-LA and Mol-1 cofold methods remain selectable;
+AF2-IG does not support ligand design. Remove `--plan` to run after preparing
+the selected models.
+
 ## Control candidate counts
 
 The 32 initial InsR backbones are the start of the run. With the default
@@ -335,8 +384,13 @@ With these defaults, 200 selected refolds can supply 1,000 structures and up to
 after the final round. Proposal totals describe the whole round; GPU workers
 process them in batches or scheduled requests.
 
-Use `summary.csv` to inspect proposal, prediction, selection, and partial
-counts for your run.
+Use `summary.csv` to inspect each executed round's proposal, prediction,
+selection and partial counts, then check the final prediction count.
+Choose resource settings separately from the search budget: `recycle`,
+partial `fraction`/`replicas`, MPNN counts, prediction samples and survivor
+caps change which candidates are explored or evaluated. Preserve the requested
+values unless intentionally changing that search. A lower `max_pass` cannot
+reduce refolding work that the current round has already performed.
 
 ## Final validation
 
@@ -356,10 +410,12 @@ change this cap, or `final.pool.source: last` to use last-round survivors.
 | `protein`, `nuc` | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by `0.8 * ipTM + 0.2 * pTM`, then apply final criteria. |
 | `antibody` | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by 0.8 ipTM + 0.2 pTM before final criteria. |
 | `ppi` | AF2-IG only. Models `[1, 2]` each use one matched complex/monomer pair. AF2 selects each model's best complex by `0.8 * ipTM + 0.2 * pTM` with its same-sample monomer, and both model pairs must pass its internal filter. |
+| `ligand` | Boltz-2 only, one structure sample per candidate, native `confidence_score` selection and native affinity. No quality thresholds are added by the preset. |
 
 With an explicit multi-method final, all configured methods run and a candidate
 is accepted when **any method passes**.
-`preset: auto` chooses antibody for native antibody tasks, otherwise protein or nuc; select `ppi` explicitly
+`preset: auto` chooses antibody for native antibody tasks, ligand for ligand-only
+design, otherwise protein or nuc; select `ppi` explicitly
 for an eligible standard protein/peptide binder with protein context. Its AF2 final
 criteria are `af2_ig_protdbench` for proteins and `af2_ig_peptide` for peptides.
 AF2 produces two pairs (four structures) per candidate with its default two
@@ -369,7 +425,7 @@ does not add prediction diversity. One matched pair per model avoids redundant
 repeats.
 Use `final.method` to override the preset with a single method, or
 `final.methods` to choose a method list. Both iteration and final accept all
-six existing refold backends:
+seven registered refold backends, subject to native chemistry capabilities:
 
 | Method | Native settings section | Context MSA/templates |
 | --- | --- | --- |
@@ -379,6 +435,7 @@ six existing refold backends:
 | `af3` | `af3` | Shared context cache |
 | `af3-la` | `af3` | Shared context cache |
 | `mol1` | `mol1` | Shared context cache |
+| `boltz2` | `boltz2` | Shared fixed protein-context MSA and templates |
 
 ```yaml
 iteration:
@@ -433,7 +490,7 @@ final:
   criteria: [af3_basic]
 ```
 
-These native MSA defaults can be set under `iteration.refold.esmfold2` or
+These native MSA defaults can be set under `iteration.refold.validation.esmfold2` or
 `final.esmfold2`. `msa_max_depth` accepts a positive integer or `null`; `null`
 removes the row limit subject to native feature caps. `msa_column_mask_rate` is
 finite and between 0 and 1; `msa_subsample_at_inference` is boolean. An
@@ -444,7 +501,8 @@ stages; `--msa off` restores the query-only path.
 ESMFold2-standard is the only default final backend for protein, nuc and
 antibody profiles. PPI uses only AF2-IG. Explicit multi-method finals remain
 available, with each executed method publishing its own best complex for
-accepted candidates. All bundled workflows use ESMFold2-fast iteration.
+accepted candidates. Default polymer presets use ESMFold2-fast iteration;
+the ligand preset uses Boltz-2.
 
 The strict validation presets listed in [validate.md](validate.md) can be selected
 with `final.criteria`. Their `pipeline_` variants are available for iteration
@@ -510,7 +568,7 @@ not mean that all its published structures passed.
 ## Shared MSA and templates
 
 Before GPU work starts, the workflow prepares fixed-context MSA for
-ESMFold2-standard and MSA/templates for AF3/AF3-LA/Mol-1. Protein searches
+ESMFold2-standard and MSA/templates for AF3/AF3-LA/Mol-1/Boltz-2. Protein searches
 default to ColabFold. ESMFold2-standard consumes only protein MSA, with templates
 disabled; Fast stays query-only. Designed GT and MPNN sequences, including
 VHH/VH/VL chains, are never automatically searched. `--msa off` disables both
@@ -519,7 +577,8 @@ MSA and templates.
 ColabFold does not search RNA or DNA. For AF3/AF3-LA/Mol-1, `source: af3` also
 enables the local fixed-RNA MSA route; ESMFold2 keeps RNA/DNA query-only with
 either source. Structural templates apply only to fixed protein chains in
-AF3/AF3-LA/Mol-1. AF2-IG keeps its existing initial-guess protocol.
+AF3/AF3-LA/Mol-1/Boltz-2. Boltz-2 also keeps RNA/DNA query-only. AF2-IG keeps its
+existing initial-guess protocol.
 
 ```yaml
 msa:
@@ -543,7 +602,7 @@ resumes. `--msa-refresh` refreshes each required query/profile once for a new
 run; it does not repeat the search for each candidate or model.
 
 A compatible template-on generation supplies ESMFold2's template-off view while
-preserving AF3/Mol-1 templates. A pipeline resumed from a saved configuration
+preserving AF3/Mol-1/Boltz-2 templates. A pipeline resumed from a saved configuration
 without ESMFold2 MSA keeps its query-only policy; start a new run to enable it.
 
 The run's compact `msa.csv` lists chain/source, cache references, MSA depths and
@@ -758,7 +817,7 @@ same fields in `rounds.N` to change a particular round:
 | --- | --- |
 | `mpnn` | A proposal count, or `{source: auto, count: 4, settings: {...}}` with native MPNN settings. |
 | `include_gt` | Boolean: propose the current sequence as well as MPNN sequences. |
-| `refold` | A method string, or a mapping with `method`, `conformers`, native `af2`/`esmfold2`/`af3`/`mol1` settings and `worker_gpus`. |
+| `refold` | A method string, or `{method, conformers, validation: {...}}`. Put native model settings and worker reservations inside `validation`. |
 | `filter` | Boolean, a list of existing validation criterion names, or `{criteria: [...], criteria_route: auto, criteria_mode: all}`. |
 | `selection` | `mode: cluster` or `top`, plus the limits described below. |
 | `partial` | Boolean, or `{enabled: true, fraction: 0.625, replicas: 4, include_parent: true}`. |
@@ -877,11 +936,42 @@ rounds:
 Generation flags such as `--ckpt`, `--batch-size` and `--compile` keep their
 native meanings.
 
+### Choose generation and prediction resources
+
+Choose settings for the number of pending candidates, their lengths and complex
+shapes, and whether you need short turnaround or bulk throughput. Start with
+the model defaults, then inspect representative work, available VRAM, host RAM
+and the CPUs available to the process. More workers help only when enough
+independent requests and memory are available.
+
+`--batch-size` sets `generation.batch_size`. Larger generation batches keep
+more candidates in memory together; choose a batch that fits the larger inputs
+you expect. `generation.num_workers` controls data loading and also consumes
+host RAM and CPUs. Tune these generation settings separately from prediction
+worker reservations.
+
 The pipeline uses one Ray runtime with independent partial-diffusion, MPNN
 and refolding worker pools. MPNN workers request 1 CPU and 0.0625 GPU each,
 allowing up to 16 per GPU, further limited by parent count and available CPUs.
 Each phase closes its workers and model cache before the next phase, so later
-phases reload their models. `--worker-gpus` sets refolding resources; partial
+phases reload their models. Prediction workers use the same model-specific
+[defaults as validate](validate.md#shared-msa-templates-and-worker-resources)
+and [screen](screen.md). GPU fractions reserve scheduling capacity and do not
+limit VRAM: concurrent resident copies must fit together. A larger GPU
+reservation permits fewer copies; a larger CPU reservation can also reduce
+worker concurrency. Use observations from the selected workload to choose
+values; no fraction is optimal for every input and machine.
+
+Set `iteration.refold.validation.worker_gpus` and `worker_cpus` for iteration;
+the same mapping supports `rounds.N` and workflow `tasks.NAME` overrides.
+`final.validation.worker_gpus`/`worker_cpus` are shared across all
+`final.methods`. Explicit `--worker-gpus`/`--worker-cpus` override these
+reservations across every iteration round and final method, so omit them when
+you want model defaults or stage-specific settings. Inspect effective reservations
+with `--show-config`; an unset/null GPU reservation inherits the method default.
+Methods run serially, with parallel workers within the active method.
+
+Prediction worker flags leave MPNN and partial reservations unchanged. Partial
 workers independently request one GPU and `generation.num_workers + 1` CPUs
 each. Both initial and inter-round partial diffusion retain the effective
 `generation.batch_size` (set by `--batch-size`), regardless of parent count or

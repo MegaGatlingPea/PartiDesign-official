@@ -20,11 +20,8 @@ from .storage import atomic_json, locked, read_json
 
 
 def _worker_resources(cfg, method):
-    raw_gpus = cfg.get("worker_gpus")
-    default_gpus = {"af2_ig": 0.25, "af3": 0.5, "af3-la": 0.5}.get(method, 1.0)
-    worker_gpus = default_gpus if raw_gpus is None else raw_gpus
-    worker_cpus = cfg.get("worker_cpus", 1.0)
-    return float(worker_gpus), float(worker_cpus)
+    from .resources import worker_resources
+    return worker_resources(cfg, method)
 
 
 _LOG = logging.getLogger(__name__)
@@ -159,8 +156,8 @@ def run_gpu_jobs(repo, plans, cfg, criteria, presets, on_task_finished=None):
     actor_count = min(actor_capacity, len(jobs))
     from .config import config_for_method
     method_cfg = config_for_method(cfg, plans[0]["method"])
-    from .methods import REFOLD_METHODS
-    spec = REFOLD_METHODS.get(plans[0]["method"])
+    from .methods import VALIDATION_REFOLD_METHODS
+    spec = VALIDATION_REFOLD_METHODS.get(plans[0]["method"])
     msa_group = spec.group if spec is not None else None
     msa_enabled = spec is not None and spec.msa and method_cfg.get(msa_group, {}).get("msa", {}).get("mode", "off") != "off"
     resources = None
@@ -294,6 +291,8 @@ def main(argv=None):
         result = {"plans": plans, "af3_msa": msa_view("af3")}
         if "mol1" in cfg["methods"]:
             result["mol1_msa"] = msa_view("mol1")
+        if "boltz2" in cfg["methods"]:
+            result["boltz2_msa"] = msa_view("boltz2")
         print(json.dumps(result, indent=2))
         return 0
     emit({"phase": "planning", "tasks": len(tasks), "methods": cfg["methods"]})

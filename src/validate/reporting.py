@@ -20,6 +20,7 @@ from .storage import (
     nested_record_valid,
     read_json,
     required_scores_valid,
+    record_complete,
 )
 
 
@@ -335,6 +336,11 @@ def records_for_plan(root: Path, plan: dict, *, strict=True):
                     if strict:
                         raise ValueError(f"Malformed prediction metadata: {path}")
                     continue
+            if (method == "boltz2" and record.get("status") == "complete"
+                    and not record_complete(record, expected or (), root=path.parent, method=method)):
+                record["status"] = "partial"
+                record["failure_stage"] = "prediction_evidence"
+                record["error"] = "Boltz2 prediction evidence is incomplete; rerun validate"
             if record.get("status") == "complete" and not required_scores_valid(
                 record, plan.get("config", {}).get("scorer", {}), method
             ):
