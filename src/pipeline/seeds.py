@@ -155,7 +155,7 @@ def _prepare_one(cfg, seed, *, frozen=None):
     from dataclasses import replace
     from src.design.core.tasks import parse_task, expand_requests
     from src.design.core.compiler import compile_request
-    from src.design.core.partial import load_partial_reference
+    from src.design.core.partial import load_partial_reference, compile_reference_metadata
     from src.design.core.runtime import reference_result_row, reference_output_atoms
     from src.design.utils.writer import write_structure_atomic
     from .state import residues
@@ -191,7 +191,9 @@ def _prepare_one(cfg, seed, *, frozen=None):
                 raise ValueError(f"design_length does not contain the seed's actual lengths: {actual}")
         authored = _merge_graph_conditions(authored, reference.record)
         parsed = parse_task(task, authored, invocation_dir=metadata)
-    compiled = compile_request(expand_requests((parsed,))[0])
+    compile_seed = (compile_request if seed["initial_partial"].get("enabled", True)
+                    else compile_reference_metadata)
+    compiled = compile_seed(expand_requests((parsed,))[0])
     path = folder / (sample + ".cif")
     folder.mkdir(parents=True, exist_ok=True)
     write_structure_atomic(reference_output_atoms(compiled), path, entry_id=sample,
@@ -212,15 +214,30 @@ def _prepare_one(cfg, seed, *, frozen=None):
 def prepare_seeds(cfg):
     """Compile each declared seed once and export native constraint metadata."""
     result = {name: [] for name in cfg["task_names"]}
-    from concurrent.futures import ThreadPoolExecutor
+    from collections import deque
+    from concurrent.futures import ProcessPoolExecutor
+    from itertools import islice
+    import multiprocessing
+
     rows = cfg["seed_input"]["rows"]
-    with ThreadPoolExecutor(max_workers=min(4, len(rows))) as pool:
-        copies = [pool.submit(_freeze_source, cfg, seed) for seed in rows]
-        for seed, future in zip(rows, copies):
+    workers = min(4, len(rows))
+    worker_cfg = {"output_dir": str(cfg["output_dir"])}
+    remaining = iter(rows)
+    with ProcessPoolExecutor(max_workers=workers,
+                             mp_context=multiprocessing.get_context("spawn")) as pool:
+        pending = deque((seed, pool.submit(_prepare_one, worker_cfg, seed))
+                        for seed in islice(remaining, 2 * workers))
+        while pending:
+            seed, future = pending.popleft()
             try:
-                result[seed["task"]].append(_prepare_one(cfg, seed, frozen=future.result()))
+                result[seed["task"]].append(future.result())
             except (ValueError, OSError) as exc:
+                for _, queued in pending:
+                    queued.cancel()
                 raise ValueError(f"annotation.csv row {seed['row_number']} ({seed['sample_id']}): {exc}") from exc
+            seed = next(remaining, None)
+            if seed is not None:
+                pending.append((seed, pool.submit(_prepare_one, worker_cfg, seed)))
     for task, candidates in result.items():
         write_csv(Path(cfg["output_dir"]) / task / "start" / "result.csv",
                   [dict(c.row, candidate_id=c.candidate_id, origin_id=c.origin_id) for c in candidates])

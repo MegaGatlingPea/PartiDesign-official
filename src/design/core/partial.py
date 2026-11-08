@@ -615,8 +615,10 @@ def _optional_whole_residue_oxt_rows(compiled, reference) -> set[int]:
     return optional
 
 
-def _project_reference(compiled, reference, prepared, chain_map):
+def _project_reference(compiled, reference, prepared, chain_map, *, require_complete_geometry=True):
     """Overlay current sequence/geometry on the native author's stable row axis."""
+    from .compiler import _AA3_TO_1
+
     condition = compiled.atoms
     current = reference.record.atoms
     result = condition.copy()
@@ -672,6 +674,10 @@ def _project_reference(compiled, reference, prepared, chain_map):
         if len(actual_by_name) != len(actual_rows):
             raise DesignSampleError("partial reference has duplicate atom names in a residue")
         required = _required_names(compiled, native_rows, actual_name, prepared)
+        if not require_complete_geometry and modality == "protein" and actual_name in _AA3_TO_1:
+            # Pipeline metadata precedes refolding: retain actual atoms only,
+            # while backbone, explicit conditions and topology remain required.
+            required = {"N", "CA", "C", "O"}
         if not is_ligand and not required <= set(actual_by_name):
             raise DesignSampleError(
                 f"partial reference lacks complete geometry for {actual_name}: missing {sorted(required-set(actual_by_name))}"
@@ -867,7 +873,7 @@ def _antibody_reference_bonds(task, reference, chain_map, condition):
 
 
 def _compile_antibody_partial(request, prepared, reference, chain_map, ccd_path,
-                              trusted_ccd_components):
+                              trusted_ccd_components, *, require_complete_geometry=True):
     from ..antibody.compiler import compile_antibody_request, attach_candidate_annotations
     from ..antibody.schema import resolve_antibody_spec
 
@@ -888,7 +894,8 @@ def _compile_antibody_partial(request, prepared, reference, chain_map, ccd_path,
         source = replace(prepared, task=task, condition=MappingProxyType(condition),
                          partial_reference=reference)
         return compile_partial_request(lowered, ccd_path=ccd_path, prepared_source=source,
-                                       trusted_ccd_components=trusted_ccd_components)
+                                       trusted_ccd_components=trusted_ccd_components,
+                                       require_complete_geometry=require_complete_geometry)
 
     compiled = compile_antibody_request(request, compile_normal=compile_lowered,
         ccd_path=ccd_path, trusted_ccd_components=trusted_ccd_components,
@@ -904,6 +911,7 @@ def _compile_antibody_partial(request, prepared, reference, chain_map, ccd_path,
 def compile_partial_request(
     request: ExpandedRequest, *, ccd_path: Path | None = None,
     prepared_source=None, trusted_ccd_components: Mapping[str, Any] | None = None,
+    require_complete_geometry: bool = True,
 ) -> CompiledSample:
     """Compile current candidate geometry with native task permissions and locators."""
     from .compiler import compile_request, prepare_task_source, _validate_prepared_task_source, _affines
@@ -919,7 +927,8 @@ def compile_partial_request(
     chain_map = _design_mapping(task, reference)
     if task.format == "antibody":
         return _compile_antibody_partial(request, prepared, reference, chain_map,
-                                         effective_ccd, trusted_ccd_components)
+                                         effective_ccd, trusted_ccd_components,
+                                         require_complete_geometry=require_complete_geometry)
     lengths, layouts = _resolved_layouts(request, prepared, reference, chain_map)
     plan = LengthPlan(0, lengths)
     native_task = replace(task, partial=None, length_plans=(plan,), length_distribution_chain=None)
@@ -938,7 +947,8 @@ def compile_partial_request(
         trusted_ccd_components=trusted_ccd_components,
         resolved_polymer_layouts=layouts, polymer_extra_atoms=extra_atoms,
     )
-    reference_atoms = _project_reference(compiled, reference, prepared, chain_map)
+    reference_atoms = _project_reference(compiled, reference, prepared, chain_map,
+                                         require_complete_geometry=require_complete_geometry)
     # Both flow conditions and clean state use the selected current complex.
     # Identity/topology permissions and original motif source locators stay native.
     condition = compiled.atoms
@@ -983,4 +993,16 @@ def compile_partial_request(
     return compiled
 
 
-__all__ = ["PartialReference", "load_partial_reference", "compile_partial_request"]
+def compile_reference_metadata(
+    request: ExpandedRequest, *, ccd_path: Path | None = None,
+    prepared_source=None, trusted_ccd_components: Mapping[str, Any] | None = None,
+) -> CompiledSample:
+    """Compile seed metadata before refolding, without inventing missing sidechains."""
+    return compile_partial_request(
+        request, ccd_path=ccd_path, prepared_source=prepared_source,
+        trusted_ccd_components=trusted_ccd_components, require_complete_geometry=False,
+    )
+
+
+__all__ = ["PartialReference", "load_partial_reference", "compile_partial_request",
+           "compile_reference_metadata"]
