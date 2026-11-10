@@ -48,6 +48,7 @@ prediction backends and `--worker-cpus` / `--worker-gpus` reservations as valida
 | `esmfold2-standard` | The same input modalities with standard weights and shared fixed protein-context MSA; no templates | `esmfold2-standard` |
 | `af2_ig` | One standard protein design chain with protein context; predicts both complex and isolated design chain | `af2` |
 | `mol1` | Protein, RNA, DNA, and ligand-containing structures; shared context MSA/template cache | `mol1` |
+| `mol1-constraint` | Complex prediction with optional protein-context hotspot guidance; shared Mol-1 common data | `mol1-constraint` |
 | `boltz2` | Optional protein–ligand complex prediction and native affinity; shared fixed protein-context MSA/templates | `boltz2` |
 | `af3` | Protein, RNA, DNA, and ligand-containing structures; complex prediction by default | `af3` |
 | `af3-la` | The AF3-LA variant, with its own weights and the same validation interface | `af3-la` |
@@ -98,7 +99,7 @@ validation according to the actual chemistry and evaluator:
   Protein head-to-tail cyclic intent is represented through cyclic offsets.
   An AF3 refold therefore does not independently verify every requested peptide
   crosslink. Inspect the generated/refined structure and bond geometry as well.
-- Mol-1 passes explicit terminal C–N, disulfide SG–SG and other supported links
+- Both Mol-1 variants pass explicit terminal C–N, disulfide SG–SG and other supported links
   through its native covalent-bond input, using the same bond endpoint rules as
   ESMFold2. It keeps upstream positional encoding without an added cyclic-offset
   transform; `cyclic_offset` alone does not declare a closure bond. Explicit
@@ -169,7 +170,7 @@ partidesign validate inference/first_run \
 ```
 
 Remove `--plan` to evaluate and select. Despite its name, `af3_basic` supports both ESMFold2
-variants as well as AF3/AF3-LA and Mol-1. Its required metrics must be present for that input. A missing
+variants as well as AF3/AF3-LA and both Mol-1 variants. Its required metrics must be present for that input. A missing
 metric is `unavailable`, not a pass. Repeat `--criteria` for several screens; a row enters
 `success.csv` when it passes **at least one** selected screen. Put all required conditions in a
 single preset when they must hold together.
@@ -268,7 +269,7 @@ custom name, so you can edit thresholds explicitly:
 ```yaml
 presets:
   my_binder:
-    methods: [af3, af3-la, mol1, esmfold2-fast, esmfold2-standard]
+    methods: [af3, af3-la, mol1, mol1-constraint, esmfold2-fast, esmfold2-standard]
     reduction: any_prediction
     rules:
       - {metric: binder_iptm, op: '>', value: 0.8}
@@ -295,7 +296,7 @@ self-aligned RMSD, and partner-aligned RMSD answer different questions.
 
 ### ipSAE interface confidence
 
-ESMFold2-fast/standard, AF3/AF3-LA, and Mol-1 report `ipsae`,
+ESMFold2-fast/standard, AF3/AF3-LA, and both Mol-1 variants report `ipsae`,
 `ipsae_design_to_context`, and `ipsae_context_to_design` in [0, 1].
 `ipsae_pae_cutoff` records the PAE cutoff in Å (default 10.0), and `ipsae_pairs`
 contains each chain pair's scores and availability. The calculation uses
@@ -409,7 +410,7 @@ the score remains unavailable; recomputation does not run new predictions.
 `--plan`, `--refilter`, and `--recompute-metrics` are mutually exclusive. `--rerun` and
 `--rerun-refold` are mutually exclusive. Neither refiltering nor recomputation can accompany
 `--rerun` or `--score`. Recomputation is unsupported for `vina_dock`.
-`--rerun-refold` supports ESMFold2-standard/AF3/AF3-LA/Mol-1/Boltz-2 and cannot accompany plan/refilter/recompute. `--msa-refresh` also cannot accompany plan/refilter/recompute.
+`--rerun-refold` supports ESMFold2-standard, AF3/AF3-LA, both Mol-1 variants and Boltz-2, and cannot accompany plan/refilter/recompute. `--msa-refresh` also cannot accompany plan/refilter/recompute.
 
 ## ESMFold2 standard settings
 
@@ -470,13 +471,67 @@ mol1:
 Standalone Mol-1 validation defaults to one sample. When Mol-1 is explicitly
 selected for pipeline final validation, its default remains five samples and
 filters the highest native `ranking_score` sample. Ordinary pipeline final
-validation instead uses ESMFold2-standard. `mode` accepts
+validation for protein/nucleic-acid tasks instead uses ESMFold2-standard;
+the antibody preset uses Mol-1-constraint. Standard Mol-1 `mode` accepts
 `complex`, `monomer`, or `both`. `dtype` accepts `bf16`, `fp32`, or `fp16`.
 `triangle_multiplicative` and `triangle_attention` accept `auto`, `torch`, or
 `cuequivariance`; `auto` uses available kernels. An explicit `checkpoint` path
 overrides the default `community_models/mol1/checkpoint/mol-1-base.pt`.
 These settings belong under `mol1`; pipeline uses `final.mol1` or
 `iteration.refold.mol1` with `method: mol1`.
+
+## Mol-1-constraint predictor settings
+
+Use `mol1-constraint` to predict a complex with optional protein-context
+hotspot guidance:
+
+```bash
+partidesign download mol1-constraint
+partidesign check --model mol1-constraint --msa off
+partidesign validate inference/first_run --method mol1-constraint --source gt:1 \
+  --criteria af3_basic --msa-templates false --limit 2 --plan
+```
+
+Choose criteria appropriate to your task; antibody–antigen results can use
+`af3_antibody`. Remove `--plan` to run. Settings use an independent group:
+
+```yaml
+methods: [mol1-constraint]
+sequence:
+  sources: [{source: gt, count: 1}]
+mol1_constraint:
+  samples: 5
+  mode: complex
+  msa: {mode: auto, templates: false}
+```
+
+Defaults match standard Mol-1 (`samples: 1`, 20 recycles, 200 steps, seed 101,
+bf16), except this variant supports only `mode: complex`. It uses
+`community_models/mol1/checkpoint/mol-1-constraint.pt`; source, common data,
+MSA/template cache and worker CPU/GPU controls are shared with standard Mol-1.
+An explicit `mol1_constraint.checkpoint` overrides this weight path.
+
+With this method, explicit protein-context `hotspot` entries from the saved
+task become native **SITE** guidance. Antibody tasks use `antigen.hotspot`
+(the epitope); `antibody.paratope` stays an evaluation-region definition and
+does not force every paratope residue to contact antigen. Source chain,
+author residue and insertion code are mapped through retained/cropped context
+to the predictor's sequence positions. Missing, ambiguous, discarded or
+nonprotein declared sites raise an error rather than being silently dropped.
+Without a hotspot, the constraint model still runs with no SITE conditioning.
+
+SITE guides each declared context residue toward the union of designed chains,
+including both VH and VL in a Fab. It does not require contact with every
+designed chain and is soft guidance, not a contact guarantee. Existing geometry
+and antibody-contact filters remain separate. Only SITE is exposed here;
+CONTACT/EXCLUSION are not public task controls.
+
+The antibody pipeline defaults to fast iteration, five constraint final samples,
+fixed-antigen MSA and templates off. Override templates explicitly through
+`--msa-templates true` or `mol1_constraint.msa.templates` if needed.
+[Screen](screen.md#context-msa-templates-and-pockets) uses context `pocket`
+sequence positions for SITE. Changed hotspots change prediction inputs;
+resume does not reuse predictions from different SITE conditions.
 
 ## Boltz-2 protein–ligand validation
 
@@ -555,12 +610,13 @@ together so chemistry can be resolved correctly.
 
 ## Shared MSA, templates, and worker resources
 
-ESMFold2-standard, AF3, AF3-LA, Mol-1 and Boltz-2 share one context MSA/template
+ESMFold2-standard, AF3, AF3-LA, both Mol-1 variants and Boltz-2 share one context MSA/template
 cache across validate, pipeline and screen. The defaults are
 `--msa auto`, `--msa-source colabfold`, and maximum template release date
 **2021-09-30**. ESMFold2-standard searches only fixed protein context and consumes
-its MSA without templates. AF3/AF3-LA/Mol-1/Boltz-2 use protein templates by default;
-`--msa-templates false` disables their template work. `--msa off` disables both
+its MSA without templates. AF3/AF3-LA, both Mol-1 variants and Boltz-2 use protein
+templates by default; the antibody pipeline disables them for its constraint
+final. `--msa-templates false` disables template work. `--msa off` disables both
 alignments and templates. Designed chains remain query-only, including original
 GT sequences, MPNN sequences, peptides, and antibody VHH/VH/VL chains.
 
@@ -594,8 +650,8 @@ supply ESMFold2's template-off view while preserving templates for AF3/Mol-1/Bol
 No separate ESMFold2 search cache is created.
 
 See [MSA and templates](msa.md) for pre-search commands, shared workflow settings,
-cache paths, source-specific resources and template handling. Mol-1 consumes the
-same normalized evidence as AF3 and does not run a separate online search.
+cache paths, source-specific resources and template handling. Both Mol-1 variants
+consume the same normalized evidence as AF3 without a separate online search.
 Boltz-2 also consumes the shared fixed protein-context A3M and exact template
 residue mappings, including missing residues. It never launches its own MSA
 search. The current ColabFold result provides unpaired hits; its paired A3M is
@@ -603,7 +659,7 @@ query-only.
 
 GPU methods use visible CUDA devices; select them with `CUDA_VISIBLE_DEVICES`.
 Per-worker defaults are 0.25 GPU for AF2, 0.5 GPU for AF3/AF3-LA, and 1 GPU for
-Boltz-2/Mol-1/ESMFold2/PartiScore, with 1 CPU per worker. Omit resource flags to
+Boltz-2, both Mol-1 variants, ESMFold2 and PartiScore, with 1 CPU per worker. Omit resource flags to
 retain model defaults. Fractions reserve scheduling capacity and do not limit
 VRAM; concurrent resident copies must fit together.
 

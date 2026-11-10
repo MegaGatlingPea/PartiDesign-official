@@ -79,7 +79,7 @@ BUILTINS = {
                "platform": "CUDA", "use_ray": False,
                "worker_gpus": 0.125, "worker_cpus": 1.0},
     "final": {"method": "esmfold2-standard",
-              "validation": {"mol1": {"samples": 5}, "af3": {"samples": 5},
+              "validation": {"mol1": {"samples": 5}, "mol1_constraint": {"samples": 5}, "af3": {"samples": 5},
                               "esmfold2": {"samples": 5}}, "criteria": None,
               "prediction_selection": "best_ranked",
               "criteria_route": "auto", "criteria_mode": "all",
@@ -465,7 +465,7 @@ def _presets(value: dict, label: str) -> dict:
         methods = preset.get("methods")
         if not isinstance(methods, list) or not methods or any(
                 not isinstance(method, str) or method not in
-                {"af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1",
+                {"af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "mol1-constraint",
                  "boltz2", "partiscore", "vina_dock"} for method in methods):
             raise ValueError(f"Invalid methods for criterion {name}")
         _choice(preset.get("reduction"), {"all_and_mean", "any_prediction",
@@ -549,8 +549,8 @@ def criteria_for(task_config: dict, stage: dict | str, context_route: str,
         if isinstance(names, dict):
             route_method = selected_method
             if selected_method not in names:
-                aliases = ({"esmfold2-standard": "esmfold2-fast", "af3-la": "af3"}
-                           if not is_final else {"esmfold2-fast": "esmfold2-standard", "af3-la": "af3"})
+                aliases = ({"esmfold2-standard": "esmfold2-fast", "af3-la": "af3", "mol1-constraint": "mol1"}
+                           if not is_final else {"esmfold2-fast": "esmfold2-standard", "af3-la": "af3", "mol1-constraint": "mol1"})
                 route_method = aliases.get(selected_method, selected_method)
             if route_method not in names:
                 raise ValueError(f"No {selected_method} criteria for {route}; configure explicit criteria")
@@ -589,17 +589,17 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
     # placeholders until runtime resolves each parent's auto MPNN route.
     defaults["sequence"]["sources"] = [{"source": "gt", "label": "self", "count": 1,
                                         "settings": {}}]
-    for group in ("sequence", "af2", "esmfold2", "af3", "mol1", "boltz2"):
+    for group in ("sequence", "af2", "esmfold2", "af3", "mol1", "mol1_constraint", "boltz2"):
         defaults[group]["seed"] = seed
-    for group in ('esmfold2', 'af3', 'mol1', 'boltz2'):
+    for group in ('esmfold2', 'af3', 'mol1', 'mol1_constraint', 'boltz2'):
         defaults[group]['msa'] = merge_validation(defaults[group]['msa'], shared_msa or {})
     cfg = merge_validation(defaults, overrides)
     validate_ipsae_settings(cfg["ipsae"])
-    for group in ('esmfold2', 'af3', 'mol1', 'boltz2'):
+    for group in ('esmfold2', 'af3', 'mol1', 'mol1_constraint', 'boltz2'):
         cfg[group]['msa'] = merge_validation(cfg[group]['msa'], cli_msa or {})
     # Validate caller values before workflow-owned sample/mode normalization:
     # bool-as-int or invalid dormant native settings must not be hidden by it.
-    for group in ("af2", "esmfold2", "af3", "mol1", "boltz2"):
+    for group in ("af2", "esmfold2", "af3", "mol1", "mol1_constraint", "boltz2"):
         _integer(cfg[group]["samples"], f"validation.{group}.samples")
     _choice(cfg["esmfold2"]["mode"], {"fast", "standard"}, "validation.esmfold2.mode")
     if cfg["structure_stage"] != "base":
@@ -628,9 +628,9 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
     selected_group = REFOLD_METHODS[method].group
     cfg[selected_group]["samples"] = samples
     cfg["esmfold2"]["mode"] = "standard" if method == "esmfold2-standard" else "fast"
-    for group in ("sequence", "af2", "esmfold2", "af3", "mol1", "boltz2"):
+    for group in ("sequence", "af2", "esmfold2", "af3", "mol1", "mol1_constraint", "boltz2"):
         _integer(cfg[group]["seed"], f"validation.{group}.seed", 0)
-    for group in ("af2", "esmfold2", "af3", "mol1", "boltz2"):
+    for group in ("af2", "esmfold2", "af3", "mol1", "mol1_constraint", "boltz2"):
         _integer(cfg[group]["samples"], f"validation.{group}.samples")
     for group, fields in (("af2", ("recycles",)), ("esmfold2", ("loops", "steps"))):
         for key in fields:
@@ -658,6 +658,7 @@ def _native_validation(overrides: dict, method: str, samples: int, seed: int,
     cfg["esmfold2"] = config_for_method(cfg, method)["esmfold2"]
     validate_af3_settings(cfg["af3"])
     validate_mol1_settings(cfg["mol1"])
+    validate_mol1_settings(cfg["mol1_constraint"], group="mol1_constraint")
     validate_boltz2_settings(cfg["boltz2"])
     # A scorer path remains part of native config even with the stage disabled.
     cfg["scorer"]["checkpoint"] = _path(cfg["scorer"]["checkpoint"], base,
@@ -751,6 +752,20 @@ def normalize_legacy_esmfold2_snapshot(config: dict) -> dict:
             section["msa"] = normalize_esmfold2_msa({"mode": "off"})
             for key in ("msa_max_depth", "msa_column_mask_rate", "msa_subsample_at_inference"):
                 section.setdefault(key, copy.deepcopy(VALIDATE_DEFAULTS["esmfold2"][key]))
+    return result
+
+
+
+def normalize_resume_snapshot(config: dict) -> dict:
+    """Ignore only the newly added settings of an unselected model on resume."""
+    result = normalize_legacy_esmfold2_snapshot(config)
+    for task in result.get("tasks", {}).values():
+        final = task.get("final", {})
+        for stage in [*task.get("rounds", []), final, *final.get("validators", [])]:
+            validation = stage.get("validation", {})
+            methods = validation.get("methods", [stage.get("method")])
+            if "mol1-constraint" not in methods:
+                validation.pop("mol1_constraint", None)
     return result
 
 

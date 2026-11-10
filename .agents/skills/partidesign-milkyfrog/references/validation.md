@@ -43,6 +43,7 @@ and compatibility are checked.
 | `esmfold2-standard` | The same input modalities, with shared fixed protein-context MSA and no templates | `esmfold2-standard` |
 | `af2_ig` | One standard-protein design chain with protein context; matched complex and isolated-chain predictions | `af2` |
 | `mol1` | Multimodal prediction with shared context MSA/template cache | `mol1` |
+| `mol1-constraint` | Complex prediction with optional protein-context SITE guidance; independent weights | `mol1-constraint` |
 | `af3`, `af3-la` | Multimodal complex prediction with the selected MSA policy | Matching method name |
 | `boltz2` (when available) | Standard protein context and one free designed ligand; complex prediction and native affinity | `boltz2` |
 | `partiscore` | Interface scoring on original saved structures; no refolding/redesign | `download partiscore` |
@@ -219,7 +220,8 @@ defaults are unchanged. Multiple standalone criteria are OR, so combine contact,
 confidence and geometry rules within one native preset when all are required.
 Every antibody pipeline adds the contact rules on the same prediction even with
 `criteria_mode: any`. The antibody pipeline profile uses ESMFold2-fast iteration,
-ESMFold2-standard-only final with five GT samples, 0.8 ipTM + 0.2 pTM best selection before filtering,
+Mol-1-constraint final with five samples of the selected sequence and native
+`ranking_score` best selection before filtering,
 RFD4 min iPAE and target-aligned binder RMSD each ≤3 Å during iteration and
 ≤2 Å at final validation.
 Use native `presets.antibody_contacts` overrides for custom contact thresholds;
@@ -238,17 +240,49 @@ reports and resume behavior. Native profile settings belong under `mol1`:
 `samples: 1`, `recycles: 20`, `steps: 200`, `seed: 101`, `dtype: bf16` by default.
 It supports `mode: complex|monomer|both`. When explicitly selected for pipeline
 final, Mol-1 retains five samples and filters the highest native ranking_score
-prediction. Ordinary pipeline final uses ESMFold2-standard. Explicit
-`checkpoint` overrides the default checkpoint path. See docs/validate.md for
+prediction. Protein/nuc pipeline final uses ESMFold2-standard; antibody uses
+Mol-1-constraint. An explicit `checkpoint` overrides the default checkpoint path. See docs/validate.md for
 kernel and precision controls.
+
+### Mol-1-constraint and epitope guidance
+
+Use `download mol1-constraint`, `check --model mol1-constraint` and
+`validate RUN --method mol1-constraint`. Native settings use `mol1_constraint`,
+with the same sampling/kernel controls as `mol1` but only `mode: complex`.
+Its default weight is `community_models/mol1/checkpoint/mol-1-constraint.pt`;
+standard `mol1` keeps `mol-1-base.pt`. Source/common and the environment are
+shared; do not download a second source tree or rehost upstream weights.
+
+When this method is selected, every explicit protein-context hotspot becomes
+native SITE conditioning, for all task modalities. Antibody `antigen.hotspot`
+is the epitope. Preserve exact source chain/author residue/insertion-code
+mapping through crops; never guess by sequence similarity, shifted numbering
+or proximity. Missing, ambiguous, discarded or nonprotein sites are errors,
+not permission to drop conditions. No hotspot means no SITE conditioning.
+
+The partner is the union of designed chains, including Fab VH+VL. SITE guides
+each declared context site toward any member of that union; it does not require
+both chains or guarantee contacts. `antibody.paratope` remains the independent
+contact-evaluation region; never turn its mask into forced contacts. Do not
+invent public CONTACT/EXCLUSION controls.
+
+Antibody defaults to fast iteration and constraint final5, fixed-antigen MSA
+and templates off. Keep designed VHH/VH/VL query-only and preserve explicit
+method/sample/template overrides. Other task defaults and standard Mol-1 stay
+available. Screen maps explicit protein-context `pocket` sequence positions
+to SITE. All three workflows use the existing resident backends and worker
+CPU/GPU controls. Changed SITE inputs invalidate matching predictions, not
+model residency. See `<repo>/docs/validate.md#mol-1-constraint-predictor-settings`.
 
 Standalone repeated `--method` runs retain separate method reports/success
 folders. Pipeline `final.methods` instead uses one shared candidate pool and
 one union success directory; read partial-pipeline.md for that contract.
 
-ESMFold2-standard/AF3/AF3-LA/Mol-1/Boltz-2 share `--msa auto` and `--msa-source colabfold`
-defaults. AF3/AF3-LA/Mol-1/Boltz-2 also default to protein templates with maximum release
-date `2021-09-30`. ESMFold2-standard consumes fixed protein-context MSA without
+ESMFold2-standard, AF3/AF3-LA, both Mol-1 variants and Boltz-2 share `--msa auto`
+and `--msa-source colabfold` defaults. AF3/AF3-LA, both Mol-1 variants and Boltz-2
+also default to protein templates with maximum release date `2021-09-30`;
+the antibody preset disables templates for its constraint final.
+ESMFold2-standard consumes fixed protein-context MSA without
 templates; Fast remains query-only even with shared `auto`. `esmfold2.msa`
 accepts the same shared MSA schema, with model-specific YAML values overriding
 shared YAML and common CLI options overriding both.

@@ -12,9 +12,10 @@ def create_backend(repo, method, full_config, device="cuda:0"):
     if method in {"esmfold2-fast", "esmfold2-standard"}:
         from .esmfold2 import ESMFold2Backend
         return ESMFold2Backend(repo, config["esmfold2"], device)
-    if method == "mol1":
+    if method in {"mol1", "mol1-constraint"}:
         from .mol1 import Mol1Backend
-        return Mol1Backend(repo, config["mol1"], device)
+        from .methods import REFOLD_METHODS
+        return Mol1Backend(repo, config[REFOLD_METHODS[method].group], device, method=method)
     if method == "boltz2":
         from .boltz2 import Boltz2Backend
         return Boltz2Backend(repo, config["boltz2"], device)

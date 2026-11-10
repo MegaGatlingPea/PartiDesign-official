@@ -311,6 +311,9 @@ def _model_settings(config, method, payload=None, *, structure=False):
     """Search policy is resolved into inputs before the resident model runs."""
     spec = REFOLD_METHODS[method]
     settings = {key: value for key, value in config[spec.group].items() if key != "msa"}
+    if method == "mol1-constraint":
+        from src.validate.mol1 import CONSTRAINT_ADAPTER_REVISION
+        settings["adapter_revision"] = CONSTRAINT_ADAPTER_REVISION
     if method == "boltz2" and structure:
         for key in ("affinity", "affinity_samples", "affinity_steps"):
             settings.pop(key, None)
@@ -349,7 +352,7 @@ def _model_payload_identity(payload, method):
     if REFOLD_METHODS[method].family in {"af3", "mol1"}:
         # Source atom ledgers/old design sequences are restoration carriers,
         # not AF3 conditioning. Stable occurrence identity is kept separately.
-        fields = ("protocol", "chains", "rng_seeds", "bonded_atom_pairs", "user_ccd",
+        fields = ("protocol", "chains", "rng_seeds", "bonded_atom_pairs", "user_ccd", "mol1_site",
                   "cyclic_chains", "cyclic_lengths", "msa_context",
                   "source_to_native_chain", "native_to_source_chain")
         identity = {protocol: {name: value[name] for name in fields if name in value}
@@ -360,7 +363,7 @@ def _model_payload_identity(payload, method):
                 # Only the resolved evidence conditions the model, not the
                 # policy used to obtain it (online search, cache-only, etc.).
                 model_input["msa_context"] = {key: value for key, value in context.items() if key != "policy"}
-        if method == "mol1":
+        if method in {"mol1", "mol1-constraint"}:
             from src.validate.mol1 import mol1_covalent_bonds
             for protocol, value in payload.items():
                 identity[protocol].pop("cyclic_chains", None)
@@ -407,7 +410,7 @@ def _rebind_af3_sources(input_record, variant, config, predictions, repo_root, m
     from src.design.rewards.af3_backend import prepare_af3_inputs
     section = copy.deepcopy(config[REFOLD_METHODS[method].group])
     section["msa"]["mode"] = "off"
-    if method == "mol1":
+    if method in {"mol1", "mol1-constraint"}:
         from src.validate.mol1 import prepare_mol1_inputs
         prepare = prepare_mol1_inputs
     elif method == "boltz2":
@@ -415,7 +418,9 @@ def _rebind_af3_sources(input_record, variant, config, predictions, repo_root, m
         prepare = prepare_boltz2_inputs
     else:
         prepare = prepare_af3_inputs
-    extra={"pocket_cache":pocket_cache} if method=="boltz2" else {}
+    extra = ({"pocket_cache": pocket_cache} if method == "boltz2" else
+             {"method": method, "site_cache": pocket_cache}
+             if method in {"mol1", "mol1-constraint"} else {})
     prepared = prepare(_alias_input(input_record), _alias_variant(variant), section, repo_root, **extra)
     atoms = input_record.atoms
     labels = np.asarray(getattr(atoms, "label_asym_id", atoms.chain_id)).astype(str)
@@ -618,10 +623,11 @@ class NativeOwner:
             if key not in self._asset_cache:
                 self._asset_cache[key] = [_stat(root / f"params_model_{model}_ptm.npz")
                                           for model in section["models"]]
-        elif method == "mol1":
-            section = config["mol1"]
+        elif method in {"mol1", "mol1-constraint"}:
+            section = config[REFOLD_METHODS[method].group]
             root = community_asset("mol1", self.repo)
-            checkpoint = Path(section.get("checkpoint") or root / "checkpoint/mol-1-base.pt")
+            weight = "mol-1-constraint.pt" if method == "mol1-constraint" else "mol-1-base.pt"
+            checkpoint = Path(section.get("checkpoint") or root / "checkpoint" / weight)
             checkpoint = checkpoint if checkpoint.is_absolute() else self.repo / checkpoint
             key = _canonical([method, str(checkpoint), str(root)])
             if key not in self._asset_cache:
@@ -777,11 +783,12 @@ class NativeOwner:
         from src.design.rewards.af3_input import attach_msa_references, msa_queries
         from src.validate.af3_msa import AF3MSACache, validate_msa_settings
         section = config[REFOLD_METHODS[method].group]
-        if method == "mol1":
+        if method in {"mol1", "mol1-constraint"}:
             from src.validate.mol1 import prepare_mol1_inputs
             # Search below through the same owner-local cache as AF3.
             bare = dict(section, msa={**section["msa"], "mode": "off"})
-            payloads = prepare_mol1_inputs(input_record, variant, bare, self.repo)
+            payloads = prepare_mol1_inputs(input_record, variant, bare, self.repo,
+                                           method=method, site_cache=self._source_pocket_cache() if method == "mol1-constraint" else None)
         else:
             payloads = prepare_af3_inputs(input_record, variant, section, self.repo)
         settings = validate_msa_settings(section.get("msa"))
@@ -1005,7 +1012,7 @@ class NativeOwner:
         conditioning = _model_payload_identity(payload, method)
         occurrences = (_occurrence_identity(canonical_input)
                        if method == "af2_ig" else _restoration_identity(canonical_input))
-        if method == "mol1":
+        if method in {"mol1", "mol1-constraint"}:
             occurrences.pop("cyclic_offset_chains", None)
         request = {"version": 2, "task": str(task_name), "method": method,
                    "config": model_settings, "weights": assets, "input": conditioning,
@@ -1155,7 +1162,7 @@ class NativeOwner:
                                       if key != "_parsed_atoms"})
                        for prediction in raw_predictions]
         if REFOLD_METHODS[method].family in {"af3", "mol1", "boltz2"}:
-            extra={"pocket_cache":self._source_pocket_cache()} if method=="boltz2" else {}
+            extra={"pocket_cache":self._source_pocket_cache()} if method in {"boltz2", "mol1-constraint"} else {}
             _rebind_af3_sources(input_record, variant, config, predictions, self.repo, method, **extra)
         with self._execution:
             worker = self._worker(method, config, self._assets(method, config))

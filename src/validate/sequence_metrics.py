@@ -273,7 +273,7 @@ def native_sequence_prediction(inference_result, *, payload, model, sample, dire
                        "per_chain_atom_count": {cid: sum(atom["chain_id"] == cid for atom in atom_ledger) for cid in entries},
                        "per_chain_token_count": {cid: chains.count(cid) for cid in entries}})
     if ranking_score is None:
-        if model in {"af3", "af3-la", "mol1"}:
+        if model in {"af3", "af3-la", "mol1", "mol1-constraint"}:
             ranking_score = _scalar(metadata.get("ranking_score"))
         elif model == "boltz2":
             ranking_score = _scalar(metadata.get("confidence_score", metadata.get("boltz2_native_confidence_score")))

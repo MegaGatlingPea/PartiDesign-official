@@ -20,7 +20,9 @@ AF3/HMMER search tools, USalign clustering, and OpenMM/PDBFixer/OpenFF/AmberTool
 refinement with Vina/Meeko/OpenBabel docking.
 Both also declare DSSP 4.6.1, libmcfp 2.0.1 and PyRosetta 2026.39 for the
 CPU [postfilter workflow](postfilter.md).
-The corresponding weights and local MSA databases remain separate downloads.
+Standard Mol-1 and Mol-1-constraint use the same bundled source and environment;
+only their checkpoints differ. No separate environment is needed for the
+constraint variant. The corresponding weights and local MSA databases remain separate downloads.
 See [downloads](download.md), [shared MSA/templates](msa.md), and
 [validation](validate.md).
 

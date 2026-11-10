@@ -55,6 +55,12 @@ class SourcePocketCache:
 
 
 def _design_ids(task):
+    if task.get("format") == "antibody":
+        antibody = task.get("antibody", {})
+        chains = antibody.get("chains") if isinstance(antibody, Mapping) else None
+        # Explicit output IDs are authoritative; do not load a scaffold or
+        # guess omitted roles just to resolve antigen source membership.
+        return set(map(str, chains.values())) if isinstance(chains, Mapping) else set()
     raw = task.get("design_chains", ())
     if isinstance(raw, Mapping):
         return set(map(str, raw))
@@ -80,12 +86,15 @@ def _resolve_source_membership(owner, snapshot, repo_root):
         raise PocketResolutionError(f"cannot read pocket authoring snapshot {snapshot}: {exc}") from exc
     if task is None:
         return _SourcePocket(None, snapshot=str(snapshot), owner=str(owner))
-    selector = task.get("hotspot")
+    authoring = (task.get("antigen") or {}) if task.get("format") == "antibody" else task
+    if not isinstance(authoring, Mapping):
+        raise PocketResolutionError("antibody antigen authoring must be a mapping")
+    selector = authoring.get("hotspot")
     if selector is None:
         return _SourcePocket(None, snapshot=str(snapshot), owner=str(owner))
     if not isinstance(selector, str) or not selector.strip():
         raise PocketResolutionError("declared source hotspot must be a non-empty selector")
-    source_text = task.get("input")
+    source_text = authoring.get("input")
     if not isinstance(source_text, str) or not source_text.strip():
         raise PocketResolutionError("declared source hotspot requires an authoritative input structure")
     root = _source_root(owner, repo_root)
@@ -119,7 +128,7 @@ def _resolve_source_membership(owner, snapshot, repo_root):
         if key[0] in design:
             raise PocketResolutionError(f"hotspot {key!r} must select context residues only")
         if str(source.mol_type[first]) not in _POLYMERS:
-            raise PocketResolutionError("Boltz-2 residue pockets support protein/RNA/DNA context only")
+            raise PocketResolutionError("Declared residue hotspots require protein/RNA/DNA context")
         if key in seen:
             raise PocketResolutionError(f"hotspot {key!r} has an ambiguous canonical source occurrence")
         seen.add(key)
@@ -159,11 +168,11 @@ def _context_position(payload, native_id, position, source_id=None):
     return chain
 
 
-def bind_source_pocket(input_record, payload, *, repo_root=None, cache=None):
-    """Resolve saved source selectors and bind only their exact retained keys."""
+def resolve_source_hotspot(input_record, payload, *, repo_root=None, cache=None):
+    """Bind source membership to the current native context, without rendering a model constraint."""
     declaration = (cache if cache is not None else SourcePocketCache()).resolve(input_record, repo_root)
     if declaration.selector is None:
-        return payload
+        return None
     contacts, records = [], []
     index = payload.get("source_residue_native_index", {})
     for source_id, residue, insertion in declaration.occurrences:
@@ -186,9 +195,15 @@ def bind_source_pocket(input_record, payload, *, repo_root=None, cache=None):
         records.append({"source_chain_id": source_id, "source_res_id": residue,
                         "source_ins_code": insertion, "native_chain_id": native_id,
                         "native_residue_index": position})
-    return dict(payload, boltz2_pocket={"source": "source", "selector": declaration.selector,
-        "authoring_snapshot": declaration.snapshot, "task_owner": declaration.owner,
-        "source_occurrences": records, "contacts": contacts})
+    return {"source": "source", "selector": declaration.selector,
+            "authoring_snapshot": declaration.snapshot, "task_owner": declaration.owner,
+            "source_occurrences": records, "contacts": contacts}
+
+
+def bind_source_pocket(input_record, payload, *, repo_root=None, cache=None):
+    """Resolve saved source selectors and bind only their exact retained keys."""
+    resolved = resolve_source_hotspot(input_record, payload, repo_root=repo_root, cache=cache)
+    return payload if resolved is None else dict(payload, boltz2_pocket=resolved)
 
 
 def bind_sequence_pocket(request, payload):

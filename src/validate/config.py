@@ -10,7 +10,7 @@ import os
 from partidesign.paths import asset_root, ENV_MODEL_DIR
 from typing import Any
 
-METHODS = ("af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "boltz2", "partiscore", "vina_dock")
+METHODS = ("af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "mol1-constraint", "boltz2", "partiscore", "vina_dock")
 SOURCES = (
     "gt",
     "protein_mpnn",
@@ -96,6 +96,8 @@ DEFAULTS = {
     "rerun": False, "rerun_refold": False,
 }
 
+
+DEFAULTS["mol1_constraint"] = copy.deepcopy(DEFAULTS["mol1"])
 
 def load_yaml(path: Path) -> dict:
     import yaml
@@ -323,23 +325,25 @@ def validate_ipsae_settings(value):
     return value
 
 
-def validate_mol1_settings(value):
-    if not isinstance(value, dict) or set(value) != set(DEFAULTS["mol1"]):
-        raise ValueError("mol1 must contain only the documented Mol-1 settings")
+def validate_mol1_settings(value, *, group="mol1"):
+    if not isinstance(value, dict) or set(value) != set(DEFAULTS[group]):
+        raise ValueError(f"{group} must contain only the documented Mol-1 settings")
     for key in ("samples", "recycles", "steps"):
         if type(value[key]) is not int or value[key] < 1:
-            raise ValueError(f"mol1.{key} must be a positive integer")
+            raise ValueError(f"{group}.{key} must be a positive integer")
     if type(value["seed"]) is not int or not 0 <= value["seed"] < 2**32:
-        raise ValueError("mol1.seed must be a uint32 integer")
+        raise ValueError(f"{group}.seed must be a uint32 integer")
     if value["mode"] not in {"complex", "monomer", "both"}:
-        raise ValueError("mol1.mode must be complex, monomer, or both")
+        raise ValueError(f"{group}.mode must be complex, monomer, or both")
     if value["dtype"] not in {"bf16", "fp32", "fp16"}:
-        raise ValueError("mol1.dtype must be bf16, fp32, or fp16")
+        raise ValueError(f"{group}.dtype must be bf16, fp32, or fp16")
     for key in ("triangle_attention", "triangle_multiplicative"):
         if value[key] not in {"auto", "torch", "cuequivariance"}:
-            raise ValueError(f"mol1.{key} must be auto, torch, or cuequivariance")
+            raise ValueError(f"{group}.{key} must be auto, torch, or cuequivariance")
     if value["checkpoint"] is not None and not isinstance(value["checkpoint"], str):
-        raise ValueError("mol1.checkpoint must be null or a path")
+        raise ValueError(f"{group}.checkpoint must be null or a path")
+    if group == "mol1_constraint" and value["mode"] != "complex":
+        raise ValueError("mol1_constraint.mode must be complex")
     value["msa"] = validate_msa_settings(value["msa"])
     return value
 
@@ -506,7 +510,7 @@ def parse_args(argv=None):
     msa_cli_values = cli_settings(args)
     msa_cli_explicit = any(value is not None for value in msa_cli_values.values()) or args.msa_refresh
     if msa_cli_explicit:
-        for group in ("esmfold2", "af3", "mol1", "boltz2"):
+        for group in ("esmfold2", "af3", "mol1", "mol1_constraint", "boltz2"):
             cfg[group]["msa"].update({
                 key: value for key, value in msa_cli_values.items() if value is not None
             })
@@ -531,7 +535,7 @@ def parse_args(argv=None):
     cfg["worker_cpus"] = float(worker_cpus)
     if not isinstance(cfg["methods"], list) or not cfg["methods"] or any(m not in METHODS for m in cfg["methods"]):
         raise ValueError(f"methods must be a nonempty subset of {METHODS}")
-    if msa_cli_explicit and not any(method in {"esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "boltz2"} for method in cfg["methods"]):
+    if msa_cli_explicit and not any(method in {"esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "mol1-constraint", "boltz2"} for method in cfg["methods"]):
         raise ValueError("MSA command options require ESMFold2, AF3, AF3-LA, Mol-1, or Boltz2")
     if len(cfg["methods"]) != len(set(cfg["methods"])):
         raise ValueError("Duplicate validation methods")
@@ -539,7 +543,7 @@ def parse_args(argv=None):
         raise ValueError("rerun and rerun_refold must be boolean")
     if cfg["rerun"] and cfg["rerun_refold"]:
         raise ValueError("rerun and rerun_refold are mutually exclusive")
-    if cfg["rerun_refold"] and any(method not in {"esmfold2-standard", "af3", "af3-la", "mol1", "boltz2"} for method in cfg["methods"]):
+    if cfg["rerun_refold"] and any(method not in {"esmfold2-standard", "af3", "af3-la", "mol1", "mol1-constraint", "boltz2"} for method in cfg["methods"]):
         raise ValueError("--rerun-refold requires ESMFold2-standard, AF3, AF3-LA, Mol-1, or Boltz2")
     if cfg["rerun_refold"] and (args.plan or args.refilter or args.recompute_metrics):
         raise ValueError("--rerun-refold cannot be combined with --plan, --refilter, or --recompute-metrics")
@@ -550,6 +554,7 @@ def parse_args(argv=None):
     _validate_vina(cfg.get("vina"))
     validate_af3_settings(cfg.get("af3"))
     validate_mol1_settings(cfg.get("mol1"))
+    validate_mol1_settings(cfg.get("mol1_constraint"), group="mol1_constraint")
     validate_boltz2_settings(cfg.get("boltz2"))
     validate_esmfold2_settings(cfg.get("esmfold2"))
     validate_ipsae_settings(cfg.get("ipsae"))

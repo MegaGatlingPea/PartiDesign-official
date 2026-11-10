@@ -180,6 +180,16 @@ def _esmfold2_assets(mode: str) -> tuple[_AssetSpec, ...]:
     return tuple(assets)
 
 
+_MOL1_COMMON_ASSETS = tuple(
+    _AssetSpec(f"community_models/mol1/common/{name}", archive_member=f"common/{name}")
+    for name in ("components.cif", "components.cif.rdkit_mol.pkl",
+                 "clusters-by-entity-40.txt", "obsolete_release_date.csv",
+                 "obsolete_to_successor.json", "release_date_cache.json",
+                 "seq_to_pdb_index.json")
+)
+_MOL1_TARGETS = frozenset({"mol1", "mol1-constraint"})
+
+
 # Optional inference backend; immutable official HF release, no third-party rehosting.
 from .boltz_assets import ASSETS as _BOLTZ2_RELEASE_ASSETS, HF_BASE as _BOLTZ2_BASE
 _BOLTZ2_ASSETS = tuple((name, "common" if name == "mols.tar" else "checkpoint", size, digest)
@@ -258,12 +268,17 @@ _CATALOG: dict[str, _TargetSpec] = {
         (
             _asset("community_models/mol1/checkpoint/mol-1-base.pt",
                    f"{_MOL1_RELEASE_URL}/checkpoint/mol-1-base.pt"),
-            *(_AssetSpec(f"community_models/mol1/common/{name}",
-                         archive_member=f"common/{name}")
-              for name in ("components.cif", "components.cif.rdkit_mol.pkl",
-                           "clusters-by-entity-40.txt", "obsolete_release_date.csv",
-                           "obsolete_to_successor.json", "release_date_cache.json",
-                           "seq_to_pdb_index.json")),
+            *_MOL1_COMMON_ASSETS,
+        ),
+        archive_url=f"{_MOL1_RELEASE_URL}/common.tar.gz",
+    ),
+    "mol1-constraint": _TargetSpec(
+        "mol1-constraint",
+        (
+            _asset("community_models/mol1/checkpoint/mol-1-constraint.pt",
+                   f"{_MOL1_RELEASE_URL}/checkpoint/mol-1-constraint.pt",
+                   expected_bytes=2_311_106_509),
+            *_MOL1_COMMON_ASSETS,
         ),
         archive_url=f"{_MOL1_RELEASE_URL}/common.tar.gz",
     ),
@@ -1274,7 +1289,8 @@ def _download_esmfold2_one(root: Path, spec: _TargetSpec, *, force: bool) -> dic
             temporary.unlink(missing_ok=True)
 
 
-def _download_one(root: Path, spec: _TargetSpec, *, force: bool) -> dict[str, object]:
+def _download_one(root: Path, spec: _TargetSpec, *, force: bool,
+                  _completed_shared: frozenset[str] = frozenset()) -> dict[str, object]:
     if spec.name in {"esmfold2-fast", "esmfold2-standard"}:
         return _download_esmfold2_one(root, spec, force=force)
     if spec.name in {"af3", "af3-la"}:
@@ -1311,6 +1327,15 @@ def _download_one(root: Path, spec: _TargetSpec, *, force: bool) -> dict[str, ob
             "no verified download URL; local resource must be provisioned separately",
         )
     assets = list(spec.assets) if force else missing
+    if spec.name in _MOL1_TARGETS and _completed_shared:
+        # A successful earlier Mol-1 target in this call already refreshed common.
+        # Reinspect missing paths so a removed/invalid file is still repaired.
+        absent = {asset.relative for asset in missing}
+        assets = [asset for asset in assets if not (
+            asset.archive_member and asset.relative in _completed_shared
+            and asset.relative not in absent)]
+        if not assets:
+            return _enrich_record(spec, root, _record(spec, root, "installed"))
     without_source = [
         asset.relative for asset in assets if not asset.url and not asset.archive_member
     ]
@@ -1355,6 +1380,7 @@ def download_targets(
     """
     token = _PROGRESS.set(progress)
     records: list[dict[str, object]] = []
+    completed_mol1_common: set[str] = set()
     try:
         for raw_target in targets:
             name = str(raw_target)
@@ -1370,9 +1396,14 @@ def download_targets(
                     "sources": [],
                 }
             else:
-                record = _download_one(_root_path(root), spec, force=bool(force))
+                options = ({"_completed_shared": frozenset(completed_mol1_common)}
+                           if name in _MOL1_TARGETS else {})
+                record = _download_one(_root_path(root), spec, force=bool(force), **options)
                 if "integrity" not in record:
                     record = _enrich_record(spec, _root_path(root), record)
+                if name in _MOL1_TARGETS and record["status"] in {"installed", "downloaded"}:
+                    completed_mol1_common.update(
+                        asset.relative for asset in spec.assets if asset.archive_member)
             records.append(record)
             _emit({"event": "target_done", "target": name, "record": record})
         return records

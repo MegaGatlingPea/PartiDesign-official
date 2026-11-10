@@ -57,11 +57,12 @@ Clustering independently compares original generated polymer backbones.
   chemistry, and antibody-specific fields.
 - [Partial diffusion](partial.md): one reference CIF with task-defined conditions,
   schedule semantics, and optional native metadata recovery.
-- [Pipeline](pipeline.md): fast iterations and standard final validation with
-  fixed protein-context MSA. Explicit PPI uses only paired AF2-IG final validation,
+- [Pipeline](pipeline.md): fast iterations and protein/nucleic-acid standard final
+  validation with fixed protein-context MSA. Explicit PPI uses only paired AF2-IG final validation,
   including the insulin receptor demo. AF3 and Mol-1 remain explicitly selectable.
   [Antibody pipelines](pipeline.md#antibody-pipelines) include GLP1R VHH de novo
-  and annotated-complex optimization with standard final validation.
+  and annotated-complex optimization with five Mol-1-constraint final samples
+  and epitope guidance from `antigen.hotspot`.
 - [Ligand pipelines](pipeline.md#ligand-pipelines): Boltz-2 prediction,
   optional partial-diffusion rounds, and native final affinity.
 - [Screen](screen.md): shared sequence contexts, native representatives and

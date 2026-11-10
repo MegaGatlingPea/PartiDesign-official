@@ -83,11 +83,17 @@ Code and PartiDesign's native component dictionary stay with the installed
 package. The dictionary needs no separate download or model selection. Selecting
 a model root does not change where task inputs and outputs resolve.
 
-For ordinary protein, nucleic-acid and antibody pipelines, download both ESMFold2 variants:
+For ordinary protein and nucleic-acid pipelines, download both ESMFold2 variants:
 
 ```bash
 partidesign download esmfold2-fast esmfold2-standard
 ```
+
+Antibody uses fast iteration and Mol-1-constraint final; prepare
+`esmfold2-fast`, `mol1-constraint` and `proteinmpnn`. The constraint checkpoint is
+`community_models/mol1/checkpoint/mol-1-constraint.pt`; standard Mol-1 uses
+`mol-1-base.pt`. Both share source/common, but remain separate download/check
+targets and methods. Use `partidesign check --model mol1-constraint --msa off`.
 
 The PPI preset uses fast iteration and AF2-IG final; prepare `esmfold2-fast`,
 `af2`, and the selected MPNN. For explicitly selected Mol-1 validation, use:

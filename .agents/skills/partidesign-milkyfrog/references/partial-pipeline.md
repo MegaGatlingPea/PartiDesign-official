@@ -42,7 +42,7 @@ Common iteration operations are `mpnn`, `include_gt`, `refold`, `filter`,
 those same operations. `mpnn` accepts a count or `{source, count, settings}`;
 `refold` accepts a method or `{method, conformers, validation: {...}}`; native
 model settings and `worker_gpus`/`worker_cpus` belong inside `validation`. Both iteration and final accept esmfold2-fast,
-esmfold2-standard, af2_ig, af3, af3-la, mol1 and boltz2. Standard shares compatible
+esmfold2-standard, af2_ig, af3, af3-la, mol1, mol1-constraint and boltz2. Standard shares compatible
 fast screen routes and AF3-LA shares compatible AF3 routes unless explicitly
 overridden. The polymer default remains fast with one conformer. AF3-LA uses the
 native af3 settings section and its own weights.
@@ -139,7 +139,7 @@ whole-complex relaxation before partial.
 | Profile | Final validation |
 | --- | --- |
 | protein, nuc | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by 0.8 ipTM + 0.2 pTM, then apply final criteria. |
-| antibody | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by 0.8 ipTM + 0.2 pTM, then apply final criteria. |
+| antibody | Mol-1-constraint only, five samples of the selected sequence; select the highest native `ranking_score`, then apply final criteria and antigen-contact rules. |
 | ppi, explicitly selected | AF2-IG only: models `[1, 2]` each use one matched complex/monomer pair. Each AF2 model chooses its best complex by 0.8ipTM+0.2pTM and its same-sample monomer; both model pairs must pass. No standard, AF3 or Mol-1 prediction is added by this preset. |
 
 Auto selects antibody for native antibody tasks, otherwise protein/nuc, never
@@ -208,9 +208,9 @@ Standard uses its own checkpoint, shared fixed protein-context MSA without
 templates, and native `0.8*ipTM+0.2*pTM` best-sample ordering before filtering.
 Designed chains remain query-only. Its default five samples are configured by
 `esmfold2: {samples: 5}` under `final`. ESMFold2-fast remains the default iteration
-model. Protein/nuc/antibody default to only standard final validation; PPI
-defaults to only paired AF2-IG. AF3, Mol-1 and multi-method finals are explicitly
-optional. With no fixed protein context, standard still uses standard weights
+model. Protein/nuc default to standard final, antibody to Mol-1-constraint,
+and PPI to paired AF2-IG. AF3, standard Mol-1 and multi-method finals remain
+explicitly optional. With no fixed protein context, standard still uses standard weights
 and query-only input instead of claiming a context MSA search.
 
 Explicit overrides may use standard in iteration as well as final. Native defaults are
@@ -341,7 +341,9 @@ Boltz final reuses equivalent structure evidence and adds eligible native
 affinity with its own internal sampling/pose evidence. Without eligible protein
 context, structure validation continues and affinity is recorded as not applicable. Read docs/pipeline.md for capabilities. Equivalent prediction requests reuse evidence; parent-relative
 metrics are recomputed. `--resume` needs identical effective settings; changed
-settings need a new run. `--from-run` preserves upstream generation.
+settings need a new run. `--from-run` preserves upstream generation. Existing runs
+retain their saved final method on resume; the antibody Mol-1-constraint default
+applies to fresh runs.
 
 ## Antibody commands
 
@@ -361,10 +363,14 @@ partidesign pipeline configs/examples/antibody_opt --preset antibody --run-name 
 
 Keep the normal workflow budgets: `recycle: 3`, first GT1+MPNN1, later GT1+MPNN4,
 ESMFold2-fast iteration, partial fraction 0.625 with four replicas and parent
-retention, `relax: false` and five GT-only ESMFold2-standard final predictions.
-Rank by 0.8 ipTM + 0.2 pTM before filtering, without replacing a failing winner.
-Standard final validation uses shared fixed antigen protein MSA without
-templates; Fast iteration and designed antibody chains stay query-only. Use
+retention, `relax: false` and five Mol-1-constraint final predictions of the
+selected sequence. Rank by native `ranking_score` before filtering, without
+replacing a failing winner. Final uses shared fixed-antigen protein MSA with
+templates off by default; Fast iteration and designed antibody chains stay
+query-only. `antigen.hotspot` becomes SITE guidance toward the designed-chain
+union; `antibody.paratope` remains evaluation metadata. Preserve source occurrence
+mapping, fail invalid/ambiguous sites, and leave conditioning empty without a
+hotspot. See [constraint guidance](validation.md#mol-1-constraint-and-epitope-guidance). Use
 `--plan` for preview; preserve the production example's requested budgets.
 
 ## Demos and outputs
@@ -387,8 +393,9 @@ clusters, a 200-candidate limit in later rounds and the final pool, and the pres
 worker budgets. Its final validation uses only AF2-IG models `[1, 2]`, one
 matched complex/monomer pair each, and both pairs must pass. Prepare
 ESMFold2-fast and AF2 alongside generation and auto MPNN. Ordinary
-protein/nuc/antibody final validation instead uses only ESMFold2-standard,
-with five samples and shared fixed protein-context MSA without templates.
+protein/nuc final instead uses five ESMFold2-standard samples; antibody uses
+five Mol-1-constraint samples. Both use shared fixed protein-context MSA with
+templates off by default.
 
 YAML output begins at `inference/<run>/<task>/design/`; directory input uses
 `start/` for copied seeds, resolved result.csv and initial partial/<sample_id>/

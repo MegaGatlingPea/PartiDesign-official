@@ -15,3 +15,6 @@ community_models/rosetta/source/dalphaball/** whitespace=-blank-at-eol,-blank-at
 
 # Preserve vendored Boltz and ChEMBL source formatting.
 community_models/boltz/source/** whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+
+# Preserve vendored Mol-1 source formatting.
+community_models/mol1/source/** whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

@@ -632,6 +632,11 @@ framework `35/37/45/47/50/59/97-99/115-116` for identity design while declaring
 the different paratope selector above. See [contact metrics](validate.md#antibody-contact-metrics)
 and [antibody pipelines](pipeline.md#antibody-pipelines).
 
+With `mol1-constraint`, `antigen.hotspot` supplies epitope SITE guidance toward
+the union of designed VHH or VH/VL chains. `antibody.paratope` remains the
+region used by contact evaluation; it is not converted into mandatory contacts.
+See [Mol-1-constraint](validate.md#mol-1-constraint-predictor-settings).
+
 ### Antibody partial diffusion
 
 Add native `partial: {reference: actual_candidate.cif, fraction: 0.625}` to an

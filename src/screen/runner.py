@@ -13,7 +13,7 @@ from .config import affinity_eligible, ranking_for, request_for
 from src.validate.resources import worker_capacity, worker_resources
 
 _GROUPS = {"esmfold2-fast": "esmfold2", "esmfold2-standard": "esmfold2",
-           "af3": "af3", "af3-la": "af3", "mol1": "mol1", "boltz2": "boltz2"}
+           "af3": "af3", "af3-la": "af3", "mol1": "mol1", "mol1-constraint": "mol1_constraint", "boltz2": "boltz2"}
 _AFFINITY_KEYS = ("affinity", "affinity_samples", "affinity_steps")
 
 
@@ -113,7 +113,7 @@ def make_plan(tasks, args):
                              valid_candidates=good, invalid_candidates=len(task["rows"])-good,
                              samples=task["samples"], planned_structures=good*task["samples"],
                              worker_gpus=gpu, worker_cpus=cpu, pocket=requested,
-                             pocket_will_apply=bool(requested) and method=="boltz2",
+                             pocket_will_apply=bool(requested) and method in {"boltz2", "mol1-constraint"},
                              msa=[dict(chain=c["id"], modality=c["modality"],
                                        **{k:_consumer_settings(c,method)[k] for k in ("mode","source","templates","max_template_date")})
                                   for c in task["contexts"]]))

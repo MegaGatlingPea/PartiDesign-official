@@ -42,10 +42,12 @@ settings share the cache. Annotation paths resolve relative to `annotation.csv`.
 
 ## Defaults and search scope
 
-Ordinary pipeline final uses ESMFold2-standard and **ColabFold by default** for
-fixed protein-context MSA, without templates. Fast iterations and designed
-chains remain query-only. Explicit AF3/AF3-LA/Mol-1 can also request protein
-templates; their default maximum template release date is **2021-09-30**.
+Protein/nucleic-acid pipeline final uses ESMFold2-standard and **ColabFold by
+default** for fixed protein-context MSA, without templates. Antibody final uses
+Mol-1-constraint with fixed-antigen MSA and templates off by default. Fast
+iterations and designed chains remain query-only. AF3/AF3-LA and both Mol-1
+variants can request protein templates; their default maximum template release
+date is **2021-09-30**.
 Boltz-2 in validate, screen and the ligand pipeline preset uses the same fixed
 protein-context MSA/template policy.
 `--msa off` disables MSA and templates. Without eligible fixed protein context,
@@ -61,8 +63,8 @@ antibody heavy/light chains, RNA and DNA. Ligands are not MSA queries. Original
 generation coordinates, motifs and partial-diffusion references are not
 automatically prediction templates.
 
-Search source and prediction method are separate choices. AF3, Mol-1 and
-Boltz-2 can read the same ColabFold result. Choosing `source: af3` selects the local search
+Search source and prediction method are separate choices. AF3, both Mol-1
+variants and Boltz-2 can read the same ColabFold result. Choosing `source: af3` selects the local search
 route; it does not choose the prediction model. AF2-IG keeps its existing
 initial-guess protocol.
 
@@ -80,7 +82,7 @@ msa:
   max_template_date: "2021-09-30"
 ```
 
-Shared settings apply to ESMFold2-standard, AF3/AF3-LA, Mol-1 and Boltz-2. Standard
+Shared settings apply to ESMFold2-standard, AF3/AF3-LA, both Mol-1 variants and Boltz-2. Standard
 consumes fixed protein-context MSA without templates. Model-specific MSA settings
 remain supported and can override the shared workflow settings. Corresponding
 CLI options take precedence. Use `--show-config` to inspect the resolved values.

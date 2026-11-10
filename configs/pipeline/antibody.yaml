@@ -1,11 +1,11 @@
 # Antibody design and reference-start optimization share the native three-round flow.
-# Iteration uses ESMFold2-fast; final ranks five standard samples by 0.8 ipTM + 0.2 pTM.
+# Iteration uses ESMFold2-fast; final ranks five Mol-1-constraint samples by native ranking_score.
 # Sequence defaults: ProteinMPNN, temperature 0.1, no backbone noise.
 preset: antibody
 final:
-  method: esmfold2-standard
+  method: mol1-constraint
   validation:
-    esmfold2: {samples: 5}
+    mol1_constraint: {samples: 5, msa: {templates: false}}
 criteria_routes:
   antibody:
     screen:
@@ -13,8 +13,10 @@ criteria_routes:
       esmfold2-fast: [pipeline_af3_antibody]
       af3: [pipeline_af3_antibody]
       mol1: [pipeline_af3_antibody]
+      mol1-constraint: [pipeline_af3_antibody]
     final:
       af2_ig: [pipeline_af2_ig_antibody_final]
       mol1: [af3_antibody]
+      mol1-constraint: [af3_antibody]
       af3: [af3_antibody]
       esmfold2-standard: [af3_antibody]

@@ -37,7 +37,7 @@ starting defaults, not measured optima for every input or machine.
 Current native generation defaults are batch **16**, loader workers **4** and
 `pin_memory: false`. Prediction workers default to **1 CPU** each, with GPU
 reservations **0.25 for AF2**, **0.5 for AF3/AF3-LA**, and **1 for ESMFold2,
-Mol-1 and Boltz-2**. Omit a global override to retain model-specific defaults.
+both Mol-1 variants and Boltz-2**. Omit a global override to retain model-specific defaults.
 An unset/null `worker_gpus` inherits the method default. Pipeline and screen
 limit active workers by CPU/GPU capacity. Standalone GPU validation chooses its
 worker count from GPU reservations and pending jobs, then requests CPUs for
@@ -88,8 +88,9 @@ the available CPU/memory budget, state that limitation before an unsuitable run.
 
 When authoring a workflow with unspecified budgets, start from the matching
 preset and explain its workload against the user's goal/time budget. Ordinary
-protein/nuc/antibody pipelines use fast iteration and standard final validation;
-explicit PPI uses AF2-IG final validation. Ligand defaults to one Boltz-2 round
+protein/nuc pipelines use fast iteration and standard final validation;
+antibody uses fast iteration and Mol-1-constraint final5, with shared antigen MSA
+and templates off. Explicit PPI uses AF2-IG final validation. Ligand defaults to one Boltz-2 round
 with eligible final affinity; another round adds a partial-diffusion transition.
 
 Count initial candidates and sequence proposals, then each transition's selected

@@ -182,10 +182,12 @@ come from [Hugging Face](https://huggingface.co/MegaGatlingPea/PartiDesign).
 | `ligandmpnn` | Designs protein sequences around ligand context. | `cyclicmpnn` | Redesigns sequences for cyclic peptide backbones. |
 | `nampnn` | Redesigns DNA and RNA sequences for fixed structures. | `boltz2` | Predicts protein–ligand structures and binding affinity. |
 | `esmfold2-fast` | Iterates designs using shared ESM-C safetensors. | `esmfold2-standard` | Validates with MSA and shared ESM-C safetensors. |
-| `af2` | Runs AF2-IG final validation for PPI designs. | `mol1` | Optionally predicts molecular complex structures. |
+| `af2` | Runs AF2-IG final validation for PPI designs. | `mol1`, `mol1-constraint` | Predicts molecular complexes, with optional hotspot guidance. |
 | `af3` | Optionally predicts full-complex structures. | `af3-la` | Optionally predicts complexes with AF3-LA. |
 
-Fast and standard share the same ESM-C safetensors.
+Fast and standard share the same ESM-C safetensors. Standard Mol-1 and
+Mol-1-constraint share source and common data, with separate checkpoints;
+use `partidesign download mol1-constraint` for the antibody final model.
 For Boltz-2 structure prediction and native ligand affinity, use the single
 `partidesign download boltz2` target; assets live under `community_models/boltz/`.
 
@@ -250,7 +252,7 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml \
 ```
 
 Standard retrieves or reuses MSA for fixed protein context without templates;
-designed chains remain query-only. AF3 and Mol-1 are explicitly optional.
+designed chains remain query-only. AF3 and standard Mol-1 remain optional.
 
 Or optimize the bundled **linear and cyclic peptide complexes**:
 
@@ -274,9 +276,11 @@ partidesign pipeline configs/examples/antibody_opt --preset antibody --run-name 
 
 The bundled [five seed complexes](configs/examples/antibody_opt/annotation.csv) carry
 native CDR/framework permissions and an independent paratope declaration.
-ESMFold2-fast drives iteration; final validation predicts each selected sequence
-five times with ESMFold2-standard, then applies geometry and antigen-contact
-criteria to the best prediction ranked by 0.8 ipTM + 0.2 pTM. See [antibody pipelines](docs/pipeline.md#antibody-pipelines).
+ESMFold2-fast drives iteration; Mol-1-constraint predicts five final samples,
+using fixed-antigen MSA without templates. `antigen.hotspot` guides the predicted
+binder toward the epitope; `antibody.paratope` remains an evaluation region.
+Geometry and antigen-contact criteria apply to the highest native `ranking_score`
+prediction. See [antibody pipelines](docs/pipeline.md#antibody-pipelines).
 
 Accepted candidates are in `inference/<run>/<task>/final/success/`.
 Ligand design automatically selects the ligand preset: one Boltz-2 round

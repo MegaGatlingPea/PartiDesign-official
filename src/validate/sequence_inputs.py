@@ -143,6 +143,11 @@ def prepare_sequence_payload(request, repo, method, config, cache=None):
         payload = bind_sequence_pocket(request, payload)
         if payload.get("boltz2_pocket"):
             payload["pocket_state"].update(applied=True, reason=None)
+    elif method == "mol1-constraint":
+        from .mol1_sites import bind_mol1_sequence_site
+        payload = bind_mol1_sequence_site(request, payload)
+        if payload.get("mol1_site"):
+            payload["pocket_state"].update(applied=True, reason=None)
     return payload
 
 

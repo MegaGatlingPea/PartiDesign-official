@@ -11,7 +11,7 @@ import shutil
 import sys
 import time
 
-from .config import build_config, criteria_for, normalize_legacy_esmfold2_snapshot
+from .config import build_config, criteria_for, normalize_resume_snapshot
 from src.validate.methods import REFOLD_METHODS
 from .layout import (TASK_LAYOUT, design_folder, metadata_folder, refold_folder,
                      run_work, stage_folder, stage_state, task_layout)
@@ -863,7 +863,7 @@ def run(args):
         if not snapshot.is_file():
             raise ValueError("--resume requires an existing resolved_config.yaml")
         previous=yaml.safe_load(snapshot.read_text())
-        if normalize_legacy_esmfold2_snapshot(previous)!=cfg:
+        if normalize_resume_snapshot(previous)!=normalize_resume_snapshot(cfg):
             raise ValueError("Effective configuration changed; start a new run instead of --resume")
     root.mkdir(parents=True,exist_ok=True)
     if not resume:

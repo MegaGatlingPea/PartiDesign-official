@@ -96,6 +96,17 @@ def _fixture(target: str, directory: Path):
     row["fixed_restypes"] = json.dumps([{"chain": design,
         "res_id": int(atoms.res_id[first]), "ins_code": str(atoms.ins_code[first]),
         "restype": str(atoms.res_name[first])}])
+    if target == "mol1-constraint":
+        context_rows = np.flatnonzero(np.asarray(atoms.chain_id).astype(str) != design)
+        if not len(context_rows):
+            raise ValueError("Mol-1-constraint smoke requires protein context")
+        context_row = int(context_rows[0])
+        context_chain = str(atoms.chain_id[context_row])
+        hotspot = f"{context_chain}{int(atoms.res_id[context_row])}"
+        authored = {"input": str(path.resolve()), "design_chains": [{design: "protein"}],
+                    "hotspot": hotspot}
+        (directory / "resolved_config.yaml").write_text(json.dumps(
+            {"tasks": {"backend_smoke": authored}}, indent=2) + "\n")
     return load_input(path, row, directory)
 
 
@@ -257,14 +268,15 @@ def _execute(target: str, root: Path, directory: Path) -> str:
     elif target == "af2":
         from src.validate.af2 import AF2Backend
         backend = AF2Backend(code_root(), {"models": [1], "samples": 1, "recycles": 1, "mode": "both"})
-    elif target == "mol1":
+    elif target in {"mol1", "mol1-constraint"}:
         import copy
         from src.validate.config import DEFAULTS
         from src.validate.mol1 import Mol1Backend
-        settings = copy.deepcopy(DEFAULTS["mol1"])
+        group = "mol1_constraint" if target == "mol1-constraint" else "mol1"
+        settings = copy.deepcopy(DEFAULTS[group])
         settings.update(samples=1, recycles=1, steps=10)
         settings["msa"]["mode"] = "off"
-        backend = Mol1Backend(code_root(), settings, device="cuda:0")
+        backend = Mol1Backend(code_root(), settings, device="cuda:0", method=target)
     elif target == "boltz2":
         import copy
         from src.validate.config import DEFAULTS
@@ -299,9 +311,22 @@ def _execute(target: str, root: Path, directory: Path) -> str:
     if not predictions:
         raise ValueError("backend returned no predictions")
     for prediction in predictions:
+        if target == "mol1-constraint" and prediction.get("model") != target:
+            raise RuntimeError("Mol-1-constraint smoke executed another model variant")
         if prediction.get("status") != "complete":
             raise RuntimeError(f"backend prediction failed: {prediction.get('error')}")
         _structure(prediction["structure_path"])
+    if target == "mol1-constraint":
+        evidence = list((directory / "refolds").rglob("constraint_input.json"))
+        if len(evidence) != 1:
+            raise RuntimeError("Mol-1-constraint smoke lacks native SITE input evidence")
+        details = json.loads(evidence[0].read_text())
+        audit = details.get("site_audit", {})
+        if (details.get("model") != target or not audit.get("active")
+                or audit.get("requested_sites") != 1 or audit.get("projected_sites") != 1
+                or not details.get("site_token_indices") or not details.get("partner_token_indices")):
+            raise RuntimeError("Mol-1-constraint smoke did not project its SITE condition")
+        return f"real bounded Mol-1-constraint SITE-conditioned inference; {len(predictions)} structures independently read back"
     if target == "boltz2":
         return f"real bounded Boltz-2 structure-only inference (affinity disabled); {len(predictions)} structures independently read back"
     return f"real bounded {target} inference; {len(predictions)} structures independently read back"

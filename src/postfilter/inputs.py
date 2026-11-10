@@ -11,7 +11,7 @@ import stat
 from .schema import Candidate, Selection
 from .storage import read_json
 
-METHODS = ("af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1")
+METHODS = ("af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "mol1-constraint")
 _PEPTIDE = {"peptide", "cyclic-peptide", "cyclic_peptide"}
 
 

@@ -16,7 +16,7 @@ runtime implementation, and software changes outside this skill's scope.
 | Choose batch size, worker CPU/GPU reservations, device scope, iteration workload or screening throughput | [resources.md](references/resources.md); full PartiDesign generation also uses [measured batch guidance](references/partidesign-memory.md) |
 | Environment/assets, generation, Best-of-N, existing-structure scoring, OpenMM relaxation, clustering, outputs | [workflows.md](references/workflows.md) |
 | Select an example or author molecular inputs, identities, motifs, topology, antibody scaffolds and paratopes | [task-recipes.md](references/task-recipes.md) |
-| Choose validation methods including Mol-1 and optional Boltz-2, sequence sources, criteria, shared MSA policy, or reuse saved evaluation | [validation.md](references/validation.md) |
+| Choose validation methods including Mol-1/Mol-1-constraint and optional Boltz-2, sequence sources, criteria, shared MSA policy, or reuse saved evaluation | [validation.md](references/validation.md) |
 | Pre-search task context, choose ColabFold/local AF3 source, or explain cache locations | [validation.md](references/validation.md) |
 | Screen supplied protein, peptide, RNA, DNA or ligand candidates against a shared context | [screen.md](references/screen.md) |
 | Restart from a reference, optimize annotated existing complexes, or configure a pipeline and final filters | [partial-pipeline.md](references/partial-pipeline.md) |

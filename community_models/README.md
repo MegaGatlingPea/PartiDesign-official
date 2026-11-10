@@ -24,6 +24,13 @@ network. Validation and pipeline drivers prepare shared context MSA separately.
   offline, caches the process-local model/compiled function, and passes a
   circular relative-position offset (never a chemical-bond tensor) for
   task-local cyclic protein requests.
+- `mol1/`: bundled Mol-1 source at upstream
+  [`9e85ad16b3d7031dd92c34d99f895ee65547038b`](https://github.com/molence/Mol-1/tree/9e85ad16b3d7031dd92c34d99f895ee65547038b),
+  shared `source/` and `common/`, and separate `checkpoint/mol-1-base.pt` and
+  `checkpoint/mol-1-constraint.pt`. Use `partidesign download mol1` or
+  `partidesign download mol1-constraint`; official checkpoints and common data
+  download separately from bundled source. The constraint variant uses native
+  SITE guidance; standard Mol-1 remains available.
 - `pipetools/`: only the copied ESMFold2/MPNN compatibility modules required by
   the runtime. RF3, Protenix, orchestration, MSA-search, publication, and
   downloader modules are deliberately absent. Its shared runtime helper resolves one
@@ -56,8 +63,8 @@ systemic. They never silently fall back to another graph/sequence/reward backend
 CyclicMPNN child failure text includes only a sanitized bounded process-log tail so the
 earliest backend error remains diagnosable without leaking arbitrary stderr.
 
-The recommended unified Conda environment is `partidesign_env` (canonical
-A800 prefix `/home/jinzichang/miniforge3/envs/partidesign_env`; Python 3.12.6,
-PyTorch 2.9.1+cu128).  It is local build output outside this asset tree and
-must never enter Git; root `partidesign.yaml` is the only reproducible
-environment declaration.
+`bash install.sh` defaults to the uv/CUDA12 environment (`.venv` paired with a
+native Conda prefix); `--installer conda` selects the Conda route and `--cuda 13`
+selects CUDA13. Both Mol-1 variants use the same environment. Environments and
+weights are local assets; see the current [installation guide](../docs/environments.md)
+and [model downloads](../docs/download.md#mol-1-assets).

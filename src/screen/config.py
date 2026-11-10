@@ -7,7 +7,7 @@ import re
 from src.validate.af3_msa import validate_msa_settings
 from src.validate.msa_options import cli_settings
 
-METHODS = ("esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "boltz2")
+METHODS = ("esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "mol1-constraint", "boltz2")
 MODALITIES = ("protein", "peptide", "rna", "dna", "ligand")
 _TASK_FIELDS = {"methods", "samples", "contexts", "candidates", "ranking", "msa"}
 _CHAIN_FIELDS = {"type", "sequence", "pocket", "msa"}

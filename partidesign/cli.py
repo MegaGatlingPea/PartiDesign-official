@@ -690,9 +690,9 @@ def _validate_arguments(args, parser):
             args.msa_templates, args.msa_template_date,
         )
         if (any(value is not None for value in msa_values) or args.msa_refresh) and (
-            not args.model or not any(target in {"af3", "af3-la", "mol1", "boltz2"} for target in args.model)
+            not args.model or not any(target in {"af3", "af3-la", "mol1", "mol1-constraint", "boltz2"} for target in args.model)
         ):
-            parser.error("MSA options require check --model af3, --model af3-la, --model mol1, or --model boltz2")
+            parser.error("MSA options require check --model af3, --model af3-la, --model mol1, --model mol1-constraint, or --model boltz2")
     if args.command == "validate" and (args.refilter or args.recompute_metrics) and (args.rerun or args.score):
         mode = "--refilter" if args.refilter else "--recompute-metrics"
         parser.error(f"{mode} cannot be combined with --rerun or --score")

@@ -75,15 +75,15 @@ command. It generates once, then refines sequences and structures through MPNN,
 refolding, selection, and partial diffusion. Polymer presets default to ESMFold2-fast
 with relaxed pipeline screening during iteration; OpenMM is optional.
 
-By default, final validation for `protein`, `nuc`, and `antibody`, including
-profiles selected by `auto`, uses only ESMFold2-standard with five samples per
-selected candidate.
+By default, final validation for `protein` and `nuc`, including profiles selected
+by `auto`, uses ESMFold2-standard with five samples per selected candidate.
 Standard uses shared fixed protein-context MSA without templates; designed chains
 remain query-only. Without fixed protein context, standard also stays query-only.
 
-Native antibody tasks automatically choose the `antibody` preset. Its five
-standard predictions are ranked by 0.8 ipTM + 0.2 pTM before final criteria and
-mandatory antigen-contact checks. See [antibody pipelines](pipeline.md#antibody-pipelines)
+Native antibody tasks automatically choose the `antibody` preset: fast iteration
+and five Mol-1-constraint final samples, ranked by native `ranking_score` before
+final criteria and mandatory antigen-contact checks. Fixed-antigen MSA is used
+without templates; `antigen.hotspot` supplies epitope guidance. See [antibody pipelines](pipeline.md#antibody-pipelines)
 for de novo and annotated-complex commands.
 
 The explicit `ppi` preset uses only AF2-IG models `[1, 2]`, with `samples: 1` and

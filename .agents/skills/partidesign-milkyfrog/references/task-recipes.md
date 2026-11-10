@@ -162,6 +162,11 @@ framework `35/37/45/47/50/59/97-99/115-116` and paratope
 `{VHH: {cdrs: [CDR1, CDR2, CDR3], framework: '26/34/51/58-59/95-96/115-116'}}`.
 Both selectors refer to source label_seq_id, not final shifted loop positions.
 
+`antigen.hotspot` selects the antigen epitope. With `mol1-constraint`, it becomes
+native SITE guidance toward the union of designed chains. Keep exact retained
+source residue mapping; do not turn `antibody.paratope` into forced contacts.
+See [constraint guidance](validation.md#mol-1-constraint-and-epitope-guidance).
+
 Framework templates are soft geometry guidance. Existing antibody complexes can
 start partial through native task.partial or annotated pipeline input. Preserve
 the actual scaffold/role/FR-CDR layout and use partial.cdr_lengths when actual

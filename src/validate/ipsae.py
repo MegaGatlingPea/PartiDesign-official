@@ -11,7 +11,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike
 
-IPSAE_METHODS = frozenset({"esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "boltz2"})
+IPSAE_METHODS = frozenset({"esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "mol1-constraint", "boltz2"})
 IPSAE_METRIC_NAMES = (
     "ipsae", "ipsae_design_to_context", "ipsae_context_to_design",
     "ipsae_pae_cutoff", "ipsae_pairs",

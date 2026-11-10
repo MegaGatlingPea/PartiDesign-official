@@ -19,6 +19,7 @@ REFOLD_METHODS = {
     "af3": RefoldMethod("af3", "af3", True, "omit_polymer_polymer", 0.5),
     "af3-la": RefoldMethod("af3", "af3", True, "omit_polymer_polymer", 0.5),
     "mol1": RefoldMethod("mol1", "mol1", True, "native_mol1", 1.0),
+    "mol1-constraint": RefoldMethod("mol1_constraint", "mol1", True, "native_mol1", 1.0),
     "boltz2": RefoldMethod("boltz2", "boltz2", True, "native_boltz2", 1.0),
 }
 

@@ -289,8 +289,9 @@ def main(argv=None):
                 "search_started": False,
             }
         result = {"plans": plans, "af3_msa": msa_view("af3")}
-        if "mol1" in cfg["methods"]:
-            result["mol1_msa"] = msa_view("mol1")
+        for method, group in (("mol1", "mol1"), ("mol1-constraint", "mol1_constraint")):
+            if method in cfg["methods"]:
+                result[group + "_msa"] = msa_view(group)
         if "boltz2" in cfg["methods"]:
             result["boltz2_msa"] = msa_view("boltz2")
         print(json.dumps(result, indent=2))

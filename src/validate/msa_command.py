@@ -170,7 +170,7 @@ def run(args, repo_root):
                        unpaired_msa=reference['unpaired_msa_path'],
                        template_count=len(reference.get('templates', [])))
         view.append(row)
-    print(yaml.safe_dump({'cache_policy': 'shared by ESMFold2-standard, AF3, AF3-LA and Mol-1', 'queries': view,
+    print(yaml.safe_dump({'cache_policy': 'shared by ESMFold2-standard, AF3, AF3-LA, Mol-1, Mol-1-constraint and Boltz2', 'queries': view,
                           'unique_queries': len(results), 'actual_search_count': searches, 'search_started': searches > 0},
                          sort_keys=False), end='')
     return 0

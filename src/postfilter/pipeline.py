@@ -86,7 +86,7 @@ def _model(key):
 
 def _ranked(record, key, *, per_model=False):
     method = record.get("method")
-    if method not in {"af2_ig", "af3", "mol1", "esmfold2-standard"}:
+    if method not in {"af2_ig", "af3", "mol1", "mol1-constraint", "esmfold2-standard"}:
         _reject("unsupported_method", f"Unsupported final pipeline method: {method}")
     predictions = record.get("predictions")
     expected = record.get("expected_predictions")
@@ -201,7 +201,7 @@ def _select_union(root, selection, state, counts, context):
     methods = {row.get("method") for row in publications
                if row.get("method_passed", "").lower() == "true"}
     for method in sorted(methods):
-        if method not in {"af2_ig", "af3", "mol1", "esmfold2-standard"}:
+        if method not in {"af2_ig", "af3", "mol1", "mol1-constraint", "esmfold2-standard"}:
             _reject("unsupported_method", f"Unsupported union final method: {method}")
         for path in sorted((root / "predictions" / method).glob("proposal*.json")):
             if not re.fullmatch(r"proposal\d+\.json", path.name):

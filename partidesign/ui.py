@@ -461,7 +461,7 @@ def _asset_table(records, root, *, listing=False, width=None):
 _MODEL_GROUPS = (
     ("PartiDesign models", {"partidesign", "partiscore"}),
     ("Sequence design", {"proteinmpnn", "solublempnn", "ligandmpnn", "cyclicmpnn", "nampnn"}),
-    ("Structure prediction", {"esmfold2-fast", "esmfold2-standard", "af2", "mol1", "af3", "af3-la", "boltz2"}),
+    ("Structure prediction", {"esmfold2-fast", "esmfold2-standard", "af2", "mol1", "mol1-constraint", "af3", "af3-la", "boltz2"}),
 )
 
 

@@ -29,7 +29,7 @@ partidesign pipeline configs/examples/pipeline_tasks.yaml --task protdbench_insu
 ```
 
 This route keeps fast iteration and uses only standard for final validation,
-with shared fixed protein-context MSA and no templates. AF3 and Mol-1 run only
+with shared fixed protein-context MSA and no templates. AF3 and standard Mol-1 run only
 when explicitly selected. PPI requires a fixed protein partner for AF2-IG.
 For monomers or tasks without fixed protein context, use `auto` or the ordinary
 modality preset; standard remains the final model with query-only input.
@@ -157,7 +157,7 @@ permissions and soft template geometry keep their native meanings.
 
 [optimize.yaml](../configs/pipeline/optimize.yaml) inherits the selected preset's
 native validation profiles and final methods. Auto selects ESMFold2-standard
-for protein, nucleic-acid and native antibody tasks. The command above selects
+for protein/nucleic-acid tasks and Mol-1-constraint for native antibody tasks. The command above selects
 `ppi`, whose only final backend is paired AF2-IG. It does not define a separate
 catalog of optimization thresholds.
 
@@ -203,14 +203,36 @@ partial fraction 0.625, four replicas, parent retention and `relax: false`.
 Antibody tasks default to ProteinMPNN with sampling temperature 0.1 and no
 backbone noise, including with an explicit alternative profile. Explicit
 sequence-source and MPNN settings override these defaults.
-Final validation runs only ESMFold2-standard, with five samples of each selected
-candidate’s current sequence and no further MPNN redesign. It selects the best
-prediction by 0.8 ipTM + 0.2 pTM before filtering; a lower-ranked passing
-prediction does not replace a failing winner. Prepare generation, MPNN,
-ESMFold2-fast and ESMFold2-standard assets before execution.
-Standard final validation uses shared fixed antigen protein MSA without
-templates. Fast iteration stays query-only; designed VHH/VH/VL chains are not
+Final validation runs only Mol-1-constraint, with five samples of each selected
+candidate’s current sequence and no further MPNN redesign. It selects the highest
+native `ranking_score` prediction before filtering; a lower-ranked passing
+prediction does not replace a failing winner. Prepare generation, ProteinMPNN,
+ESMFold2-fast and `mol1-constraint` assets before execution.
+Constraint final uses shared fixed antigen protein MSA with templates off by
+default. Fast iteration stays query-only; designed VHH/VH/VL chains are not
 automatically searched.
+
+`antigen.hotspot` supplies native SITE epitope guidance toward the union of
+designed antibody chains, including VH+VL; `antibody.paratope` remains the
+independent contact-evaluation region. No hotspot means no SITE guidance.
+Invalid or ambiguous declared sites fail instead of being dropped. SITE is soft
+guidance and does not replace antigen-contact criteria. The same mapping applies
+to explicit protein-context hotspots for every task using this method; see
+[Mol-1-constraint](validate.md#mol-1-constraint-predictor-settings).
+
+To override the constraint final without changing iteration:
+
+```yaml
+final:
+  method: mol1-constraint
+  validation:
+    mol1_constraint:
+      samples: 5
+      msa: {templates: false}
+```
+
+Use the shared `--msa` / `--msa-source` controls and explicitly enable templates
+with `--msa-templates true` if required. Standard `mol1` remains selectable.
 
 De novo antibody tasks can list compatible scaffolds. Each initial sample
 makes one seeded draw and uses that source's own lengths and permissions.
@@ -408,7 +430,7 @@ change this cap, or `final.pool.source: last` to use last-round survivors.
 | Profile | Final prediction and acceptance |
 | --- | --- |
 | `protein`, `nuc` | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by `0.8 * ipTM + 0.2 * pTM`, then apply final criteria. |
-| `antibody` | ESMFold2-standard only, five GT-only samples per selected candidate; select the best by 0.8 ipTM + 0.2 pTM before final criteria. |
+| `antibody` | Mol-1-constraint only, five samples of the selected sequence; select the highest native `ranking_score` before final criteria and antigen-contact checks. |
 | `ppi` | AF2-IG only. Models `[1, 2]` each use one matched complex/monomer pair. AF2 selects each model's best complex by `0.8 * ipTM + 0.2 * pTM` with its same-sample monomer, and both model pairs must pass its internal filter. |
 | `ligand` | Boltz-2 only, one structure sample per candidate, native `confidence_score` selection and native affinity. No quality thresholds are added by the preset. |
 
@@ -425,7 +447,7 @@ does not add prediction diversity. One matched pair per model avoids redundant
 repeats.
 Use `final.method` to override the preset with a single method, or
 `final.methods` to choose a method list. Both iteration and final accept all
-seven registered refold backends, subject to native chemistry capabilities:
+eight registered refold backends, subject to native chemistry capabilities:
 
 | Method | Native settings section | Context MSA/templates |
 | --- | --- | --- |
@@ -435,6 +457,7 @@ seven registered refold backends, subject to native chemistry capabilities:
 | `af3` | `af3` | Shared context cache |
 | `af3-la` | `af3` | Shared context cache |
 | `mol1` | `mol1` | Shared context cache |
+| `mol1-constraint` | `mol1_constraint` | Shared context cache; explicit protein-context hotspots become SITE |
 | `boltz2` | `boltz2` | Shared fixed protein-context MSA and templates |
 
 ```yaml
@@ -498,8 +521,8 @@ finite and between 0 and 1; `msa_subsample_at_inference` is boolean. An
 shared YAML settings. Common `--msa` and `--msa-source` options apply to both
 stages; `--msa off` restores the query-only path.
 
-ESMFold2-standard is the only default final backend for protein, nuc and
-antibody profiles. PPI uses only AF2-IG. Explicit multi-method finals remain
+ESMFold2-standard is the default final backend for protein and nuc profiles;
+antibody uses Mol-1-constraint. PPI uses only AF2-IG. Explicit multi-method finals remain
 available, with each executed method publishing its own best complex for
 accepted candidates. Default polymer presets use ESMFold2-fast iteration;
 the ligand preset uses Boltz-2.
@@ -568,7 +591,7 @@ not mean that all its published structures passed.
 ## Shared MSA and templates
 
 Before GPU work starts, the workflow prepares fixed-context MSA for
-ESMFold2-standard and MSA/templates for AF3/AF3-LA/Mol-1/Boltz-2. Protein searches
+ESMFold2-standard and MSA/templates for AF3/AF3-LA, both Mol-1 variants and Boltz-2. Protein searches
 default to ColabFold. ESMFold2-standard consumes only protein MSA, with templates
 disabled; Fast stays query-only. Designed GT and MPNN sequences, including
 VHH/VH/VL chains, are never automatically searched. `--msa off` disables both
@@ -882,12 +905,14 @@ tasks:
 The workflow's `tasks` mapping contains only workflow overrides. Keep molecular
 fields in the native task YAML, without duplicating them here.
 
-`final` accepts `method` or `methods`, native `af2`/`esmfold2`/`af3`/`mol1` settings,
+`final` accepts `method` or `methods`, native `af2`/`esmfold2`/`af3`/`mol1`/
+`mol1_constraint`/`boltz2` settings,
 `max_pass`, `criteria` and the native final-selection controls. For example,
 `final: {method: af3, af3: {samples: 3}, max_pass: 8}` changes final prediction
 sampling without changing iteration refolding. Mol-1 uses the same syntax:
-`final: {method: mol1, mol1: {samples: 5}, max_pass: 8}`. Mol-1 shares the
-AF3 context MSA/template cache; designed chains remain query-only. Native predictor settings are
+`final: {method: mol1, mol1: {samples: 5}, max_pass: 8}`. Both Mol-1 variants share
+the AF3 context MSA/template cache. `mol1-constraint` settings belong under
+`mol1_constraint`. Designed chains remain query-only. Native predictor settings are
 listed in the [validation guide](validate.md).
 
 Set ipSAE's PAE cutoff through the existing validation overrides, independently
@@ -1093,8 +1118,8 @@ partidesign pipeline inference/my_run/tasks.yaml \
 To resume, repeat the same command with `--resume`. Effective task and workflow
 settings must match; changed settings need a new run. Retained prediction
 evidence is reused for equivalent requests, while parent-relative metrics are recomputed.
-Existing runs retain their legacy layout and saved checking policy on resume;
-the first/final motif policy applies to new runs.
+Existing runs retain their saved methods, layout and checking policy on resume;
+the first/final motif policy and antibody Mol-1-constraint default apply to fresh runs.
 
 To start from saved generation, add `--from-run PATH` with the same native tasks;
 upstream structures remain unchanged. Use a new run name for the pipeline's

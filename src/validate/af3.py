@@ -69,7 +69,7 @@ def validate_af3_prediction(
     raise AF3ValidationError("AF3 prediction must be a mapping")
   result = dict(prediction)
   model = str(result.get("model", ""))
-  if model not in {"af3", "af3-la", "mol1", "boltz2"}:
+  if model not in {"af3", "af3-la", "mol1", "mol1-constraint", "boltz2"}:
     raise AF3ValidationError(f"unsupported AF3 model label {model!r}")
   protocol = str(result.get("protocol", ""))
   if protocol not in {"complex", "monomer"}:

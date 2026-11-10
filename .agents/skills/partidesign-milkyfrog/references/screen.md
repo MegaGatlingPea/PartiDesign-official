@@ -13,7 +13,8 @@ connected ligand SMILES in `seq`. Paths resolve from the invocation directory.
 Do not invent `target1` groups, `design_chains`, source structures or RMSD targets.
 VHH/scFv can use a single protein sequence; paired VH/VL rows are not supported.
 
-`methods` accepts esmfold2-fast, esmfold2-standard, af3, af3-la, mol1 and boltz2;
+`methods` accepts esmfold2-fast, esmfold2-standard, af3, af3-la, mol1,
+mol1-constraint and boltz2;
 AF2-IG is excluded. `samples` defaults to 1. Each model first chooses its sample
 using native confidence, then ranks candidates within each modality. Polymer
 ranking defaults to symmetric `design_ipsae`. Ligand Boltz ranking uses native
@@ -29,8 +30,11 @@ protein-context MSA without templates. `--msa cache-only` cannot search.
 Do not import local A3M/template files through this first-version schema.
 
 A polymer context may specify `pocket: [25, 48]`, using 1-based positions in its
-supplied sequence. Boltz applies native 6 Å, force=false conditioning. Other
-methods run with an explicit unapplied status; no pocket postfilter is added.
+supplied sequence. Boltz applies native 6 Å, force=false conditioning.
+Mol-1-constraint maps protein-context pockets to native SITE toward the candidate;
+nonprotein declared pockets fail, and no pocket means no SITE conditioning.
+Other methods, including standard Mol-1, report unapplied pockets. SITE is soft
+guidance, with no contact guarantee; no pocket postfilter is added.
 Ligand context SMILES character positions are not residue/atom indices.
 
 `--worker-cpus` and `--worker-gpus` are global CLI reservations per resident

@@ -232,7 +232,7 @@ def _context_matches(record: Mapping[str, Any], context: Mapping[str, Any]) -> b
     for key, value in context.items():
         if key == "msa_context" and context.get("method") == "esmfold2-standard":
             continue
-        if key == "msa_context" and context.get("method") in {"af3", "af3-la", "mol1", "boltz2"}:
+        if key == "msa_context" and context.get("method") in {"af3", "af3-la", "mol1", "mol1-constraint", "boltz2"}:
             if _msa_context_identity(record.get(key)) != _msa_context_identity(value):
                 return False
             continue
@@ -276,7 +276,7 @@ def _prediction_metadata_valid(
                 prediction[field], sequence[field]
             ):
                 return False
-    if method in {"af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "boltz2", "partiscore", "vina_dock"}:
+    if method in {"af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "mol1-constraint", "boltz2", "partiscore", "vina_dock"}:
         # Import lazily so storage remains usable by the planning/reporting
         # utilities without creating an import cycle at module load time.
         from .planning import prediction_metadata_valid
@@ -454,9 +454,9 @@ def prediction_valid(
     except OSError:
         return False
     af3_method = method
-    if af3_method is None and prediction.get("model") in {"af3", "af3-la", "mol1", "boltz2"}:
+    if af3_method is None and prediction.get("model") in {"af3", "af3-la", "mol1", "mol1-constraint", "boltz2"}:
         af3_method = str(prediction["model"])
-    if af3_method in {"af3", "af3-la", "mol1", "boltz2"}:
+    if af3_method in {"af3", "af3-la", "mol1", "mol1-constraint", "boltz2"}:
         confidence_root = root
         if confidence_root is None:
             # AF3 native artifacts are emitted beside the owned structure.  A
@@ -498,7 +498,7 @@ def record_complete(
     )
 
 
-_OWNED_PREDICTION_METHODS = {"af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "boltz2"}
+_OWNED_PREDICTION_METHODS = {"af2_ig", "esmfold2-fast", "esmfold2-standard", "af3", "af3-la", "mol1", "mol1-constraint", "boltz2"}
 
 
 def _retained_pairs(record: Mapping[str, Any], predictions: Mapping[str, dict]) -> tuple[dict, dict]:

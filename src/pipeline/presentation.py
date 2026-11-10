@@ -98,6 +98,7 @@ def public_config(cfg):
             final_view.pop("af2", None)
             final_view.pop("af3", None)
             final_view.pop("mol1", None)
+            final_view.pop("mol1_constraint", None)
             final_view.pop("esmfold2", None)
             final_view.pop("boltz2", None)
             final_view["methods"] = final["methods"]

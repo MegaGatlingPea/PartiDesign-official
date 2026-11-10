@@ -58,6 +58,7 @@ partidesign check --model partidesign --model partiscore
 partidesign check --model esmfold2-fast --load
 partidesign check --model af3 --msa off
 partidesign check --model mol1 --msa off
+partidesign check --model mol1-constraint --msa off
 partidesign check --model boltz2 --msa off
 ```
 
@@ -67,7 +68,8 @@ check a different model root, add `--model-dir PATH`; see
 
 Task-file checking cannot be combined with `--model` or `--all`. Task-specific
 options such as `--task` and `--ckpt` require a task file. Context MSA options require
-an explicit `--model af3`, `--model af3-la`, `--model mol1`, or `--model boltz2`.
+an explicit `--model af3`, `--model af3-la`, `--model mol1`,
+`--model mol1-constraint`, or `--model boltz2`.
 
 ColabFold protein searches include templates and use the bundled HHsearch
 binary package; local AF3 database paths are needed only for `--msa-source af3`.
@@ -99,6 +101,10 @@ partidesign check --model partiscore --smoke --out checks/partiscore
 `--out` is accepted only with `--smoke`. Use an output location suitable for the
 requested check. Native-generation smoke checks require the generation bundle.
 
+For `--model mol1-constraint`, `--load` selects the constraint checkpoint and
+`--smoke` also runs a hotspot-conditioned prediction. Standard `mol1` remains
+an independent target; the two share common resources.
+
 ## Key options and output
 
 | Option | Meaning |
@@ -113,7 +119,7 @@ requested check. Native-generation smoke checks require the generation bundle.
 | `--route`, `--route-ckpt` | Use the intended model-routing settings; see [routing](design.md#routing-and-task-selection). |
 | `--execution-backend auto\|native\|bioir` | Request an execution backend for a task check; default `auto`. |
 | `--load`, `--smoke` | Opt into CPU loading or real execution as described above. |
-| `--msa off` | Check explicit AF3/AF3-LA/Mol-1 resources without search tools or databases. |
+| `--msa off` | Check AF3/AF3-LA, either Mol-1 variant or Boltz-2 without search tools or databases. |
 | `--msa-source colabfold\|af3` | Check resources for the selected search source; default ColabFold for protein context. |
 
 Detailed task/model checks show `PASS`, `FAIL`, `SKIP`, and `NOT_RUN` entries.

@@ -39,6 +39,11 @@ mol1:
   recycles: 20
   steps: 200
   seed: 101
+mol1_constraint:
+  samples: 1
+  recycles: 20
+  steps: 200
+  seed: 101
 scorer:
   enabled: false
   original: true

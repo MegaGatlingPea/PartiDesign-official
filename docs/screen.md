@@ -48,7 +48,7 @@ holding either letters or a ligand SMILES. Context chain IDs are independent
 of candidate IDs. Invalid candidate rows retain a reported reason.
 
 Choose any supported cofold method: `esmfold2-fast`, `esmfold2-standard`, `af3`,
-`af3-la`, `mol1` or `boltz2`. Native method capabilities still apply to the
+`af3-la`, `mol1`, `mol1-constraint` or `boltz2`. Native method capabilities still apply to the
 requested chemistry. AF2-IG requires a structure initial guess and is not a
 sequence-only screening method.
 
@@ -69,7 +69,7 @@ candidate ranking:
 | Method                 | Representative score        |
 | ---------------------- | --------------------------- |
 | ESMFold2 fast/standard | `0.8 * ipTM + 0.2 * pTM`  |
-| AF3, AF3-LA, Mol-1     | Native `ranking_score`    |
+| AF3, AF3-LA, both Mol-1 variants | Native `ranking_score` |
 | Boltz-2                | Native `confidence_score` |
 
 Candidate rankings are separate for each method and modality. Defaults are
@@ -105,17 +105,21 @@ validation. Search results use the same context cache. Designed candidates
 remain query-only.
 
 Fast uses no MSA or templates. Standard consumes fixed protein-context MSA
-without templates. AF3/AF3-LA/Mol-1/Boltz-2 can consume shared protein templates;
+without templates. AF3/AF3-LA, both Mol-1 variants and Boltz-2 can consume shared protein templates;
 the default maximum template date is 2021-09-30. Boltz-2 searches protein context
 only. With the AF3 search source, AF3/AF3-LA/Mol-1 can also search fixed RNA
 context. DNA remains query-only and ligands are not MSA queries. `--msa off`
 disables both MSA and templates. See [MSA and templates](msa.md).
 
 `pocket` lists **1-based residue positions in the supplied context sequence**.
-Boltz-2 passes supported pockets to its native conditioning. Other methods
-explicitly report the requested pocket as unapplied; `--plan` shows
-`pocket_will_apply: false` for them. Pocket annotations do not add a proximity
-postfilter or a new candidate acceptance cutoff.
+Boltz-2 passes supported pockets to its native conditioning. With
+`methods: [mol1-constraint]`, protein-context pockets become native SITE guidance
+toward the candidate chain. A nonprotein pocket for this method is rejected;
+no pocket means no SITE conditioning. Standard `mol1` and other methods report
+pockets as unapplied (`pocket_will_apply: false` in `--plan`). SITE is soft
+guidance, not a guaranteed contact. Pocket annotations do not add a proximity
+postfilter or a new candidate acceptance cutoff. See
+[Mol-1-constraint](validate.md#mol-1-constraint-predictor-settings).
 
 ## Resources, outputs and resume
 

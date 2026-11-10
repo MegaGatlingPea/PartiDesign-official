@@ -16,6 +16,7 @@ from src.design.rewards.af3_input import build_af3_input, msa_queries, attach_ms
 from src.design.rewards.af3_backend import _variant_with_ligand_smiles, _protocols
 
 ADAPTER_REVISION = "native_covalent_v2"
+CONSTRAINT_ADAPTER_REVISION = "native_site_v1"
 
 
 def _conditioning_input(input_record):
@@ -112,22 +113,31 @@ def _fixed_inventory_ccd(input_record, repo_root):
     return result
 
 
-def prepare_mol1_inputs(input_record, variant, config, repo_root, *, cache=None):
+def prepare_mol1_inputs(input_record, variant, config, repo_root, *, cache=None,
+                        method="mol1", site_cache=None):
     """Prepare chemistry and context searches without loading a prediction model."""
+    if method not in {"mol1", "mol1-constraint"}:
+        raise ValueError(f"Unsupported Mol-1 method: {method!r}")
+    if method == "mol1-constraint" and config.get("mode", "complex") != "complex":
+        raise ValueError("Mol-1-constraint supports complex prediction only")
     variant = _variant_with_ligand_smiles(input_record, variant)
     conditioned, added = _conditioning_input(input_record)
     fixed_ccd = _fixed_inventory_ccd(conditioned, repo_root)
     payloads = {protocol: build_af3_input(
         conditioned, variant, seed=config["seed"], protocol=protocol, ccd=fixed_ccd,
     ).payload() for protocol in _protocols(config)}
-    for payload in payloads.values():
+    for protocol, payload in payloads.items():
         if added:
             payload["mol1_covalent_bonds"] = mol1_covalent_bonds(payload)
             payload["source_inter_residue_bonds"] = [
                 edge for edge in payload["source_inter_residue_bonds"]
                 if tuple(sorted((int(edge[0]), int(edge[1])))) not in added]
         if payload["name"].startswith("af3"):
-            payload["name"] = "mol1" + payload["name"][3:]
+            payload["name"] = method + payload["name"][3:]
+        if method == "mol1-constraint":
+            from .mol1_sites import bind_mol1_source_site
+            payloads[protocol] = bind_mol1_source_site(
+                input_record, payload, repo_root=repo_root, cache=site_cache)
     from .af3_msa import AF3MSACache
     settings = config["msa"]
     queries = {(q["modality"], q["sequence"]) for payload in payloads.values()
@@ -198,8 +208,11 @@ def mol1_job(payload, directory):
             if not chain.get("smiles"):
                 entity["ccdCodes"] = list(chain["ccd_ids"])
         sequences.append({key: entity})
-    return {"name": payload["name"], "sequences": sequences,
-            "covalent_bonds": mol1_covalent_bonds(payload), "preserve_modified_residues": True}
+    job = {"name": payload["name"], "sequences": sequences,
+           "covalent_bonds": mol1_covalent_bonds(payload), "preserve_modified_residues": True}
+    if "mol1_site" in payload:
+        job["constraints"] = {"site": copy.deepcopy(payload["mol1_site"])}
+    return job
 
 
 def mol1_covalent_bonds(payload):
@@ -303,11 +316,55 @@ class _Mol1CCD:
                 for category, fields in block.items() for column, values in fields.items()}
 
 
+def _native_config(settings, root, directory, device, *, method="mol1"):
+    """Resolve native model defaults, then apply the caller's explicit budget."""
+    from mol.config.base import configs as base
+    from mol.config.data import data_configs
+    from mol.config.inference import inference_configs
+    from mol.config.model_type import model_configs
+    from mol.config.parser import parse_configs
+    from ml_collections import ConfigDict
+
+    if method == "mol1-constraint":
+        from mol.constraint.config import load_inference_config
+        cfg = load_inference_config(None, [
+            "--model.N_cycle", str(settings["recycles"]),
+            "--sample_diffusion.N_step", str(settings["steps"]),
+            "--sample_diffusion.N_sample", str(settings["samples"]),
+            "--dtype", settings["dtype"],
+        ])
+        checkpoint = "mol-1-constraint.pt"
+    elif method == "mol1":
+        cfg = parse_configs({**base, "data": data_configs, **inference_configs},
+                            fill_required_with_null=True)
+        cfg.update(ConfigDict(model_configs["mol-1-base"]))
+        checkpoint = "mol-1-base.pt"
+    else:
+        raise ValueError(f"Unsupported Mol-1 method: {method!r}")
+    cfg.device = str(device)
+    cfg.dump_dir = str(directory)
+    cfg.load_checkpoint_path = str(Path(settings.get("checkpoint") or root / "checkpoint" / checkpoint).resolve())
+    cfg.model.N_cycle = settings["recycles"]
+    cfg.sample_diffusion.N_step = settings["steps"]
+    cfg.sample_diffusion.N_sample = settings["samples"]
+    cfg.dtype = settings["dtype"]
+    cfg.triangle_multiplicative = settings["triangle_multiplicative"]
+    cfg.triangle_attention = settings["triangle_attention"]
+    cfg.need_atom_confidence = True
+    return cfg
+
+
 class Mol1Backend:
-    """One native model per validation worker, on either CUDA runtime."""
-    def __init__(self, repo_root, config, device=None):
+    """One native base or constraint model per resident validation worker."""
+    def __init__(self, repo_root, config, device=None, *, method="mol1"):
+        if method not in {"mol1", "mol1-constraint"}:
+            raise ValueError(f"Unsupported Mol-1 method: {method!r}")
+        if method == "mol1-constraint" and config.get("mode", "complex") != "complex":
+            raise ValueError("Mol-1-constraint supports complex prediction only")
         self.repo = Path(repo_root)
         self.config = config
+        self.method = method
+        self.site_cache = None
         self.device = device or "cuda:0"
         self.runner = self.cache = None
         self.log_dir = None
@@ -325,30 +382,17 @@ class Mol1Backend:
         source = str(community_source("mol1", self.repo))
         if source not in sys.path:
             sys.path.insert(0, source)
-        from mol.config.base import configs as base
-        from mol.config.data import data_configs
-        from mol.config.inference import inference_configs
-        from mol.config.model_type import model_configs
-        from mol.config.parser import parse_configs
         from mol.runner.inference import InferenceRunner
         from mol.data.inference.infer_dataloader import InferenceDataset
         from mol.data.template.template_utils import TemplateHitFeaturizer
-        from ml_collections import ConfigDict
-        cfg = parse_configs({**base, "data": data_configs, **inference_configs}, fill_required_with_null=True)
-        cfg.update(ConfigDict(model_configs["mol-1-base"]))
-        cfg.device = str(self.device)
-        cfg.dump_dir = str(directory)
-        cfg.load_checkpoint_path = str(Path(self.config.get("checkpoint") or root / "checkpoint/mol-1-base.pt").resolve())
-        cfg.model.N_cycle = self.config["recycles"]
-        cfg.sample_diffusion.N_step = self.config["steps"]
-        cfg.sample_diffusion.N_sample = self.config["samples"]
-        cfg.dtype = self.config["dtype"]
-        cfg.triangle_multiplicative = self.config["triangle_multiplicative"]
-        cfg.triangle_attention = self.config["triangle_attention"]
-        cfg.need_atom_confidence = True
+        runner_class = InferenceRunner
+        if self.method == "mol1-constraint":
+            from mol.constraint.inference import ConstraintInferenceRunner
+            runner_class = ConstraintInferenceRunner
+        cfg = _native_config(self.config, root, directory, self.device, method=self.method)
         import torch
         with torch.device(self.device):
-            self.runner = InferenceRunner(cfg)
+            self.runner = runner_class(cfg)
         self.dataset = object.__new__(InferenceDataset)
         self.dataset.use_msa = True
         self.dataset.msa_pair_as_unpair = True
@@ -364,7 +408,14 @@ class Mol1Backend:
         output.mkdir(parents=True, exist_ok=True)
         if prepared_inputs is None:
             self.cache = self.cache or AF3MSACache(self.repo, self.config["msa"])
-            prepared_inputs = prepare_mol1_inputs(input_record, variant, self.config, self.repo, cache=self.cache)
+            if self.method == "mol1-constraint" and self.site_cache is None:
+                from .pocket import SourcePocketCache
+                self.site_cache = SourcePocketCache()
+            options = {"cache": self.cache}
+            if self.method == "mol1-constraint":
+                options.update(method=self.method, site_cache=self.site_cache)
+            prepared_inputs = prepare_mol1_inputs(
+                input_record, variant, self.config, self.repo, **options)
         wanted = [(protocol, payload) for protocol, payload in prepared_inputs.items()
                   if any(f"{protocol}_sample{i}" not in completed_keys for i in range(self.config["samples"]))]
         if not wanted:
@@ -377,6 +428,11 @@ class Mol1Backend:
             folder.mkdir(parents=True, exist_ok=True)
             seed_everything(self.config["seed"], deterministic=False)
             job = mol1_job(payload, folder)
+            condition = None
+            if self.method == "mol1-constraint":
+                from mol.constraint.inputs import prepare_inputs
+                jobs, conditions = prepare_inputs([job], config=self.runner.configs)
+                job, condition = jobs[0], conditions[0]
             _register_user_ccd(payload.get("user_ccd"))
             try:
                 data, atoms, _ = self.dataset.process_one(job)
@@ -387,6 +443,8 @@ class Mol1Backend:
                         path = chain.get("templatesPath")
                         if path is not None:
                             _JSON_FILE_CACHE.pop(str(Path(path)), None)
+            if condition is not None:
+                self._apply_constraints(data, atoms, condition, payload, folder)
             predicted = self.runner.predict(data)
             for sample, (summary, full) in enumerate(zip(predicted["summary_confidence"], predicted["full_data"], strict=True)):
                 if f"{protocol}_sample{sample}" in completed_keys:
@@ -394,13 +452,37 @@ class Mol1Backend:
                 yield self._prediction(predicted["coordinate"][sample], summary, full, atoms, data,
                                        payload, protocol, sample, folder)
 
+    def _apply_constraints(self, data, atoms, condition, payload, folder):
+        """Use official feature compilers once and retain their small input audit."""
+        from mol.constraint import features as native_features, runtime
+        config = self.runner.configs
+        site = condition["site"]
+        features, audit = native_features.project_sites(
+            data["input_feature_dict"], atoms, site, site["residue_ids"] if site else [])
+        if config.constraint_exclusion_enable:
+            exclusion = condition["exclusion"]
+            features, _ = native_features.exclusion_project(
+                features, atoms, exclusion, exclusion["residue_ids"] if exclusion else [])
+        if config.constraint_contact_enable:
+            features, _ = native_features.contact_project(features, atoms, condition["contact"] or [])
+        runtime.require_finite(features, "constraint_input")
+        data["input_feature_dict"] = features
+        evidence = {
+            "model": self.method, "site": copy.deepcopy(payload.get("mol1_site")),
+            "site_audit": audit,
+            "site_token_indices": features["site_residue_mask"].nonzero().flatten().tolist(),
+            "partner_token_indices": features["site_partner_token_mask"].nonzero().flatten().tolist(),
+            "source_evidence": copy.deepcopy(payload.get("mol1_site_evidence")),
+        }
+        (Path(folder) / "constraint_input.json").write_text(json.dumps(evidence, indent=2) + "\n")
+
     def predict_sequences(self, request, output, *, completed_keys=()):
         from .sequence_inputs import prepare_sequence_payload
         if not hasattr(self, "_sequence_msa_cache"):
             self._sequence_msa_cache = {}
         if all(f"complex_sample{i}" in completed_keys for i in range(self.config["samples"])):
             return
-        payload = prepare_sequence_payload(request, self.repo, "mol1", self.config,
+        payload = prepare_sequence_payload(request, self.repo, self.method, self.config,
                                            cache=self._sequence_msa_cache)
         yield from self.predict(None, None, output, completed_keys=completed_keys,
                                 prepared_inputs={"complex": payload})
@@ -437,7 +519,7 @@ class Mol1Backend:
                                                numerical_data={"full_pae": plain(full["token_pair_pae"]),
                                                                "full_pde": plain(full["token_pair_pde"])})
             result = native_sequence_prediction(
-                inference_result, payload=payload, model="mol1", sample=sample, directory=folder,
+                inference_result, payload=payload, model=self.method, sample=sample, directory=folder,
                 atom_to_token=atom_to_token, native_frame_mask=np.asarray(plain(full["token_has_frame"]), dtype=bool))
             native_path.unlink()
             return result
@@ -445,8 +527,8 @@ class Mol1Backend:
             SimpleNamespace(predicted_structure=structure, metadata=metadata,
                             numerical_data={"full_pae": plain(full["token_pair_pae"]),
                                             "full_pde": plain(full["token_pair_pde"])}),
-            worker=SimpleNamespace(method="mol1", _sdk={},
-                                   _ccd_cache={("mol1", payload.get("user_ccd") or ""): _Mol1CCD()}),
+            worker=SimpleNamespace(method=self.method, _sdk={},
+                                   _ccd_cache={(self.method, payload.get("user_ccd") or ""): _Mol1CCD()}),
             payload=payload, protocol=protocol,
             sample=sample, directory=folder,
             native_frame_mask=np.asarray(plain(full["token_has_frame"]), dtype=bool))
@@ -457,5 +539,6 @@ class Mol1Backend:
     def close(self):
         self.runner = None
         self.cache = None
+        self.site_cache = None
         if hasattr(self, "_sequence_msa_cache"):
             self._sequence_msa_cache.clear()

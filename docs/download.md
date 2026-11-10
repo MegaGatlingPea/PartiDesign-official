@@ -75,14 +75,16 @@ model. Download only the backends used by your chosen validation workflow:
 
 | Workflow | Download command |
 | --- | --- |
-| Ordinary protein/nucleic-acid/antibody pipeline | `partidesign download esmfold2-fast esmfold2-standard` plus the selected MPNN |
+| Ordinary protein/nucleic-acid pipeline | `partidesign download esmfold2-fast esmfold2-standard` plus the selected MPNN |
+| Antibody pipeline | `partidesign download esmfold2-fast mol1-constraint proteinmpnn` |
 | Explicit PPI pipeline | `partidesign download esmfold2-fast af2` plus the selected MPNN |
 | Protein sequence redesign | `partidesign download proteinmpnn solublempnn ligandmpnn` |
 | Nucleic acid sequence redesign | `partidesign download nampnn` |
 | Fast ESMFold2 prediction | `partidesign download esmfold2-fast` |
 | Standard ESMFold2 evaluation | `partidesign download esmfold2-standard` |
 | AlphaFold2 initial-guess evaluation | `partidesign download af2` |
-| Explicit Mol-1 evaluation | `partidesign download mol1` |
+| Standard Mol-1 evaluation | `partidesign download mol1` |
+| Hotspot-guided Mol-1 evaluation or screening | `partidesign download mol1-constraint` |
 | Boltz-2 validation, sequence screening or ligand pipeline | `partidesign download boltz2` |
 | AlphaFold3 / AF3-LA evaluation | `partidesign download af3 af3-la` |
 
@@ -95,6 +97,7 @@ Check only the backends you installed:
 partidesign check --model proteinmpnn --model ligandmpnn
 partidesign check --model af3 --msa off
 partidesign check --model mol1 --msa off
+partidesign check --model mol1-constraint --msa off
 partidesign check --model boltz2 --msa off
 ```
 
@@ -104,17 +107,29 @@ For `source: af3`, prepare local databases or a cache separately. Downloads
 do not install the full MSA search databases. See [checks](check.md) and
 [validation](validate.md) for the next steps.
 
-Mol-1 uses the same asset layout as the other bundled backends:
+### Mol-1 assets
+
+Standard Mol-1 and Mol-1-constraint share source and common data, with separate weights:
 
 ```text
 community_models/mol1/
   source/                    # bundled backend code
-  checkpoint/mol-1-base.pt    # downloaded model parameters
+  checkpoint/mol-1-base.pt    # standard model parameters
+  checkpoint/mol-1-constraint.pt  # hotspot-guided model parameters
   common/                    # downloaded chemistry and reference metadata
 ```
 
-`partidesign download mol1` prepares the checkpoint and common resources;
-backend code is supplied by the installation. With an external model root,
+`partidesign download mol1` or `partidesign download mol1-constraint` prepares
+the selected checkpoint and shared common resources; backend code is bundled.
+Downloading both targets together, including with `--force`, prepares shared
+data once. The constraint checkpoint is **2,311,106,509 bytes** (about 2.15 GiB),
+plus shared common data. It comes from the
+[official Mol-1 release](https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-constraint.pt).
+Bundled source is pinned to
+[`9e85ad16b3d7031dd92c34d99f895ee65547038b`](https://github.com/molence/Mol-1/tree/9e85ad16b3d7031dd92c34d99f895ee65547038b).
+These third-party weights are not hosted in PartiDesign's Hugging Face repository.
+
+With an external model root,
 `checkpoint/` and `common/` go under that root while source stays with the
 package. Mol-1 reuses the AF3 context MSA/template cache and search resources;
 it does not need a separate Mol-1 search database. The environments provide
